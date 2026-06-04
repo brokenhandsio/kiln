@@ -1,8 +1,3 @@
-#if canImport(FoundationEssentials)
-import FoundationEssentials
-#else
-import Foundation
-#endif
 
 /// A contiguous region of a markdown document: either plain markdown or an
 /// admonition block whose (indented) body is itself markdown.
@@ -39,7 +34,7 @@ enum AdmonitionParser {
         // Matches an admonition opener: `!!! kind ["Title"]` or `???[+] kind ["Title"]`.
         // Built locally because `Regex` isn't `Sendable` and so can't be a stored global.
         let openerPattern = #/^(?<marker>!!!|\?\?\?\+?)[ \t]+(?<kinds>[A-Za-z][\w\- ]*?)(?:[ \t]+"(?<title>[^"]*)")?[ \t]*$/#
-        let lines = source.components(separatedBy: "\n")
+        let lines = source.splitLines()
         var segments: [MarkdownSegment] = []
         var plainBuffer: [String] = []
 
@@ -65,7 +60,7 @@ enum AdmonitionParser {
                 var lookahead = index + 1
                 while lookahead < lines.count {
                     let candidate = lines[lookahead]
-                    if candidate.trimmingCharacters(in: .whitespaces).isEmpty {
+                    if candidate.isBlank {
                         bodyLines.append("")
                         lookahead += 1
                     } else if let dedented = dedent(candidate) {

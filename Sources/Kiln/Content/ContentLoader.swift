@@ -1,8 +1,6 @@
-#if canImport(FoundationEssentials)
-public import FoundationEssentials
-#else
+// Uses FileManager's URL directory enumeration and URLResourceValues, which
+// live in full Foundation (not FoundationEssentials).
 public import Foundation
-#endif
 
 /// Errors thrown while loading content from disk.
 public enum ContentError: Error, CustomStringConvertible {

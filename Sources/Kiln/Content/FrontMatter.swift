@@ -1,8 +1,3 @@
-#if canImport(FoundationEssentials)
-import FoundationEssentials
-#else
-import Foundation
-#endif
 import Yams
 
 /// An optional YAML front-matter block at the top of a markdown file
@@ -37,10 +32,10 @@ extension FrontMatter {
             return (.empty, source)
         }
 
-        let lines = source.components(separatedBy: "\n")
+        let lines = source.splitLines()
         // Find the closing delimiter after the opening one on line 0.
         guard let closingIndex = lines.dropFirst().firstIndex(where: {
-            $0.trimmingCharacters(in: .whitespaces) == "---"
+            $0.trimmedWhitespace() == "---"
         }) else {
             return (.empty, source)
         }

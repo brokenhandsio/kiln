@@ -1,8 +1,3 @@
-#if canImport(FoundationEssentials)
-import FoundationEssentials
-#else
-import Foundation
-#endif
 import Markdown
 
 /// The result of rendering a markdown document.
@@ -44,7 +39,7 @@ public struct MarkdownRenderer: Sendable {
         for segment in segments {
             switch segment {
             case .markdown(let text):
-                guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { continue }
+                guard !text.isBlank else { continue }
                 let document = Document(parsing: text)
                 var renderer = HTMLRenderer(slugger: slugger, tocOptions: options.tableOfContents)
                 renderer.visit(document)
@@ -66,17 +61,17 @@ public struct MarkdownRenderer: Sendable {
         let resolvedTitle: String?
         switch admonition.title {
         case .some(let title) where title.isEmpty:
-            resolvedTitle = admonition.collapsible ? admonition.primaryKind.capitalized : nil
+            resolvedTitle = admonition.collapsible ? admonition.primaryKind.capitalizedFirstLetter : nil
         case .some(let title):
             resolvedTitle = title
         case .none:
-            resolvedTitle = admonition.primaryKind.capitalized
+            resolvedTitle = admonition.primaryKind.capitalizedFirstLetter
         }
 
         if admonition.collapsible {
             let openAttr = admonition.expanded ? " open" : ""
             var result = "<details class=\"\(HTMLEscaping.attribute(classes))\"\(openAttr)>\n"
-            let title = resolvedTitle ?? admonition.primaryKind.capitalized
+            let title = resolvedTitle ?? admonition.primaryKind.capitalizedFirstLetter
             result += "<summary class=\"admonition-title\">\(HTMLEscaping.text(title))</summary>\n"
             result += bodyHTML
             result += "</details>\n"

@@ -1,8 +1,3 @@
-#if canImport(FoundationEssentials)
-import FoundationEssentials
-#else
-import Foundation
-#endif
 import Markdown
 
 /// HTML escaping helpers shared by the renderer.
@@ -24,7 +19,7 @@ enum HTMLEscaping {
 
     /// Escape a value appearing inside a double-quoted attribute.
     static func attribute(_ string: String) -> String {
-        text(string).replacingOccurrences(of: "\"", with: "&quot;")
+        text(string).replacing("\"", with: "&quot;")
     }
 }
 

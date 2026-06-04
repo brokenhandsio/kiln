@@ -52,11 +52,11 @@ struct SearchIndexBuilder {
             }
         }
         text = text
-            .replacingOccurrences(of: "&amp;", with: "&")
-            .replacingOccurrences(of: "&lt;", with: "<")
-            .replacingOccurrences(of: "&gt;", with: ">")
-            .replacingOccurrences(of: "&quot;", with: "\"")
-            .replacingOccurrences(of: "&#39;", with: "'")
+            .replacing("&amp;", with: "&")
+            .replacing("&lt;", with: "<")
+            .replacing("&gt;", with: ">")
+            .replacing("&quot;", with: "\"")
+            .replacing("&#39;", with: "'")
         // Collapse runs of whitespace.
         let collapsed = text.split(whereSeparator: { $0 == " " || $0 == "\n" || $0 == "\t" })
         return collapsed.joined(separator: " ")

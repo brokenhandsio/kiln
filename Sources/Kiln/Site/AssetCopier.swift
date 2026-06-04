@@ -1,8 +1,6 @@
-#if canImport(FoundationEssentials)
-import FoundationEssentials
-#else
+// Uses FileManager's URL directory enumeration and URLResourceValues, which
+// live in full Foundation (not FoundationEssentials).
 import Foundation
-#endif
 
 /// Copies static assets into the output directory.
 ///
