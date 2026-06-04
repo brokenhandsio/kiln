@@ -114,6 +114,20 @@ struct BuildTests {
         #expect(page.contains("<meta property=\"og:type\" content=\"article\">"))
     }
 
+    @Test("Intra-doc .md links are rewritten to pretty, locale-aware URLs")
+    func linkRewriting() async throws {
+        let output = try await buildFixture()
+        defer { try? FileManager.default.removeItem(at: output) }
+
+        let page = try read(output.appendingPathComponent("section/page/index.html"))
+        #expect(page.contains("href=\"/\""))                       // ../index.md → /
+        #expect(page.contains("href=\"/#section-one\""))           // ../index.md#section-one
+
+        // The German build of the same (fallback) page points at German URLs.
+        let germanPage = try read(output.appendingPathComponent("de/section/page/index.html"))
+        #expect(germanPage.contains("href=\"/de/\""))
+    }
+
     @Test("robots.txt points at the sitemap")
     func robots() async throws {
         let output = try await buildFixture()

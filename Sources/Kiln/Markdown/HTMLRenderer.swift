@@ -35,14 +35,21 @@ struct HTMLRenderer: MarkupWalker {
 
     private let slugger: Slugger
     private let toc: TableOfContentsOptions
+    private let linkResolver: LinkResolver?
 
     private var inTableHead = false
     private var tableColumnAlignments: [Table.ColumnAlignment?]? = nil
     private var currentTableColumn = 0
 
-    init(slugger: Slugger, tocOptions: TableOfContentsOptions) {
+    init(slugger: Slugger, tocOptions: TableOfContentsOptions, linkResolver: LinkResolver? = nil) {
         self.slugger = slugger
         self.toc = tocOptions
+        self.linkResolver = linkResolver
+    }
+
+    /// Rewrite a relative link/asset destination via the resolver, if present.
+    private func resolved(_ destination: String) -> String {
+        linkResolver?.resolve(destination) ?? destination
     }
 
     // MARK: Block elements
@@ -183,7 +190,7 @@ struct HTMLRenderer: MarkupWalker {
     mutating func visitImage(_ image: Image) {
         result += "<img"
         if let source = image.source, !source.isEmpty {
-            result += " src=\"\(HTMLEscaping.attribute(source))\""
+            result += " src=\"\(HTMLEscaping.attribute(resolved(source)))\""
         }
         let alt = image.plainText
         if !alt.isEmpty {
@@ -202,7 +209,7 @@ struct HTMLRenderer: MarkupWalker {
     mutating func visitLink(_ link: Link) {
         result += "<a"
         if let destination = link.destination {
-            result += " href=\"\(HTMLEscaping.attribute(destination))\""
+            result += " href=\"\(HTMLEscaping.attribute(resolved(destination)))\""
         }
         result += ">"
         descendInto(link)

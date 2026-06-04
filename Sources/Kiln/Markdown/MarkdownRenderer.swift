@@ -19,10 +19,10 @@ public struct MarkdownRenderer: Sendable {
         self.options = options
     }
 
-    public func render(_ source: String) -> RenderedMarkdown {
+    public func render(_ source: String, linkResolver: LinkResolver? = nil) -> RenderedMarkdown {
         let slugger = Slugger()
         var headings: [TOCEntry] = []
-        let html = renderBody(source, slugger: slugger, headings: &headings)
+        let html = renderBody(source, slugger: slugger, headings: &headings, linkResolver: linkResolver)
         let toc = TableOfContents.build(from: headings, levels: options.tableOfContents.levels)
         let firstHeading = headings.first(where: { $0.level == 1 })?.title
         return RenderedMarkdown(html: html, tableOfContents: toc, firstHeading: firstHeading)
@@ -30,7 +30,7 @@ public struct MarkdownRenderer: Sendable {
 
     /// Render a (possibly nested) markdown body, sharing the slugger so anchor
     /// ids stay unique across the whole page and accumulating headings in order.
-    private func renderBody(_ source: String, slugger: Slugger, headings: inout [TOCEntry]) -> String {
+    private func renderBody(_ source: String, slugger: Slugger, headings: inout [TOCEntry], linkResolver: LinkResolver?) -> String {
         let segments: [MarkdownSegment] = options.admonitions
             ? AdmonitionParser.segments(from: source)
             : [.markdown(source)]
@@ -41,20 +41,20 @@ public struct MarkdownRenderer: Sendable {
             case .markdown(let text):
                 guard !text.isBlank else { continue }
                 let document = Document(parsing: text)
-                var renderer = HTMLRenderer(slugger: slugger, tocOptions: options.tableOfContents)
+                var renderer = HTMLRenderer(slugger: slugger, tocOptions: options.tableOfContents, linkResolver: linkResolver)
                 renderer.visit(document)
                 html += renderer.result
                 headings.append(contentsOf: renderer.headings)
             case .admonition(let admonition):
-                html += renderAdmonition(admonition, slugger: slugger, headings: &headings)
+                html += renderAdmonition(admonition, slugger: slugger, headings: &headings, linkResolver: linkResolver)
             }
         }
         return html
     }
 
-    private func renderAdmonition(_ admonition: Admonition, slugger: Slugger, headings: inout [TOCEntry]) -> String {
+    private func renderAdmonition(_ admonition: Admonition, slugger: Slugger, headings: inout [TOCEntry], linkResolver: LinkResolver?) -> String {
         let classes = (["admonition"] + admonition.classes).joined(separator: " ")
-        let bodyHTML = renderBody(admonition.body, slugger: slugger, headings: &headings)
+        let bodyHTML = renderBody(admonition.body, slugger: slugger, headings: &headings, linkResolver: linkResolver)
 
         // Resolve the title: an explicit empty string suppresses it; otherwise
         // use the given title or the capitalised kind.

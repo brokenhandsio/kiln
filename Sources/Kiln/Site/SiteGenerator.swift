@@ -117,7 +117,8 @@ public struct SiteGenerator {
             throw ContentError.missingPage(logicalPath: logicalPath)
         }
 
-        let rendered = markdown.render(page.body)
+        let linkResolver = LinkResolver(currentLogicalPath: logicalPath, locale: language.locale, urls: urls)
+        let rendered = markdown.render(page.body, linkResolver: linkResolver)
         let title = page.frontMatter.title ?? rendered.firstHeading ?? navTitle
         let isFallback = !language.isDefault && !store.hasTranslation(forLogicalPath: logicalPath, locale: language.locale)
         let pageNavigation = navigationBuilder.contextualise(resolvedNav, currentLogicalPath: logicalPath)
@@ -138,7 +139,7 @@ public struct SiteGenerator {
             frontMatter: page.frontMatter,
             pageURL: urlPath,
             canonicalURL: absoluteURL(forLocation: String(urlPath.drop(while: { $0 == "/" }))),
-            pageDescription: page.frontMatter.description ?? site.description,
+            pageDescription: page.frontMatter.description ?? language.description ?? site.description,
             socialImageURL: imagePath.map { absoluteURL(forPath: $0) },
             editURL: site.repository?.editURI.map { $0 + sourceRelative },
             sourcePath: sourceRelative,
@@ -180,7 +181,7 @@ public struct SiteGenerator {
             frontMatter: .empty,
             pageURL: rootBase + "404.html",
             canonicalURL: absoluteURL(forLocation: "404.html"),
-            pageDescription: site.description,
+            pageDescription: language.description ?? site.description,
             socialImageURL: site.image.map { absoluteURL(forPath: $0) },
             editURL: nil,
             sourcePath: "",

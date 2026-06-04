@@ -18,6 +18,9 @@ public struct Language: Sendable {
     /// Optional localised site name (overrides ``KilnSite/name`` for this
     /// language), e.g. `"Vapor Dokumentation"`.
     public var siteName: String?
+    /// Optional localised default meta description (overrides
+    /// ``KilnSite/description`` for pages in this language without their own).
+    public var description: String?
     /// Translations for navigation titles, keyed by the default-language title,
     /// e.g. `["Advanced": "Erweitert"]`.
     public var navTranslations: [String: String]
@@ -28,6 +31,7 @@ public struct Language: Sendable {
         isDefault: Bool = false,
         build: Bool = true,
         siteName: String? = nil,
+        description: String? = nil,
         navTranslations: [String: String] = [:]
     ) {
         self.locale = locale
@@ -35,6 +39,7 @@ public struct Language: Sendable {
         self.isDefault = isDefault
         self.build = build
         self.siteName = siteName
+        self.description = description
         self.navTranslations = navTranslations
     }
 }
