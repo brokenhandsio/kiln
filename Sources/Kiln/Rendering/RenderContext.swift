@@ -1,4 +1,3 @@
-import Foundation
 import LeafKit
 
 /// An entry in the language switcher.

@@ -1,4 +1,8 @@
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 import Yams
 
 /// An optional YAML front-matter block at the top of a markdown file

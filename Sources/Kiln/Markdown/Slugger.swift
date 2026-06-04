@@ -1,5 +1,3 @@
-import Foundation
-
 /// Generates GitHub-style, unique slugs for heading anchors.
 ///
 /// The same instance is reused across a single page so repeated heading text
@@ -22,24 +20,23 @@ final class Slugger {
     }
 
     /// Lowercase, replace whitespace with hyphens and strip characters that
-    /// aren't alphanumerics, hyphens or underscores. Unicode letters (e.g. CJK,
-    /// accented characters) are preserved so non-English headings still anchor.
+    /// aren't letters, numbers, hyphens or underscores. Unicode letters (e.g.
+    /// CJK, accented characters) are preserved so non-English headings still
+    /// anchor. Implemented with the standard library only (no Foundation).
     static func normalise(_ text: String) -> String {
         var result = ""
         result.reserveCapacity(text.count)
-        for scalar in text.lowercased().unicodeScalars {
-            if scalar == " " || scalar == "\t" || scalar == "\n" {
+        for character in text.lowercased() {
+            if character.isWhitespace {
                 result.append("-")
-            } else if CharacterSet.alphanumerics.contains(scalar)
-                || scalar == "-" || scalar == "_" {
-                result.unicodeScalars.append(scalar)
+            } else if character.isLetter || character.isNumber || character == "-" || character == "_" {
+                result.append(character)
             }
             // everything else (punctuation, symbols) is dropped
         }
-        // Collapse runs of hyphens and trim.
-        while result.contains("--") {
-            result = result.replacingOccurrences(of: "--", with: "-")
-        }
-        return result.trimmingCharacters(in: CharacterSet(charactersIn: "-"))
+        // Collapse runs of hyphens and trim leading/trailing ones.
+        return result
+            .split(separator: "-", omittingEmptySubsequences: true)
+            .joined(separator: "-")
     }
 }

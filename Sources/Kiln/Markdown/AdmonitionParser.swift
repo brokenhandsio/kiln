@@ -1,4 +1,8 @@
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 
 /// A contiguous region of a markdown document: either plain markdown or an
 /// admonition block whose (indented) body is itself markdown.

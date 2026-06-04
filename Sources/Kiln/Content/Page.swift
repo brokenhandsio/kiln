@@ -1,4 +1,8 @@
+#if canImport(FoundationEssentials)
+public import FoundationEssentials
+#else
 public import Foundation
+#endif
 
 /// A single markdown source file in one language.
 public struct ContentPage: Sendable {

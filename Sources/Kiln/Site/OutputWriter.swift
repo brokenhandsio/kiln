@@ -1,4 +1,8 @@
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
 
 /// Writes generated files to the output directory, creating intermediate
 /// directories as needed.

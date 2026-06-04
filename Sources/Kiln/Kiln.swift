@@ -1,4 +1,8 @@
+#if canImport(FoundationEssentials)
+public import FoundationEssentials
+#else
 public import Foundation
+#endif
 
 /// Kiln generates a static documentation website from a Swift-defined
 /// ``KilnSite`` configuration and a directory of markdown content.

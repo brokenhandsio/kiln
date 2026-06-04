@@ -1,4 +1,8 @@
+#if canImport(FoundationEssentials)
+public import FoundationEssentials
+#else
 public import Foundation
+#endif
 
 /// Errors thrown while loading content from disk.
 public enum ContentError: Error, CustomStringConvertible {
@@ -78,9 +82,18 @@ public struct ContentLoader: Sendable {
     /// (`install/macos.md`) and locale (`de`). Files without a recognised locale
     /// suffix belong to the default locale.
     static func resolveLocale(relativePath: String, knownLocales: Set<String>, defaultLocale: String) -> (logicalPath: String, locale: String) {
-        let directory = (relativePath as NSString).deletingLastPathComponent
-        let filename = (relativePath as NSString).lastPathComponent
-        let components = filename.components(separatedBy: ".")
+        // Split into directory + filename on the last "/" (paths use "/"
+        // separators), avoiding NSString so this works against FoundationEssentials.
+        let directory: String
+        let filename: String
+        if let slash = relativePath.lastIndex(of: "/") {
+            directory = String(relativePath[..<slash])
+            filename = String(relativePath[relativePath.index(after: slash)...])
+        } else {
+            directory = ""
+            filename = relativePath
+        }
+        let components = filename.split(separator: ".", omittingEmptySubsequences: false).map(String.init)
 
         // Need at least `name.locale.ext` (3 components) for a locale suffix.
         guard components.count >= 3 else {

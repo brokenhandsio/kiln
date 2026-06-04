@@ -1,4 +1,8 @@
+#if canImport(FoundationEssentials)
+public import FoundationEssentials
+#else
 public import Foundation
+#endif
 
 /// Computes the output paths and site-relative URLs for pages, applying the
 /// pretty-URL ("directory") scheme and per-locale prefixing.
