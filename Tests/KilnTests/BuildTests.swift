@@ -164,6 +164,34 @@ struct BuildTests {
         // Reaching here without throwing means no broken internal links were found.
     }
 
+    @Test("Generates AI/agent-friendly output (llms.txt, llms-full.txt, raw markdown)")
+    func aiOutputs() async throws {
+        let output = try await buildFixture()
+        defer { try? FileManager.default.removeItem(at: output) }
+
+        // llms.txt index.
+        let llms = try read(output.appendingPathComponent("llms.txt"))
+        #expect(llms.hasPrefix("# Fixture Docs\n"))
+        #expect(llms.contains("> Fixture site description."))
+        #expect(llms.contains("- [Home](https://fixture.example.com/index.md)"))
+        #expect(llms.contains("## Section"))
+        #expect(llms.contains("https://fixture.example.com/section/page/index.md"))
+
+        // Full corpus contains the page bodies.
+        let full = try read(output.appendingPathComponent("llms-full.txt"))
+        #expect(full.contains("Welcome to the test fixture site."))
+        #expect(full.contains("This page has no German translation"))
+
+        // Per-page raw markdown next to the HTML (default + localised).
+        #expect(try read(output.appendingPathComponent("index.md")).contains("# Home"))
+        #expect(FileManager.default.fileExists(atPath: output.appendingPathComponent("section/page/index.md").path))
+        #expect(FileManager.default.fileExists(atPath: output.appendingPathComponent("de/index.md").path))
+
+        // Each HTML page advertises its markdown alternate.
+        let home = try read(output.appendingPathComponent("index.html"))
+        #expect(home.contains("<link rel=\"alternate\" type=\"text/markdown\" href=\"/index.md\">"))
+    }
+
     @Test("robots.txt points at the sitemap")
     func robots() async throws {
         let output = try await buildFixture()

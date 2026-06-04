@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>#if(page.isHome):#(site.name)#else:#(page.title) · #(site.name)#endif</title>
     <link rel="canonical" href="#(page.canonicalURL)">
+    #if(markdownURL):<link rel="alternate" type="text/markdown" href="#(markdownURL)">#endif
     #if(page.description):<meta name="description" content="#(page.description)">#endif
     #if(site.author):<meta name="author" content="#(site.author)">#endif
     <meta name="theme-color" content="#(site.palette.primary)">

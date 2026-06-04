@@ -54,6 +54,10 @@ public struct KilnSite: Sendable {
     public var languages: [Language]
     /// Markdown feature toggles.
     public var markdown: MarkdownExtensions
+    /// Generate AI/agent-friendly output: `/llms.txt` + `/llms-full.txt` index
+    /// files and a raw-markdown copy of every page (`…/index.md`) alongside its
+    /// HTML, with a `<link rel="alternate" type="text/markdown">` for discovery.
+    public var llmsText: Bool
     /// The navigation tree.
     public var navigation: [NavItem]
 
@@ -73,6 +77,7 @@ public struct KilnSite: Sendable {
         extraJavaScript: [String] = [],
         languages: [Language] = [Language(.english, isDefault: true)],
         markdown: MarkdownExtensions = MarkdownExtensions(),
+        llmsText: Bool = true,
         @NavBuilder navigation: () -> [NavItem]
     ) {
         self.name = name
@@ -90,6 +95,7 @@ public struct KilnSite: Sendable {
         self.extraJavaScript = extraJavaScript
         self.languages = languages
         self.markdown = markdown
+        self.llmsText = llmsText
         self.navigation = navigation()
     }
 

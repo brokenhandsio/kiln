@@ -55,6 +55,10 @@ admonitions, and more.
 - **Build-time link checking** — internal `.md` links (incl. localised
   `content.de.md` targets), `#anchor` fragments, and relative assets are
   validated against the built site; warn or fail the build.
+- **AI / agent-friendly** — generates an [`llms.txt`](https://llmstxt.org) index
+  and `llms-full.txt` corpus, plus a raw-markdown copy of every page
+  (`…/index.md`) with a `<link rel="alternate" type="text/markdown">` for
+  discovery.
 - **Cross-platform** — builds and runs on macOS and Linux.
 
 ## Requirements
@@ -300,8 +304,13 @@ public/
 ├── de/search/search_index.json
 ├── 404.html                       # per-language error pages
 ├── de/404.html
+├── index.md                       # raw-markdown copy of each page (for AI tools)
+├── guides/configuration/index.md
 ├── _kiln/                         # bundled theme assets (css/js)
 ├── sitemap.xml
+├── robots.txt
+├── llms.txt                       # AI/agent index (llmstxt.org)
+├── llms-full.txt                  # full markdown corpus
 └── …                              # your content assets, copied as-is
 ```
 
@@ -320,11 +329,6 @@ python3 -m http.server --directory public
 
 Planned, roughly in priority order:
 
-- **AI / agent-friendly output** — make the docs trivial for agents and other AI
-  tools to scan and parse: generate an [`llms.txt`](https://llmstxt.org) index
-  (and a concatenated `llms-full.txt`), expose each page's raw markdown source
-  alongside its HTML for clean machine consumption, and keep emitting semantic
-  HTML + structured metadata.
 - **Search polish** (optional) — ranking tweaks and search suggestions /
   highlight-on-destination. (Multi-language search itself — per-language indexes,
   Unicode/CJK tokenisation, accent-insensitive matching, and localised UI

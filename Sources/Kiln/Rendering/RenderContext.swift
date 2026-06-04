@@ -28,6 +28,8 @@ struct RenderContext {
     var alternates: [LanguageAlternate]
     var searchEnabled: Bool
     var searchIndexURL: String
+    /// URL of this page's raw-markdown copy, if generated (`<page>/index.md`).
+    var markdownURL: String?
     var baseURL: String
 
     var pageTitle: String
@@ -63,6 +65,7 @@ struct RenderContext {
             "strings": stringsData,
             "baseURL": .string(baseURL),
             "searchIndexURL": .string(searchIndexURL),
+            "markdownURL": .string(markdownURL),
         ]
     }
 

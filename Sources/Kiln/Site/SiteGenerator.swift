@@ -51,9 +51,11 @@ public struct SiteGenerator {
 
         var sitemapEntries: [String] = []
         let linkData = LinkData()
+        var defaultNav: ResolvedNavigation?
 
         for language in site.buildableLanguages {
             let resolvedNav = navigationBuilder.build(site.navigation, for: language)
+            if language.isDefault { defaultNav = resolvedNav }
             var searchIndex = SearchIndexBuilder()
 
             for pageRef in resolvedNav.orderedPages {
@@ -97,6 +99,11 @@ public struct SiteGenerator {
         // Sitemap + robots.txt.
         try writer.write(sitemap(for: sitemapEntries), to: outputDirectory.appendingPathComponent("sitemap.xml"))
         try writer.write(robotsTxt(), to: outputDirectory.appendingPathComponent("robots.txt"))
+
+        // AI/agent-friendly index files (default language).
+        if site.llmsText, let defaultNav {
+            try writeLLMSFiles(nav: defaultNav, store: store, defaultLocale: defaultLocale, writer: writer)
+        }
 
         // Validate internal links last, once every page and its headings are known.
         if linkChecking != .off {
@@ -144,6 +151,57 @@ public struct SiteGenerator {
         }
     }
 
+    // MARK: AI / agent-friendly output
+
+    /// Write `llms.txt` (a structured index) and `llms-full.txt` (the full
+    /// corpus) for the default language.
+    private func writeLLMSFiles(nav: ResolvedNavigation, store: ContentStore, defaultLocale: String, writer: OutputWriter) throws {
+        // llms.txt — top-level pages first, then a section per nav group.
+        var rootLinks: [LLMSText.Link] = []
+        var sections: [LLMSText.Section] = []
+        for node in nav.nodes {
+            switch node.kind {
+            case .section:
+                sections.append(LLMSText.Section(title: node.title, links: llmsLinks(node.items)))
+            case .page, .link:
+                rootLinks.append(contentsOf: llmsLinks([node]))
+            }
+        }
+        var allSections: [LLMSText.Section] = []
+        if !rootLinks.isEmpty { allSections.append(LLMSText.Section(title: nil, links: rootLinks)) }
+        allSections.append(contentsOf: sections)
+        let index = LLMSText.index(title: site.name, summary: site.description, sections: allSections)
+        try writer.write(index, to: outputDirectory.appendingPathComponent("llms.txt"))
+
+        // llms-full.txt — every default-language page's markdown, in nav order.
+        var pages: [LLMSText.Page] = []
+        for ref in nav.orderedPages {
+            guard let page = store.page(forLogicalPath: ref.logicalPath, locale: defaultLocale, defaultLocale: defaultLocale) else { continue }
+            pages.append(LLMSText.Page(url: absoluteURL(forLocation: String(ref.url.drop(while: { $0 == "/" }))), body: page.body))
+        }
+        let full = LLMSText.full(title: site.name, summary: site.description, pages: pages)
+        try writer.write(full, to: outputDirectory.appendingPathComponent("llms-full.txt"))
+    }
+
+    /// Flatten nav nodes into `llms.txt` links, pointing at each page's raw markdown.
+    private func llmsLinks(_ nodes: [NavNode]) -> [LLMSText.Link] {
+        var links: [LLMSText.Link] = []
+        for node in nodes {
+            switch node.kind {
+            case .page:
+                if let url = node.url {
+                    let location = String(url.drop(while: { $0 == "/" })) + "index.md"
+                    links.append(LLMSText.Link(title: node.title, url: absoluteURL(forLocation: location)))
+                }
+            case .link:
+                if let url = node.url { links.append(LLMSText.Link(title: node.title, url: url)) }
+            case .section:
+                links.append(contentsOf: llmsLinks(node.items))
+            }
+        }
+        return links
+    }
+
     // MARK: Page rendering
 
     /// Render one page and return its site-relative location (used for search
@@ -188,6 +246,7 @@ public struct SiteGenerator {
             alternates: alternates(forLogicalPath: logicalPath, current: language, urls: urls),
             searchEnabled: true,
             searchIndexURL: searchIndexURLPath(locale: language.locale, isDefault: language.isDefault),
+            markdownURL: site.llmsText ? urlPath + "index.md" : nil,
             baseURL: urls.baseURL(forLogicalPath: logicalPath, locale: language.locale),
             pageTitle: title,
             contentHTML: rendered.html,
@@ -208,6 +267,11 @@ public struct SiteGenerator {
         let html = try await renderer.render(templateName, context: context.leafData)
         let outputFile = urls.outputFile(forLogicalPath: logicalPath, locale: language.locale, in: outputDirectory)
         try writer.write(html, to: outputFile)
+
+        // Raw-markdown copy next to the HTML, for AI/agent consumption.
+        if site.llmsText {
+            try writer.write(page.body, to: outputFile.deletingLastPathComponent().appendingPathComponent("index.md"))
+        }
 
         let location = String(urlPath.drop(while: { $0 == "/" }))
         searchIndex.add(location: location, title: title, html: rendered.html)
@@ -231,6 +295,7 @@ public struct SiteGenerator {
             alternates: [],
             searchEnabled: true,
             searchIndexURL: searchIndexURLPath(locale: language.locale, isDefault: language.isDefault),
+            markdownURL: nil,
             baseURL: rootBase,
             pageTitle: language.localisation.resolved.notFoundTitle,
             contentHTML: "",
