@@ -5,7 +5,7 @@ import Foundation
 @Suite("End-to-end build")
 struct BuildTests {
     /// Build the bundled fixture docs into a fresh temporary directory.
-    func buildFixture() async throws -> URL {
+    func buildFixture(linkChecking: LinkChecking = .warn) async throws -> URL {
         guard let fixtures = Bundle.module.url(forResource: "Fixtures", withExtension: nil) else {
             Issue.record("Could not locate the Fixtures resource")
             throw ContentError.contentDirectoryNotFound("Fixtures")
@@ -33,7 +33,7 @@ struct BuildTests {
             }
         }
 
-        try await Kiln.build(site, contentDirectory: contentDirectory, outputDirectory: output)
+        try await Kiln.build(site, contentDirectory: contentDirectory, outputDirectory: output, linkChecking: linkChecking)
         return output
     }
 
@@ -155,6 +155,13 @@ struct BuildTests {
         #expect(home.contains("id=\"kiln-carbon\""))
         #expect(home.contains("data-serve=\"TESTSERVE\""))
         #expect(home.contains("data-placement=\"fixture\""))
+    }
+
+    @Test("Strict link checking passes — the fixture's internal links are all valid")
+    func strictLinkCheckingPasses() async throws {
+        let output = try await buildFixture(linkChecking: .error)
+        try? FileManager.default.removeItem(at: output)
+        // Reaching here without throwing means no broken internal links were found.
     }
 
     @Test("robots.txt points at the sitemap")

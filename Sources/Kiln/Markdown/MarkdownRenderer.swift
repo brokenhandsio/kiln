@@ -8,6 +8,12 @@ public struct RenderedMarkdown: Sendable {
     public var tableOfContents: [TOCEntry]
     /// The first level-1 heading's text, if any (used as a fallback page title).
     public var firstHeading: String?
+    /// Raw link destinations (`<a href>`) found in the document, for link checking.
+    public var links: [String]
+    /// Raw image sources (`<img src>`) found in the document, for link checking.
+    public var images: [String]
+    /// Anchor ids of every heading on the page (for validating `#fragment` links).
+    public var headingIDs: [String]
 }
 
 /// Renders markdown to HTML, applying Kiln's enabled extensions (admonitions,
@@ -22,15 +28,24 @@ public struct MarkdownRenderer: Sendable {
     public func render(_ source: String, linkResolver: LinkResolver? = nil) -> RenderedMarkdown {
         let slugger = Slugger()
         var headings: [TOCEntry] = []
-        let html = renderBody(source, slugger: slugger, headings: &headings, linkResolver: linkResolver)
+        var links: [String] = []
+        var images: [String] = []
+        let html = renderBody(source, slugger: slugger, headings: &headings, links: &links, images: &images, linkResolver: linkResolver)
         let toc = TableOfContents.build(from: headings, levels: options.tableOfContents.levels)
         let firstHeading = headings.first(where: { $0.level == 1 })?.title
-        return RenderedMarkdown(html: html, tableOfContents: toc, firstHeading: firstHeading)
+        return RenderedMarkdown(
+            html: html,
+            tableOfContents: toc,
+            firstHeading: firstHeading,
+            links: links,
+            images: images,
+            headingIDs: headings.map(\.id)
+        )
     }
 
     /// Render a (possibly nested) markdown body, sharing the slugger so anchor
     /// ids stay unique across the whole page and accumulating headings in order.
-    private func renderBody(_ source: String, slugger: Slugger, headings: inout [TOCEntry], linkResolver: LinkResolver?) -> String {
+    private func renderBody(_ source: String, slugger: Slugger, headings: inout [TOCEntry], links: inout [String], images: inout [String], linkResolver: LinkResolver?) -> String {
         let segments: [MarkdownSegment] = options.admonitions
             ? AdmonitionParser.segments(from: source)
             : [.markdown(source)]
@@ -45,16 +60,18 @@ public struct MarkdownRenderer: Sendable {
                 renderer.visit(document)
                 html += renderer.result
                 headings.append(contentsOf: renderer.headings)
+                links.append(contentsOf: renderer.links)
+                images.append(contentsOf: renderer.images)
             case .admonition(let admonition):
-                html += renderAdmonition(admonition, slugger: slugger, headings: &headings, linkResolver: linkResolver)
+                html += renderAdmonition(admonition, slugger: slugger, headings: &headings, links: &links, images: &images, linkResolver: linkResolver)
             }
         }
         return html
     }
 
-    private func renderAdmonition(_ admonition: Admonition, slugger: Slugger, headings: inout [TOCEntry], linkResolver: LinkResolver?) -> String {
+    private func renderAdmonition(_ admonition: Admonition, slugger: Slugger, headings: inout [TOCEntry], links: inout [String], images: inout [String], linkResolver: LinkResolver?) -> String {
         let classes = (["admonition"] + admonition.classes).joined(separator: " ")
-        let bodyHTML = renderBody(admonition.body, slugger: slugger, headings: &headings, linkResolver: linkResolver)
+        let bodyHTML = renderBody(admonition.body, slugger: slugger, headings: &headings, links: &links, images: &images, linkResolver: linkResolver)
 
         // Resolve the title: an explicit empty string suppresses it; otherwise
         // use the given title or the capitalised kind.

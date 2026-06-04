@@ -32,6 +32,10 @@ enum HTMLEscaping {
 struct HTMLRenderer: MarkupWalker {
     private(set) var result = ""
     private(set) var headings: [TOCEntry] = []
+    /// Raw `<a>` destinations encountered (before link rewriting), for link checking.
+    private(set) var links: [String] = []
+    /// Raw `<img>` sources encountered (before rewriting), for link checking.
+    private(set) var images: [String] = []
 
     private let slugger: Slugger
     private let toc: TableOfContentsOptions
@@ -190,6 +194,7 @@ struct HTMLRenderer: MarkupWalker {
     mutating func visitImage(_ image: Image) {
         result += "<img"
         if let source = image.source, !source.isEmpty {
+            images.append(source)
             result += " src=\"\(HTMLEscaping.attribute(resolved(source)))\""
         }
         let alt = image.plainText
@@ -209,6 +214,7 @@ struct HTMLRenderer: MarkupWalker {
     mutating func visitLink(_ link: Link) {
         result += "<a"
         if let destination = link.destination {
+            links.append(destination)
             result += " href=\"\(HTMLEscaping.attribute(resolved(destination)))\""
         }
         result += ">"

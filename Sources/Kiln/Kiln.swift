@@ -22,15 +22,18 @@ public enum Kiln {
     ///   - contentDirectory: directory containing markdown content.
     ///   - outputDirectory: directory to write the generated site into (created
     ///     fresh on each build).
+    ///   - linkChecking: how to handle broken internal links (default `.warn`).
     public static func build(
         _ site: KilnSite,
         contentDirectory: URL,
-        outputDirectory: URL
+        outputDirectory: URL,
+        linkChecking: LinkChecking = .warn
     ) async throws {
         let generator = SiteGenerator(
             site: site,
             contentDirectory: contentDirectory,
-            outputDirectory: outputDirectory
+            outputDirectory: outputDirectory,
+            linkChecking: linkChecking
         )
         try await generator.build()
     }
@@ -40,12 +43,14 @@ public enum Kiln {
     public static func build(
         _ site: KilnSite,
         contentDirectory: String,
-        outputDirectory: String
+        outputDirectory: String,
+        linkChecking: LinkChecking = .warn
     ) async throws {
         try await build(
             site,
             contentDirectory: URL(fileURLWithPath: contentDirectory),
-            outputDirectory: URL(fileURLWithPath: outputDirectory)
+            outputDirectory: URL(fileURLWithPath: outputDirectory),
+            linkChecking: linkChecking
         )
     }
 }

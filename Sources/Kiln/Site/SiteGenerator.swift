@@ -22,11 +22,13 @@ public struct SiteGenerator {
     let site: KilnSite
     let contentDirectory: URL
     let outputDirectory: URL
+    let linkChecking: LinkChecking
 
-    public init(site: KilnSite, contentDirectory: URL, outputDirectory: URL) {
+    public init(site: KilnSite, contentDirectory: URL, outputDirectory: URL, linkChecking: LinkChecking = .warn) {
         self.site = site
         self.contentDirectory = contentDirectory
         self.outputDirectory = outputDirectory
+        self.linkChecking = linkChecking
     }
 
     public func build() async throws {
@@ -48,6 +50,7 @@ public struct SiteGenerator {
         try writer.reset()
 
         var sitemapEntries: [String] = []
+        let linkData = LinkData()
 
         for language in site.buildableLanguages {
             let resolvedNav = navigationBuilder.build(site.navigation, for: language)
@@ -66,7 +69,8 @@ public struct SiteGenerator {
                     resolvedNav: resolvedNav,
                     renderer: renderer,
                     writer: writer,
-                    searchIndex: &searchIndex
+                    searchIndex: &searchIndex,
+                    linkData: linkData
                 )
                 sitemapEntries.append(absoluteURL(forLocation: location))
             }
@@ -93,6 +97,50 @@ public struct SiteGenerator {
         // Sitemap + robots.txt.
         try writer.write(sitemap(for: sitemapEntries), to: outputDirectory.appendingPathComponent("sitemap.xml"))
         try writer.write(robotsTxt(), to: outputDirectory.appendingPathComponent("robots.txt"))
+
+        // Validate internal links last, once every page and its headings are known.
+        if linkChecking != .off {
+            try checkLinks(linkData, defaultLocale: defaultLocale)
+        }
+    }
+
+    // MARK: Link checking
+
+    /// Validate collected internal links, report problems, and (in `.error`
+    /// mode) throw if any were found.
+    private func checkLinks(_ linkData: LinkData, defaultLocale: String) throws {
+        let checker = LinkChecker(
+            builtPages: linkData.builtPages,
+            slugs: linkData.slugs,
+            defaultLocale: defaultLocale,
+            assetExists: { [contentDirectory] relativePath in
+                FileManager.default.fileExists(atPath: contentDirectory.appendingPathComponent(relativePath).path)
+            }
+        )
+
+        // Collect, de-duplicating issues that repeat across locales (a fallback
+        // page reproduces the default-language file's links in every locale).
+        var issues: [LinkIssue] = []
+        var seen: Set<String> = []
+        for record in linkData.records {
+            for issue in checker.issues(forPage: record.logicalPath, locale: record.locale,
+                                        sourcePath: record.sourcePath, links: record.links, images: record.images) {
+                let key = "\(issue.sourcePath)\t\(issue.link)\t\(issue.message)"
+                if seen.insert(key).inserted { issues.append(issue) }
+            }
+        }
+
+        guard !issues.isEmpty else { return }
+
+        var report = "[kiln] link check: \(issues.count) broken link(s):\n"
+        for issue in issues {
+            report += "  \(issue.sourcePath): \(issue.message)\n"
+        }
+        FileHandle.standardError.write(Data(report.utf8))
+
+        if linkChecking == .error {
+            throw BrokenLinksError(issues: issues)
+        }
     }
 
     // MARK: Page rendering
@@ -111,7 +159,8 @@ public struct SiteGenerator {
         resolvedNav: ResolvedNavigation,
         renderer: TemplateRenderer,
         writer: OutputWriter,
-        searchIndex: inout SearchIndexBuilder
+        searchIndex: inout SearchIndexBuilder,
+        linkData: LinkData
     ) async throws -> String {
         guard let page = store.page(forLogicalPath: logicalPath, locale: language.locale, defaultLocale: defaultLocale) else {
             throw ContentError.missingPage(logicalPath: logicalPath)
@@ -125,6 +174,10 @@ public struct SiteGenerator {
         let urlPath = urls.urlPath(forLogicalPath: logicalPath, locale: language.locale)
         let sourceRelative = ContentLoader.relativePath(of: page.sourceURL, from: contentDirectory)
         let imagePath = page.frontMatter.image ?? site.image
+
+        if linkChecking != .off {
+            linkData.add(logicalPath: logicalPath, locale: language.locale, sourcePath: sourceRelative, rendered: rendered)
+        }
 
         let context = RenderContext(
             site: site,
