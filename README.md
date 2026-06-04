@@ -294,7 +294,6 @@ python3 -m http.server --directory public
 
 Planned, roughly in priority order:
 
-- **Markdown parity** — footnotes and `attr_list` support.
 - **Search improvements** — a dedicated results page, better ranking, and
   search suggestions/highlighting.
 - **`kiln` CLI** — `build`, `serve` (with live reload), and `new` (project
