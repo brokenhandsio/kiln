@@ -18,6 +18,7 @@ admonitions, and more.
 - [Requirements](#requirements)
 - [Installation](#installation)
 - [Quick start](#quick-start)
+- [The `kiln` CLI](#the-kiln-cli)
 - [Content & localisation](#content--localisation)
 - [Navigation](#navigation)
 - [Markdown](#markdown)
@@ -122,6 +123,70 @@ Run it, then serve the output with any static file server:
 swift run Docs
 python3 -m http.server --directory public
 ```
+
+…or use the [`kiln` CLI](#the-kiln-cli), which builds and previews for you:
+
+```sh
+kiln serve
+```
+
+## The `kiln` CLI
+
+Kiln ships a command-line tool that wraps the common workflows. Because a Kiln
+site is defined in Swift, `kiln` drives your project's own executable (via
+`swift run`) rather than reading a config file — so the conventions are: your
+build writes to `./site`, and your content lives in `./Content`.
+
+Install it by building the `kiln` product from this package:
+
+```sh
+git clone https://github.com/brokenhandsio/kiln.git
+cd kiln
+swift build -c release
+cp .build/release/kiln /usr/local/bin/   # or anywhere on your PATH
+```
+
+### `kiln new [path]`
+
+Interactively scaffold a new documentation project — prompts for the site name,
+URL, default language, and any additional languages (from Kiln's built-in
+locale list), then writes a ready-to-build SwiftPM package:
+
+```sh
+kiln new my-docs
+cd my-docs
+kiln serve
+```
+
+### `kiln serve`
+
+Build the site and serve it locally, rebuilding automatically when you edit a
+file:
+
+```sh
+kiln serve                       # build, serve ./site at http://127.0.0.1:8080, watch for changes
+kiln serve --port 3000           # change the port
+kiln serve --directory public    # serve a different output directory
+kiln serve --no-watch            # build + serve once, no rebuild-on-change
+kiln serve --no-build            # serve the existing output without building first
+```
+
+The watcher polls for changes (skipping `.build`, `.git`, `.swiftpm`, and the
+output directory) and re-runs the build; reload your browser to see updates.
+
+### `kiln build`
+
+Build the site by running your project's executable:
+
+```sh
+kiln build                       # writes the static site (to ./site by convention)
+kiln build --release             # build in release configuration
+```
+
+> [!NOTE]
+> `kiln` is optional — everything it does, you can also do with `swift run` plus
+> any static file server. It's there for convenience and a familiar
+> `mkdocs`-style workflow.
 
 ## Content & localisation
 
@@ -333,8 +398,6 @@ Planned, roughly in priority order:
   highlight-on-destination. (Multi-language search itself — per-language indexes,
   Unicode/CJK tokenisation, accent-insensitive matching, and localised UI
   strings — is done.)
-- **`kiln` CLI** — `build`, `serve` (with live reload), and `new` (project
-  scaffolding) for people who'd rather not write the small build executable.
 - **Versioned documentation** — multiple doc versions with a version switcher.
 
 ## Development
