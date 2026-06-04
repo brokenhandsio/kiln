@@ -1,6 +1,18 @@
 // swift-tools-version:6.0
 import PackageDescription
 
+let extraSettings: [SwiftSetting] = [
+    .enableExperimentalFeature("SuppressedAssociatedTypesWithDefaults"),
+    .enableExperimentalFeature("LifetimeDependence"),
+    .enableExperimentalFeature("Lifetimes"),
+    .enableUpcomingFeature("LifetimeDependence"),
+    .enableUpcomingFeature("NonisolatedNonsendingByDefault"),
+    .enableUpcomingFeature("InferIsolatedConformances"),
+    .enableUpcomingFeature("ExistentialAny"),
+    .enableUpcomingFeature("MemberImportVisibility"),
+    .enableUpcomingFeature("InternalImportsByDefault"),
+]
+
 let package = Package(
     name: "kiln",
     platforms: [
@@ -27,14 +39,16 @@ let package = Package(
             ],
             resources: [
                 .copy("Resources/DefaultTheme"),
-            ]
+            ],
+            swiftSettings: extraSettings
         ),
         .testTarget(
             name: "KilnTests",
             dependencies: ["Kiln"],
             resources: [
                 .copy("Fixtures"),
-            ]
+            ],
+            swiftSettings: extraSettings
         ),
     ]
 )

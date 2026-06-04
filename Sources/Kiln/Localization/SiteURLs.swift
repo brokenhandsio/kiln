@@ -1,4 +1,4 @@
-import Foundation
+public import Foundation
 
 /// Computes the output paths and site-relative URLs for pages, applying the
 /// pretty-URL ("directory") scheme and per-locale prefixing.

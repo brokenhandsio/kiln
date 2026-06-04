@@ -7,29 +7,30 @@ import NIOCore
 /// Kiln uses this so a user's custom theme directory takes priority over the
 /// bundled default theme: you only override the templates you want to change,
 /// and everything else falls back to the built-in theme.
-struct LayeredLeafSource: LeafSource {
-    let sources: [any LeafSource]
+struct LayeredLeafSource: LeafSource, Sendable {
+    let sources: [any LeafSource & Sendable]
 
     func file(template: String, escape: Bool, on eventLoop: any EventLoop) throws -> EventLoopFuture<ByteBuffer> {
-        try resolve(template: template, escape: escape, on: eventLoop, startingAt: 0)
+        let sources = self.sources
+        return eventLoop.makeFutureWithTask {
+            for source in sources {
+                do {
+                    return try await source.file(template: template, escape: escape, on: eventLoop).get()
+                } catch {
+                    // Surface access violations immediately; otherwise this
+                    // source simply doesn't have the file, so try the next.
+                    if Self.isIllegalAccess(error) { throw error }
+                    continue
+                }
+            }
+            throw LeafError(.noTemplateExists(template))
+        }
     }
 
-    private func resolve(template: String, escape: Bool, on eventLoop: any EventLoop, startingAt index: Int) throws -> EventLoopFuture<ByteBuffer> {
-        guard index < sources.count else {
-            return eventLoop.makeFailedFuture(LeafError(.noTemplateExists(template)))
+    private static func isIllegalAccess(_ error: any Error) -> Bool {
+        if let leafError = error as? LeafError, case .illegalAccess = leafError.reason {
+            return true
         }
-        let source = sources[index]
-        let future: EventLoopFuture<ByteBuffer>
-        do {
-            future = try source.file(template: template, escape: escape, on: eventLoop)
-        } catch {
-            // This source can't serve it; try the next.
-            return try resolve(template: template, escape: escape, on: eventLoop, startingAt: index + 1)
-        }
-        return future.flatMapError { _ in
-            // Not found in this source; fall back to the next one.
-            (try? self.resolve(template: template, escape: escape, on: eventLoop, startingAt: index + 1))
-                ?? eventLoop.makeFailedFuture(LeafError(.noTemplateExists(template)))
-        }
+        return false
     }
 }

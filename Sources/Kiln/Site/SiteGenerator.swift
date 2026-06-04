@@ -1,4 +1,4 @@
-import Foundation
+public import Foundation
 
 /// Errors thrown while resolving the theme.
 public enum ThemeError: Error, CustomStringConvertible {

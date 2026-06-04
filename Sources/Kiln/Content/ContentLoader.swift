@@ -1,4 +1,4 @@
-import Foundation
+public import Foundation
 
 /// Errors thrown while loading content from disk.
 public enum ContentError: Error, CustomStringConvertible {

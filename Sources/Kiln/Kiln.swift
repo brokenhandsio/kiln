@@ -1,4 +1,4 @@
-import Foundation
+public import Foundation
 
 /// Kiln generates a static documentation website from a Swift-defined
 /// ``KilnSite`` configuration and a directory of markdown content.

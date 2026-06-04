@@ -167,7 +167,7 @@ struct HTMLRenderer: MarkupWalker {
 
     // MARK: Inline elements
 
-    private mutating func printInline(tag: String, _ content: Markup) {
+    private mutating func printInline(tag: String, _ content: any Markup) {
         result += "<\(tag)>"
         descendInto(content)
         result += "</\(tag)>"

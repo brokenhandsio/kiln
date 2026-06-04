@@ -1,4 +1,4 @@
-import Foundation
+public import Foundation
 
 /// A single markdown source file in one language.
 public struct ContentPage: Sendable {

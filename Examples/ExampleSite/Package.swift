@@ -1,6 +1,18 @@
 // swift-tools-version:6.0
 import PackageDescription
 
+let extraSettings: [SwiftSetting] = [
+    .enableExperimentalFeature("SuppressedAssociatedTypesWithDefaults"),
+    .enableExperimentalFeature("LifetimeDependence"),
+    .enableExperimentalFeature("Lifetimes"),
+    .enableUpcomingFeature("LifetimeDependence"),
+    .enableUpcomingFeature("NonisolatedNonsendingByDefault"),
+    .enableUpcomingFeature("InferIsolatedConformances"),
+    .enableUpcomingFeature("ExistentialAny"),
+    .enableUpcomingFeature("MemberImportVisibility"),
+    .enableUpcomingFeature("InternalImportsByDefault"),
+]
+
 let package = Package(
     name: "ExampleSite",
     platforms: [
@@ -16,7 +28,8 @@ let package = Package(
             name: "ExampleSite",
             dependencies: [
                 .product(name: "Kiln", package: "kiln"),
-            ]
+            ],
+            swiftSettings: extraSettings
         ),
     ]
 )

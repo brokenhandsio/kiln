@@ -1,4 +1,3 @@
-import Foundation
 import Kiln
 
 // A small but representative documentation site. This is exactly how a
