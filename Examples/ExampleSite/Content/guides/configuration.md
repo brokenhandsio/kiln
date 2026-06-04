@@ -1,6 +1,7 @@
 ---
 title: Configuration Reference
 description: Every option you can set on a KilnSite.
+image: assets/logo.svg
 ---
 
 # Configuration

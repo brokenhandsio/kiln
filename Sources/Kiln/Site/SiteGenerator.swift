@@ -90,8 +90,9 @@ public struct SiteGenerator {
         try assetCopier.copyThemeAssets(from: theme.assets)
         try assetCopier.copyContentAssets(from: contentDirectory)
 
-        // Sitemap.
+        // Sitemap + robots.txt.
         try writer.write(sitemap(for: sitemapEntries), to: outputDirectory.appendingPathComponent("sitemap.xml"))
+        try writer.write(robotsTxt(), to: outputDirectory.appendingPathComponent("robots.txt"))
     }
 
     // MARK: Page rendering
@@ -122,6 +123,7 @@ public struct SiteGenerator {
         let pageNavigation = navigationBuilder.contextualise(resolvedNav, currentLogicalPath: logicalPath)
         let urlPath = urls.urlPath(forLogicalPath: logicalPath, locale: language.locale)
         let sourceRelative = ContentLoader.relativePath(of: page.sourceURL, from: contentDirectory)
+        let imagePath = page.frontMatter.image ?? site.image
 
         let context = RenderContext(
             site: site,
@@ -135,6 +137,9 @@ public struct SiteGenerator {
             tableOfContents: rendered.tableOfContents,
             frontMatter: page.frontMatter,
             pageURL: urlPath,
+            canonicalURL: absoluteURL(forLocation: String(urlPath.drop(while: { $0 == "/" }))),
+            pageDescription: page.frontMatter.description ?? site.description,
+            socialImageURL: imagePath.map { absoluteURL(forPath: $0) },
             editURL: site.repository?.editURI.map { $0 + sourceRelative },
             sourcePath: sourceRelative,
             isHome: page.isHome,
@@ -174,6 +179,9 @@ public struct SiteGenerator {
             tableOfContents: [],
             frontMatter: .empty,
             pageURL: rootBase + "404.html",
+            canonicalURL: absoluteURL(forLocation: "404.html"),
+            pageDescription: site.description,
+            socialImageURL: site.image.map { absoluteURL(forPath: $0) },
             editURL: nil,
             sourcePath: "",
             isHome: false,
@@ -218,6 +226,24 @@ public struct SiteGenerator {
     private func absoluteURL(forLocation location: String) -> String {
         let base = site.url.hasSuffix("/") ? String(site.url.dropLast()) : site.url
         return base + "/" + location
+    }
+
+    /// Absolute URL for a content-relative asset path (e.g. `assets/social-card.png`),
+    /// passed through unchanged if it's already an absolute URL.
+    private func absoluteURL(forPath path: String) -> String {
+        if path.hasPrefix("http://") || path.hasPrefix("https://") {
+            return path
+        }
+        return absoluteURL(forLocation: path.drop(while: { $0 == "/" }).description)
+    }
+
+    private func robotsTxt() -> String {
+        """
+        User-agent: *
+        Allow: /
+
+        Sitemap: \(absoluteURL(forLocation: "sitemap.xml"))
+        """
     }
 
     private func sitemap(for locations: [String]) -> String {

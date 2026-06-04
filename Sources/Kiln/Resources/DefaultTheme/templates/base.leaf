@@ -4,12 +4,27 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>#if(page.isHome):#(site.name)#else:#(page.title) · #(site.name)#endif</title>
-    #if(site.description):<meta name="description" content="#(site.description)">#endif
+    <link rel="canonical" href="#(page.canonicalURL)">
+    #if(page.description):<meta name="description" content="#(page.description)">#endif
     #if(site.author):<meta name="author" content="#(site.author)">#endif
+    <meta name="theme-color" content="#(site.palette.primary)">
+    <meta name="generator" content="Kiln">
 
+    <!-- Open Graph -->
+    <meta property="og:type" content="#if(page.isHome):website#else:article#endif">
     <meta property="og:title" content="#if(page.isHome):#(site.name)#else:#(page.title)#endif">
-    #if(site.description):<meta property="og:description" content="#(site.description)">#endif
-    <meta property="og:type" content="website">
+    #if(page.description):<meta property="og:description" content="#(page.description)">#endif
+    <meta property="og:url" content="#(page.canonicalURL)">
+    <meta property="og:site_name" content="#(site.name)">
+    <meta property="og:locale" content="#(language.locale)">
+    #if(page.imageURL):<meta property="og:image" content="#(page.imageURL)">#endif
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="#if(page.imageURL):summary_large_image#else:summary#endif">
+    #if(site.twitterSite):<meta name="twitter:site" content="#(site.twitterSite)">#endif
+    <meta name="twitter:title" content="#if(page.isHome):#(site.name)#else:#(page.title)#endif">
+    #if(page.description):<meta name="twitter:description" content="#(page.description)">#endif
+    #if(page.imageURL):<meta name="twitter:image" content="#(page.imageURL)">#endif
 
     #if(site.favicon):<link rel="icon" href="/#(site.favicon)">#endif
 

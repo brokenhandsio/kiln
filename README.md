@@ -46,7 +46,11 @@ admonitions, and more.
   YAML front matter.
 - **Search** — a client-side search index is generated per language (no external
   service, no build-time JS toolchain).
-- **Custom error pages**, pretty URLs, a sitemap, and automatic asset copying.
+- **SEO & social cards** — per-page `<title>`/description, canonical URLs,
+  hreflang alternates, OpenGraph and Twitter card tags (with a site-wide default
+  preview image and per-page front-matter overrides), plus `sitemap.xml` and
+  `robots.txt`.
+- **Custom error pages**, pretty URLs, and automatic asset copying.
 - **Cross-platform** — builds and runs on macOS and Linux.
 
 ## Requirements
@@ -178,8 +182,9 @@ Supported out of the box:
   ```markdown
   ---
   title: Custom Page Title
-  description: Used for meta tags.
-  template: landing      # override the Leaf template for this page
+  description: Used for meta and social tags.
+  image: assets/custom-card.png   # per-page social preview image
+  template: landing               # override the Leaf template for this page
   ---
   ```
 
@@ -192,7 +197,9 @@ Supported out of the box:
 | `name`            | `String`              | Site title. |
 | `url`             | `String`              | Canonical site URL. |
 | `author`          | `String?`             | Used for meta tags. |
-| `description`     | `String?`             | Used for meta tags. |
+| `description`     | `String?`             | Default meta/OpenGraph description. |
+| `image`           | `String?`             | Default social/OpenGraph preview image (content-relative path). |
+| `twitterSite`     | `String?`             | Twitter/X handle for the `twitter:site` tag (e.g. `"@codevapor"`). |
 | `repository`      | `Repository?`         | `name`, `url`, optional `editURI` for "edit this page" links. |
 | `copyright`       | `String?`             | Footer notice. |
 | `theme`           | `Theme`               | `.default(…)` or `.custom(directory:…)`. |
@@ -287,9 +294,6 @@ python3 -m http.server --directory public
 
 Planned, roughly in priority order:
 
-- **SEO & social cards** — richer `<head>` metadata plus OpenGraph and Twitter
-  card tags in the default theme, with per-site and per-page (front-matter)
-  overrides such as a social preview image.
 - **Markdown parity** — footnotes and `attr_list` support.
 - **Search improvements** — a dedicated results page, better ranking, and
   search suggestions/highlighting.

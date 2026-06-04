@@ -17,6 +17,9 @@ struct BuildTests {
         let site = KilnSite(
             name: "Fixture Docs",
             url: "https://fixture.example.com",
+            description: "Fixture site description.",
+            image: "assets/card.png",
+            twitterSite: "@fixture",
             languages: [
                 .init(locale: "en", name: "English", isDefault: true),
                 .init(locale: "de", name: "Deutsch", navTranslations: ["Section": "Abschnitt"]),
@@ -84,6 +87,39 @@ struct BuildTests {
         #expect(germanPage.contains("This page has no German translation"))
         // …and the reader is told it's a fallback.
         #expect(germanPage.contains("kiln-fallback"))
+    }
+
+    @Test("Pages include SEO and social-card meta tags")
+    func seoMetaTags() async throws {
+        let output = try await buildFixture()
+        defer { try? FileManager.default.removeItem(at: output) }
+
+        let home = try read(output.appendingPathComponent("index.html"))
+        // Canonical + description (falls back to the site description).
+        #expect(home.contains("<link rel=\"canonical\" href=\"https://fixture.example.com/\">"))
+        #expect(home.contains("<meta name=\"description\" content=\"Fixture site description.\">"))
+        // Open Graph.
+        #expect(home.contains("<meta property=\"og:type\" content=\"website\">"))
+        #expect(home.contains("<meta property=\"og:title\" content=\"Fixture Docs\">"))
+        #expect(home.contains("<meta property=\"og:url\" content=\"https://fixture.example.com/\">"))
+        #expect(home.contains("<meta property=\"og:image\" content=\"https://fixture.example.com/assets/card.png\">"))
+        // Twitter card.
+        #expect(home.contains("<meta name=\"twitter:card\" content=\"summary_large_image\">"))
+        #expect(home.contains("<meta name=\"twitter:site\" content=\"@fixture\">"))
+
+        // Per-page front matter overrides the description and image.
+        let page = try read(output.appendingPathComponent("section/page/index.html"))
+        #expect(page.contains("<meta name=\"description\" content=\"A page with its own social preview image.\">"))
+        #expect(page.contains("<meta property=\"og:image\" content=\"https://fixture.example.com/assets/page-card.png\">"))
+        #expect(page.contains("<meta property=\"og:type\" content=\"article\">"))
+    }
+
+    @Test("robots.txt points at the sitemap")
+    func robots() async throws {
+        let output = try await buildFixture()
+        defer { try? FileManager.default.removeItem(at: output) }
+        let robots = try read(output.appendingPathComponent("robots.txt"))
+        #expect(robots.contains("Sitemap: https://fixture.example.com/sitemap.xml"))
     }
 
     @Test("Search index lists pages")

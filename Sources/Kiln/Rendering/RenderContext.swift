@@ -34,6 +34,12 @@ struct RenderContext {
     var tableOfContents: [TOCEntry]
     var frontMatter: FrontMatter
     var pageURL: String
+    /// Absolute canonical URL of this page (for `<link rel=canonical>` and `og:url`).
+    var canonicalURL: String
+    /// Resolved meta/OpenGraph description (page front matter or site default).
+    var pageDescription: String?
+    /// Absolute URL of the social/OpenGraph preview image, if any.
+    var socialImageURL: String?
     var editURL: String?
     var sourcePath: String
     var isHome: Bool
@@ -74,6 +80,7 @@ struct RenderContext {
             "extraCSS": .array(site.extraCSS.map { .string($0) }),
             "extraJS": .array(site.extraJavaScript.map { .string($0) }),
             "searchEnabled": .bool(searchEnabled),
+            "twitterSite": .string(site.twitterSite),
             "palette": paletteData,
             "features": featuresData,
         ]
@@ -151,6 +158,9 @@ struct RenderContext {
             "hasTOC": .bool(!toc.isEmpty),
             "frontMatter": .dictionary(frontMatterData),
             "url": .string(pageURL),
+            "canonicalURL": .string(canonicalURL),
+            "description": .string(pageDescription),
+            "imageURL": .string(socialImageURL),
             "editURL": .string(editURL),
             "sourcePath": .string(sourcePath),
             "isHome": .bool(isHome),

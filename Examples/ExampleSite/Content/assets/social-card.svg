@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630" role="img" aria-label="Kiln Example">
+    <rect width="1200" height="630" fill="#0f1115"/>
+    <g transform="translate(96 215)">
+        <rect width="200" height="200" rx="40" fill="#1c1c1e"/>
+        <path d="M100 38c14.4 15 18.8 29.4 11.9 43.1 11.3-2.5 18.8-10 22.5-22.5 10.6 13.8 15.6 28.8 15.6 44.4a50 50 0 1 1-100 0c0-18.8 8.8-36.3 26.3-52.5-2.5 13.8.6 24.4 9.4 31.9C79.4 62 86.9 47.5 100 38z" fill="#2f6feb"/>
+    </g>
+    <text x="340" y="300" fill="#e6e8ec" font-family="system-ui, -apple-system, Segoe UI, Roboto, sans-serif" font-size="84" font-weight="700">Kiln Example</text>
+    <text x="342" y="372" fill="#9aa3b2" font-family="system-ui, -apple-system, Segoe UI, Roboto, sans-serif" font-size="38">Documentation built with Kiln</text>
+</svg>

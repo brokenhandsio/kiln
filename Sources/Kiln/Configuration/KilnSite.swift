@@ -29,6 +29,12 @@ public struct KilnSite: Sendable {
     public var author: String?
     /// A short description used for `<meta>` tags.
     public var description: String?
+    /// Default social/OpenGraph preview image (path relative to the content
+    /// directory, e.g. `"assets/social-card.png"`). Pages can override it via
+    /// `image:` front matter.
+    public var image: String?
+    /// Twitter/X handle for the `twitter:site` card tag, e.g. `"@codevapor"`.
+    public var twitterSite: String?
     /// Source repository information.
     public var repository: Repository?
     /// Copyright notice shown in the footer.
@@ -53,6 +59,8 @@ public struct KilnSite: Sendable {
         url: String,
         author: String? = nil,
         description: String? = nil,
+        image: String? = nil,
+        twitterSite: String? = nil,
         repository: Repository? = nil,
         copyright: String? = nil,
         theme: Theme = .default(),
@@ -67,6 +75,8 @@ public struct KilnSite: Sendable {
         self.url = url
         self.author = author
         self.description = description
+        self.image = image
+        self.twitterSite = twitterSite
         self.repository = repository
         self.copyright = copyright
         self.theme = theme

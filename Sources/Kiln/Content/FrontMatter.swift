@@ -19,6 +19,9 @@ public struct FrontMatter: Sendable, Equatable {
 
     public var title: String? { values["title"] }
     public var description: String? { values["description"] }
+    /// An optional social/OpenGraph preview image for this page, overriding the
+    /// site default (path relative to the content directory).
+    public var image: String? { values["image"] }
     /// An optional Leaf template name override (e.g. `template: landing`).
     public var template: String? { values["template"] }
 

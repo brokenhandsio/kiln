@@ -8,6 +8,10 @@ let site = KilnSite(
     url: "https://example.com",
     author: "Broken Hands",
     description: "An example documentation site built with Kiln.",
+    // Default social/OpenGraph preview image. Real sites should use a PNG/JPG
+    // for best social-scraper support; an SVG is used here just to demo wiring.
+    image: "assets/social-card.svg",
+    twitterSite: "@brokenhandsio",
     repository: .init(
         name: "GitHub",
         url: "https://github.com/brokenhandsio/kiln",
