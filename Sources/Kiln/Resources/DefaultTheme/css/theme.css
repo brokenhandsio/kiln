@@ -97,7 +97,9 @@ a:hover { text-decoration: underline; }
 }
 .kiln-header button:hover { color: var(--text); background: var(--surface-2); }
 
-.kiln-menu-toggle { display: none; }
+/* Hidden on large screens (selector beats `.kiln-header button`); shown on
+   mobile in the responsive block below. */
+.kiln-header .kiln-menu-toggle { display: none; }
 
 .kiln-repo {
     display: inline-flex;
@@ -383,7 +385,7 @@ details.admonition > summary.admonition-title::-webkit-details-marker { display:
 
 @media (max-width: 900px) {
     .kiln-layout { grid-template-columns: minmax(0, 1fr); padding: 0 18px; }
-    .kiln-menu-toggle { display: inline-flex; }
+    .kiln-header .kiln-menu-toggle { display: inline-flex; }
     .kiln-repo .kiln-repo-name { display: none; }
     .kiln-sidebar {
         position: fixed;
