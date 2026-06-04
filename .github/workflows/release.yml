@@ -29,7 +29,7 @@ jobs:
     runs-on: macos-15
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       # Swift 6.2+ is required by the package's experimental settings.
       - name: Select Xcode

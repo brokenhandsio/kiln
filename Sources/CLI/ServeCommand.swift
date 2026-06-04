@@ -1,6 +1,14 @@
 import ArgumentParser
 import Foundation
 
+/// Write a line to standard output immediately (unbuffered), so status lines
+/// appear promptly even when stdout is piped (logs/CI). Going through
+/// `FileHandle` avoids touching the C `stdout` global, which Swift 6 strict
+/// concurrency rejects as shared mutable state on Linux.
+private func emit(_ message: String) {
+    try? FileHandle.standardOutput.write(contentsOf: Data((message + "\n").utf8))
+}
+
 struct Serve: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "serve",
@@ -29,21 +37,18 @@ struct Serve: AsyncParsableCommand {
     var noWatch = false
 
     func run() async throws {
-        // Emit status lines promptly even when stdout is a pipe (logs/CI).
-        setvbuf(stdout, nil, _IONBF, 0)
-
         let cwd = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
         let servedDirectory = URL(fileURLWithPath: directory, relativeTo: cwd)
         let runArguments = swiftRunArguments(target: target, release: release)
 
         if !noBuild {
-            print("Building documentation…")
+            emit("Building documentation…")
             try ProcessRunner.runSwift(runArguments)
         }
 
         let indexPath = servedDirectory.appendingPathComponent("index.html").path
         if !FileManager.default.fileExists(atPath: indexPath) {
-            print("⚠️  No index.html found in \(directory)/. Is that the right output directory? (override with --directory)")
+            emit("⚠️  No index.html found in \(directory)/. Is that the right output directory? (override with --directory)")
         }
 
         var watcher: DirectoryWatcher?
@@ -51,20 +56,20 @@ struct Serve: AsyncParsableCommand {
             let directoryName = directory
             let w = DirectoryWatcher(root: cwd, outputDirectoryName: directoryName)
             w.start {
-                print("\nChange detected — rebuilding…")
+                emit("\nChange detected — rebuilding…")
                 do {
                     try ProcessRunner.runSwift(runArguments)
-                    print("Rebuilt. Reload your browser.")
+                    emit("Rebuilt. Reload your browser.")
                 } catch {
-                    print("Build failed: \(error)")
+                    emit("Build failed: \(error)")
                 }
             }
             watcher = w
-            print("Watching for changes (skipping .build, .git, .swiftpm, \(directory)/)…")
+            emit("Watching for changes (skipping .build, .git, .swiftpm, \(directory)/)…")
         }
 
         let server = StaticFileServer(directory: servedDirectory, host: host, port: port)
-        print("Serving \(directory)/ at http://\(host):\(port) — press Ctrl-C to stop.")
+        emit("Serving \(directory)/ at http://\(host):\(port) — press Ctrl-C to stop.")
         defer {
             watcher?.stop()
             server.shutdown()
