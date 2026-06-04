@@ -67,7 +67,7 @@ public struct KilnSite: Sendable {
         social: [SocialLink] = [],
         extraCSS: [String] = [],
         extraJavaScript: [String] = [],
-        languages: [Language] = [Language(locale: "en", name: "English", isDefault: true)],
+        languages: [Language] = [Language(.english, isDefault: true)],
         markdown: MarkdownExtensions = MarkdownExtensions(),
         @NavBuilder navigation: () -> [NavItem]
     ) {

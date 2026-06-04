@@ -129,6 +129,7 @@ public struct SiteGenerator {
         let context = RenderContext(
             site: site,
             language: language,
+            localisation: language.localisation,
             alternates: alternates(forLogicalPath: logicalPath, current: language, urls: urls),
             searchEnabled: true,
             searchIndexURL: searchIndexURLPath(locale: language.locale, isDefault: language.isDefault),
@@ -171,11 +172,12 @@ public struct SiteGenerator {
         let context = RenderContext(
             site: site,
             language: language,
+            localisation: language.localisation,
             alternates: [],
             searchEnabled: true,
             searchIndexURL: searchIndexURLPath(locale: language.locale, isDefault: language.isDefault),
             baseURL: rootBase,
-            pageTitle: "Page not found",
+            pageTitle: language.localisation.resolved.notFoundTitle,
             contentHTML: "",
             tableOfContents: [],
             frontMatter: .empty,

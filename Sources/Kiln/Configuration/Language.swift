@@ -24,22 +24,32 @@ public struct Language: Sendable {
     /// Translations for navigation titles, keyed by the default-language title,
     /// e.g. `["Advanced": "Erweitert"]`.
     public var navTranslations: [String: String]
+    /// Localised UI strings (search box, nav labels, error page, …) for this
+    /// language. Unset strings fall back to Kiln's English defaults.
+    public var localisation: LocalisationConfiguration
 
+    /// Create a language from a ``LanguageCode``.
+    ///
+    /// - Parameters:
+    ///   - code: the language (e.g. `.english`, `.german`, or `.custom`).
+    ///   - name: overrides the code's default display name in the switcher.
     public init(
-        locale: String,
-        name: String,
+        _ code: LanguageCode,
         isDefault: Bool = false,
         build: Bool = true,
+        name: String? = nil,
         siteName: String? = nil,
         description: String? = nil,
-        navTranslations: [String: String] = [:]
+        navTranslations: [String: String] = [:],
+        localisation: LocalisationConfiguration = LocalisationConfiguration()
     ) {
-        self.locale = locale
-        self.name = name
+        self.locale = code.code
+        self.name = name ?? code.name
         self.isDefault = isDefault
         self.build = build
         self.siteName = siteName
         self.description = description
         self.navTranslations = navTranslations
+        self.localisation = localisation
     }
 }

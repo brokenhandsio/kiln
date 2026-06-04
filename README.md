@@ -93,8 +93,8 @@ let site = KilnSite(
     theme: .default(palette: .autoLightDark(primary: .black, accent: .blue)),
     social: [.init(icon: .github, link: "https://github.com/me/project")],
     languages: [
-        .init(locale: "en", name: "English", isDefault: true),
-        .init(locale: "de", name: "Deutsch", navTranslations: ["Guides": "Anleitungen"]),
+        .init(.english, isDefault: true),
+        .init(.german, navTranslations: ["Guides": "Anleitungen"]),
     ],
     navigation: {
         Page("Welcome", "index.md")
@@ -137,6 +137,25 @@ unavailable" banner — the equivalent of mkdocs-static-i18n's
 
 The default language is built at the site root; other languages live under
 `/<locale>/`.
+
+### Interface strings
+
+The theme's own UI strings (search box, navigation labels, error page, …) are
+localised per language via `LocalisationConfiguration`. Any string left unset
+falls back to Kiln's built-in English default:
+
+```swift
+Language(.german, localisation: .init(
+    searchPlaceholder: "Suchen",
+    searchNoResults: "Keine Ergebnisse gefunden",
+    tableOfContentsTitle: "Auf dieser Seite",
+    previousPage: "Zurück",
+    nextPage: "Weiter",
+    editPage: "Diese Seite bearbeiten",
+    notFoundTitle: "Seite nicht gefunden"
+    // … and more; see LocalisationConfiguration
+))
+```
 
 ## Navigation
 
@@ -206,7 +225,7 @@ Supported out of the box:
 | `social`          | `[SocialLink]`        | `icon` (`.github`, `.mastodon`, `.twitter`, `.discord`, `.linkedin`, `.youtube`, `.rss`, `.custom`) + `link`. |
 | `extraCSS`        | `[String]`            | Extra stylesheets (relative to the content dir). |
 | `extraJavaScript` | `[String]`            | Extra scripts. |
-| `languages`       | `[Language]`          | `locale`, `name`, `isDefault`, `build`, `siteName`, `navTranslations`. |
+| `languages`       | `[Language]`          | Each `Language(_ code: LanguageCode, …)` — a built-in case like `.english`/`.german` or `.custom(code:name:)` — with `isDefault`, `build`, `siteName`, `description`, `navTranslations`, `localisation`. |
 | `markdown`        | `MarkdownExtensions`  | Feature toggles + `TableOfContentsOptions`. |
 | `navigation`      | `@NavBuilder`         | The nav tree (see above). |
 
@@ -301,9 +320,10 @@ Planned, roughly in priority order:
   (and a concatenated `llms-full.txt`), expose each page's raw markdown source
   alongside its HTML for clean machine consumption, and keep emitting semantic
   HTML + structured metadata.
-- **Search improvements** — accent-insensitive matching (so accent-free queries
-  match accented text), localised UI strings (placeholder, "no results"), better
-  ranking, a dedicated results page, and suggestions/highlighting.
+- **Search polish** (optional) — ranking tweaks and search suggestions /
+  highlight-on-destination. (Multi-language search itself — per-language indexes,
+  Unicode/CJK tokenisation, accent-insensitive matching, and localised UI
+  strings — is done.)
 - **`kiln` CLI** — `build`, `serve` (with live reload), and `new` (project
   scaffolding) for people who'd rather not write the small build executable.
 - **Versioned documentation** — multiple doc versions with a version switcher.

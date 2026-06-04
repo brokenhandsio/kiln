@@ -6,8 +6,8 @@ struct ConfigurationTests {
     @Test("A single default language validates")
     func validConfig() throws {
         let site = KilnSite(name: "Docs", url: "https://x.com", languages: [
-            .init(locale: "en", name: "English", isDefault: true),
-            .init(locale: "de", name: "Deutsch"),
+            .init(.english, isDefault: true),
+            .init(.german),
         ]) {
             Page("Home", "index.md")
         }
@@ -19,7 +19,7 @@ struct ConfigurationTests {
     @Test("No default language is rejected")
     func noDefault() {
         let site = KilnSite(name: "Docs", url: "https://x.com", languages: [
-            .init(locale: "en", name: "English"),
+            .init(.english),
         ]) {
             Page("Home", "index.md")
         }
@@ -29,8 +29,8 @@ struct ConfigurationTests {
     @Test("Multiple default languages are rejected")
     func multipleDefaults() {
         let site = KilnSite(name: "Docs", url: "https://x.com", languages: [
-            .init(locale: "en", name: "English", isDefault: true),
-            .init(locale: "de", name: "Deutsch", isDefault: true),
+            .init(.english, isDefault: true),
+            .init(.german, isDefault: true),
         ]) {
             Page("Home", "index.md")
         }
@@ -40,8 +40,8 @@ struct ConfigurationTests {
     @Test("Non-buildable languages are excluded")
     func excludesNonBuildable() {
         let site = KilnSite(name: "Docs", url: "https://x.com", languages: [
-            .init(locale: "en", name: "English", isDefault: true),
-            .init(locale: "fr", name: "Français", build: false),
+            .init(.english, isDefault: true),
+            .init(.french, build: false),
         ]) {
             Page("Home", "index.md")
         }

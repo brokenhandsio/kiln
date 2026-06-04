@@ -28,10 +28,9 @@ let site = KilnSite(
         .init(icon: .mastodon, link: "https://hachyderm.io/@kiln"),
     ],
     languages: [
-        .init(locale: "en", name: "English", isDefault: true),
+        .init(.english, isDefault: true),
         .init(
-            locale: "de",
-            name: "Deutsch",
+            .german,
             siteName: "Kiln Beispiel",
             navTranslations: [
                 "Welcome": "Willkommen",
@@ -41,7 +40,22 @@ let site = KilnSite(
                 "Guides": "Anleitungen",
                 "Configuration": "Konfiguration",
                 "Theming": "Themengestaltung",
-            ]
+            ],
+            localisation: .init(
+                searchPlaceholder: "Suchen",
+                searchNoResults: "Keine Ergebnisse gefunden",
+                tableOfContentsTitle: "Auf dieser Seite",
+                previousPage: "Zurück",
+                nextPage: "Weiter",
+                editPage: "Diese Seite bearbeiten",
+                fallbackTitle: "Übersetzung nicht verfügbar",
+                fallbackMessage: "Diese Seite wurde noch nicht übersetzt, daher wird die Standardsprache angezeigt.",
+                notFoundTitle: "Seite nicht gefunden",
+                notFoundMessage: "Die gesuchte Seite wurde möglicherweise verschoben, umbenannt oder existiert nicht.",
+                notFoundLink: "Zurück zur Startseite",
+                toggleNavigation: "Navigation umschalten",
+                toggleColourScheme: "Farbschema umschalten"
+            )
         ),
     ],
     navigation: {

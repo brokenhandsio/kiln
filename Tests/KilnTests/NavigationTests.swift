@@ -18,7 +18,7 @@ struct NavigationTests {
     @Test("URLs are locale-prefixed for non-default languages")
     func localePrefixedURLs() {
         let builder = NavigationBuilder(urls: urls)
-        let german = Language(locale: "de", name: "Deutsch")
+        let german = Language(.german)
         let resolved = builder.build(navigation, for: german)
         let firstGuide = resolved.orderedPages.first { $0.logicalPath == "guides/first.md" }
         #expect(firstGuide?.url == "/de/guides/first/")
@@ -27,7 +27,7 @@ struct NavigationTests {
     @Test("Navigation titles are translated")
     func translatedTitles() {
         let builder = NavigationBuilder(urls: urls)
-        let german = Language(locale: "de", name: "Deutsch", navTranslations: ["Guides": "Anleitungen"])
+        let german = Language(.german, navTranslations: ["Guides": "Anleitungen"])
         let resolved = builder.build(navigation, for: german)
         let section = resolved.nodes.first { $0.kind == .section }
         #expect(section?.title == "Anleitungen")
@@ -36,7 +36,7 @@ struct NavigationTests {
     @Test("Active trail and current page are marked")
     func activeTrail() {
         let builder = NavigationBuilder(urls: urls)
-        let english = Language(locale: "en", name: "English", isDefault: true)
+        let english = Language(.english, isDefault: true)
         let resolved = builder.build(navigation, for: english)
         let page = builder.contextualise(resolved, currentLogicalPath: "guides/second.md")
 
@@ -49,7 +49,7 @@ struct NavigationTests {
     @Test("Previous and next links follow document order")
     func previousNext() {
         let builder = NavigationBuilder(urls: urls)
-        let english = Language(locale: "en", name: "English", isDefault: true)
+        let english = Language(.english, isDefault: true)
         let resolved = builder.build(navigation, for: english)
         let page = builder.contextualise(resolved, currentLogicalPath: "guides/first.md")
         #expect(page.previous?.logicalPath == "index.md")

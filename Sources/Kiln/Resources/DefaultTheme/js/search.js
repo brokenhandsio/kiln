@@ -16,6 +16,9 @@
     var results = document.getElementById("kiln-search-results");
     if (!input || !results || !window.kilnSearchIndex) return;
 
+    var container = document.getElementById("kiln-search");
+    var noResultsText = (container && container.getAttribute("data-no-results")) || "No results found";
+
     // Han (incl. extension A & compatibility) + hiragana/katakana (incl.
     // halfwidth). Deliberately excludes Hangul, which is space-separated.
     var SEGMENTED = /[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\uff66-\uff9f]/;
@@ -158,7 +161,7 @@
 
     function render(matches, queryUnits) {
         if (!matches.length) {
-            results.innerHTML = '<div class="kiln-search-empty">No results found</div>';
+            results.innerHTML = '<div class="kiln-search-empty">' + escapeHTML(noResultsText) + '</div>';
             results.hidden = false;
             return;
         }

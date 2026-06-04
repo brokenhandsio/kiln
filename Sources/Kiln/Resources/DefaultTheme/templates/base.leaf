@@ -70,25 +70,25 @@
         <main class="kiln-main">
             #if(page.isFallback):
             <div class="admonition kiln-fallback">
-                <p class="admonition-title">Translation unavailable</p>
-                <p>This page hasn't been translated to #(language.name) yet, so the default language is shown.</p>
+                <p class="admonition-title">#(strings.fallbackTitle)</p>
+                <p>#(strings.fallbackMessage)</p>
             </div>
             #endif
 
             #import("content")
 
             <nav class="kiln-page-nav" aria-label="Page navigation">
-                #if(nav.previous):<a class="kiln-prev" href="#(nav.previous.url)"><span class="kiln-page-nav-label">Previous</span><span class="kiln-page-nav-title">#(nav.previous.title)</span></a>#endif
-                #if(nav.next):<a class="kiln-next" href="#(nav.next.url)"><span class="kiln-page-nav-label">Next</span><span class="kiln-page-nav-title">#(nav.next.title)</span></a>#endif
+                #if(nav.previous):<a class="kiln-prev" href="#(nav.previous.url)"><span class="kiln-page-nav-label">#(strings.previousPage)</span><span class="kiln-page-nav-title">#(nav.previous.title)</span></a>#endif
+                #if(nav.next):<a class="kiln-next" href="#(nav.next.url)"><span class="kiln-page-nav-label">#(strings.nextPage)</span><span class="kiln-page-nav-title">#(nav.next.title)</span></a>#endif
             </nav>
 
-            #if(page.editURL):<a class="kiln-edit-link" href="#(page.editURL)">Edit this page</a>#endif
+            #if(page.editURL):<a class="kiln-edit-link" href="#(page.editURL)">#(strings.editPage)</a>#endif
         </main>
 
         <aside class="kiln-toc">
             #if(page.hasTOC):
             <div class="kiln-toc-inner">
-                <p class="kiln-toc-title">On this page</p>
+                <p class="kiln-toc-title">#(strings.tableOfContentsTitle)</p>
                 #extend("partials/toc")
             </div>
             #endif

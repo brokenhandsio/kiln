@@ -21,8 +21,9 @@ struct BuildTests {
             image: "assets/card.png",
             twitterSite: "@fixture",
             languages: [
-                .init(locale: "en", name: "English", isDefault: true),
-                .init(locale: "de", name: "Deutsch", navTranslations: ["Section": "Abschnitt"]),
+                .init(.english, isDefault: true),
+                .init(.german, navTranslations: ["Section": "Abschnitt"],
+                      localisation: .init(searchPlaceholder: "Suchen", tableOfContentsTitle: "Auf dieser Seite")),
             ]
         ) {
             Page("Home", "index.md")
@@ -126,6 +127,23 @@ struct BuildTests {
         // The German build of the same (fallback) page points at German URLs.
         let germanPage = try read(output.appendingPathComponent("de/section/page/index.html"))
         #expect(germanPage.contains("href=\"/de/\""))
+    }
+
+    @Test("UI strings are localised per language, falling back to English")
+    func localisedStrings() async throws {
+        let output = try await buildFixture()
+        defer { try? FileManager.default.removeItem(at: output) }
+
+        // German page uses the provided overrides…
+        let germanHome = try read(output.appendingPathComponent("de/index.html"))
+        #expect(germanHome.contains("placeholder=\"Suchen\""))
+        #expect(germanHome.contains("Auf dieser Seite") || !germanHome.contains("kiln-toc-title"))
+        // …and unset strings fall back to English.
+        #expect(germanHome.contains("data-no-results=\"No results found\""))
+
+        // English page uses the built-in defaults.
+        let englishHome = try read(output.appendingPathComponent("index.html"))
+        #expect(englishHome.contains("placeholder=\"Search\""))
     }
 
     @Test("robots.txt points at the sitemap")

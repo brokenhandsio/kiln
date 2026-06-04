@@ -24,6 +24,7 @@ public struct LanguageAlternate: Sendable {
 struct RenderContext {
     var site: KilnSite
     var language: Language
+    var localisation: LocalisationConfiguration
     var alternates: [LanguageAlternate]
     var searchEnabled: Bool
     var searchIndexURL: String
@@ -59,6 +60,7 @@ struct RenderContext {
             "languages": .array(alternates.map(Self.alternateData)),
             "page": pageData,
             "nav": navData,
+            "strings": stringsData,
             "baseURL": .string(baseURL),
             "searchIndexURL": .string(searchIndexURL),
         ]
@@ -125,6 +127,27 @@ struct RenderContext {
     }
 
     // MARK: Language
+
+    // MARK: Localised strings
+
+    private var stringsData: LeafData {
+        let s = localisation.resolved
+        return .dictionary([
+            "searchPlaceholder": .string(s.searchPlaceholder),
+            "searchNoResults": .string(s.searchNoResults),
+            "tableOfContentsTitle": .string(s.tableOfContentsTitle),
+            "previousPage": .string(s.previousPage),
+            "nextPage": .string(s.nextPage),
+            "editPage": .string(s.editPage),
+            "fallbackTitle": .string(s.fallbackTitle),
+            "fallbackMessage": .string(s.fallbackMessage),
+            "notFoundTitle": .string(s.notFoundTitle),
+            "notFoundMessage": .string(s.notFoundMessage),
+            "notFoundLink": .string(s.notFoundLink),
+            "toggleNavigation": .string(s.toggleNavigation),
+            "toggleColourScheme": .string(s.toggleColourScheme),
+        ])
+    }
 
     private var languageData: LeafData {
         .dictionary([
