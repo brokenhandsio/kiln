@@ -1,47 +1,84 @@
 ---
-description: Customise Kiln's default theme with palette and fonts, or bring your own Leaf templates.
+description: Customise Kiln's default theme with palette, logo, and fonts, or bring your own Leaf templates.
 ---
 # Theming
 
-Kiln ships with a modern default theme that supports light and dark colour
-schemes out of the box. You can customise it in two ways.
+Kiln ships a fresh, responsive default theme as a package resource: light/dark
+colour schemes, a sidebar nav, an on-page table of contents, and search. You can
+tweak it with options, or replace any part with your own templates.
 
-## Tweak the palette
-
-The quickest customisation is the palette and fonts:
+## Tweaking the default theme
 
 ```swift
 theme: .default(
-    palette: Palette(primary: .indigo, accent: .teal, defaultMode: .dark),
-    fonts: Fonts(text: "Inter", code: "JetBrains Mono")
+    palette: .autoLightDark(primary: .black, accent: .blue),
+    logo: "assets/logo.svg",
+    favicon: "assets/logo.svg",
+    fonts: .init(text: "Inter", code: "JetBrains Mono"),
+    features: [.backToTop, .searchHighlight]
 )
 ```
 
-## Bring your own templates
+| Option     | Purpose |
+| ---------- | ------- |
+| `palette`  | `Palette` with `primary`/`accent` `Color`s and a default mode (`.auto`/`.light`/`.dark`). |
+| `logo`     | Header logo (content-relative path). |
+| `favicon`  | Site favicon. |
+| `fonts`    | `Fonts(text:code:)` for body and code text. |
+| `features` | Opt-in extras: `.searchSuggest`, `.searchHighlight`, `.navigationTabs`, `.backToTop`. |
 
-For full control, point Kiln at a directory of your own Leaf templates and
-assets:
+`Color` has presets (`.black`, `.blue`, `.indigo`, …) or accepts any CSS string
+via `Color("#2f6feb")`.
+
+## Bringing your own templates
+
+To customise the markup, point Kiln at a directory of your own
+[Leaf](https://github.com/vapor/leaf-kit) templates and assets:
 
 ```swift
 theme: .custom(directory: "Theme")
 ```
 
-Templates resolve from your directory first and fall back to the bundled theme,
-so you only override what you need:
+Templates resolve from **your directory first** and fall back to the bundled
+theme, so you only override what you need. The theme is split into small
+partials:
 
-| File                      | Purpose                       |
-| ------------------------- | ----------------------------- |
-| `templates/base.leaf`     | The overall page shell        |
-| `templates/page.leaf`     | A standard documentation page |
-| `templates/home.leaf`     | The home page                 |
-| `templates/404.leaf`      | The error page                |
-| `css/theme.css`           | Styles                        |
+```
+Theme/
+├── templates/
+│   ├── base.leaf            # overall page shell (<head>, header, layout, scripts)
+│   ├── page.leaf            # a standard documentation page
+│   ├── home.leaf            # the home page
+│   ├── 404.leaf             # the error page
+│   └── partials/
+│       ├── header.leaf
+│       ├── footer.leaf
+│       ├── nav-tree.leaf
+│       ├── toc.leaf
+│       ├── search.leaf
+│       ├── language-switcher.leaf
+│       └── social-icons.leaf
+├── css/
+└── js/
+```
 
-!!! tip "Partials"
-    The default theme is split into small partials (`partials/header.leaf`,
-    `partials/nav-tree.leaf`, …) so you can override just the navigation, just
-    the footer, and so on.
+## Template context
 
-!!! seealso
-    See the [Configuration](configuration.md) guide for the full list of theme
-    options.
+Templates receive a context with `site`, `page`, `nav`, `language`, `languages`,
+and `searchIndexURL`. The rendered page body is injected with
+`#unsafeHTML(page.content)`.
+
+!!! tip "Per-page templates"
+    A page can opt into a different template via the `template` front-matter key
+    (see [Markdown](markdown.md)) — handy for a landing page or a differently
+    laid-out reference.
+
+## Extra CSS / JS
+
+For small additions you don't need a full custom theme — just add stylesheets or
+scripts (content-relative paths):
+
+```swift
+extraCSS: ["assets/custom.css"],
+extraJavaScript: ["assets/custom.js"]
+```

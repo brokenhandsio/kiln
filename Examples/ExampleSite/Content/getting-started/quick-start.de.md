@@ -1,23 +1,52 @@
 ---
-description: Erstelle deine erste Kiln-Dokumentationsseite in drei Schritten.
+description: Scaffolde, baue und betrachte deine erste Kiln-Dokumentationsseite.
 ---
 # Schnellstart
 
-Diese Anleitung führt dich durch den Bau deiner ersten Seite.
+Diese Anleitung bringt dich von Null zu einer live aktualisierten Doku-Seite.
 
-## 1. Konfiguration erstellen
+## 1. Ein Projekt scaffolden
+
+Am schnellsten geht es mit der CLI:
+
+```sh
+kiln new my-docs
+cd my-docs
+```
+
+`kiln new` fragt nach Name, URL und Sprachen und schreibt dann ein fertig
+baubares SwiftPM-Projekt:
+
+```
+my-docs/
+├── Package.swift
+├── Content/
+│   └── index.md
+└── Sources/
+    └── MyDocs/
+        └── main.swift
+```
+
+## 2. Die Seite konfigurieren
+
+`Sources/MyDocs/main.swift` ist die einzige Quelle der Wahrheit für deine Seite:
 
 ```swift
 import Kiln
 
 let site = KilnSite(name: "Meine Doku", url: "https://example.com") {
     Page("Willkommen", "index.md")
+    Section("Anleitungen") {
+        Page("Konfiguration", "guides/configuration.md")
+    }
 }
+
+try await Kiln.build(site, contentDirectory: "Content", outputDirectory: "site")
 ```
 
-## 2. Markdown schreiben
+## 3. Markdown schreiben
 
-Erstelle `Content/index.md`:
+Inhalte sind einfaches Markdown unter `Content/`. Erstelle `Content/index.md`:
 
 ```markdown
 # Willkommen
@@ -25,12 +54,16 @@ Erstelle `Content/index.md`:
 Hallo, Welt!
 ```
 
-## 3. Bauen
+## 4. Vorschau anzeigen
 
-```swift
-try await Kiln.build(site, contentDirectory: "Content", outputDirectory: "public")
+```sh
+kiln serve
 ```
 
+Das baut die Seite und liefert sie unter <http://127.0.0.1:8080> aus — mit
+automatischem Neubau bei jeder Änderung. Lade den Browser neu, um Änderungen zu
+sehen.
+
 !!! success "Fertig!"
-    Deine Seite liegt nun in `public/`. Liefere sie mit einem beliebigen
-    statischen Webserver aus.
+    Wenn du bereit zum Veröffentlichen bist, führe `kiln build` aus und stelle
+    das Verzeichnis `site/` auf einem beliebigen statischen Host bereit.
