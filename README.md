@@ -390,14 +390,17 @@ public/
 
 ## Example site
 
-A complete, runnable example that consumes Kiln as a dependency lives in
-[`Examples/ExampleSite`](Examples/ExampleSite):
+[`Examples/ExampleSite`](Examples/ExampleSite) is **Kiln's own documentation
+site** — a complete, runnable project that consumes Kiln as a dependency, and
+the canonical reference for how a real site is wired together (multi-page nav,
+localisation with fallback, SEO, search). Build and preview it with the CLI:
 
 ```sh
 cd Examples/ExampleSite
-swift run
-python3 -m http.server --directory public
+kiln serve --directory public
 ```
+
+(or `swift run && python3 -m http.server --directory public` without the CLI).
 
 ## Roadmap
 
