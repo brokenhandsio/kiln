@@ -15,6 +15,7 @@ jobs:
     name: Linux (Swift 6.2)
     runs-on: ubuntu-latest
     container: swift:6.2
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -41,6 +42,7 @@ jobs:
   macos:
     name: macOS
     runs-on: macos-26
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -64,8 +66,12 @@ jobs:
           key: spm-macos-${{ hashFiles('Package.swift', 'Examples/ExampleSite/Package.swift') }}
           restore-keys: spm-macos-
 
+      # `--no-parallel` runs swift-testing in-process instead of spawning the
+      # `swiftpm-testing-helper` worker, whose IPC with the parent deadlocks at
+      # launch on the headless macOS runner (the test bundle builds, then hangs
+      # with no output). In-process execution avoids that helper entirely.
       - name: Run tests
-        run: swift test
+        run: swift test --no-parallel
 
       - name: Build & generate the example site
         working-directory: Examples/ExampleSite
