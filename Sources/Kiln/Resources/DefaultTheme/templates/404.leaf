@@ -1,0 +1,9 @@
+#extend("base"):
+#export("content"):
+<article class="kiln-article kiln-error">
+    <h1>404</h1>
+    <p>The page you are looking for may have been moved, renamed, or might never have existed.</p>
+    <p><a href="/">Return to the home page</a></p>
+</article>
+#endexport
+#endextend

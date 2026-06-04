@@ -1,0 +1,7 @@
+#extend("base"):
+#export("content"):
+<article class="kiln-article">
+    #unsafeHTML(page.content)
+</article>
+#endexport
+#endextend

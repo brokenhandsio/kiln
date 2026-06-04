@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="#(language.locale)">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>#if(page.isHome):#(site.name)#else:#(page.title) · #(site.name)#endif</title>
+    #if(site.description):<meta name="description" content="#(site.description)">#endif
+    #if(site.author):<meta name="author" content="#(site.author)">#endif
+
+    <meta property="og:title" content="#if(page.isHome):#(site.name)#else:#(page.title)#endif">
+    #if(site.description):<meta property="og:description" content="#(site.description)">#endif
+    <meta property="og:type" content="website">
+
+    #if(site.favicon):<link rel="icon" href="/#(site.favicon)">#endif
+
+    #for(alt in languages):<link rel="alternate" hreflang="#(alt.locale)" href="#(alt.url)">
+    #endfor
+
+    <link rel="stylesheet" href="/_kiln/css/theme.css">
+    #for(href in site.extraCSS):<link rel="stylesheet" href="/#(href)">
+    #endfor
+
+    <style>
+        :root {
+            --kiln-primary: #(site.palette.primary);
+            --kiln-accent: #(site.palette.accent);
+            #if(site.fonts):--kiln-font-text: "#(site.fonts.text)", system-ui, sans-serif;
+            --kiln-font-code: "#(site.fonts.code)", ui-monospace, monospace;#endif
+        }
+    </style>
+    <script>
+        // Apply the saved (or configured) colour scheme before paint to avoid a flash.
+        (function () {
+            var stored = localStorage.getItem("kiln-palette");
+            var mode = stored || "#(site.palette.mode)";
+            if (mode === "auto") {
+                mode = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+            }
+            document.documentElement.setAttribute("data-palette", mode);
+        })();
+    </script>
+</head>
+<body>
+    #extend("partials/header")
+
+    <div class="kiln-backdrop" id="kiln-backdrop"></div>
+
+    <div class="kiln-layout">
+        <aside class="kiln-sidebar" id="kiln-sidebar">
+            <nav class="kiln-nav" aria-label="Main navigation">
+                #extend("partials/nav-tree", nav)
+            </nav>
+        </aside>
+
+        <main class="kiln-main">
+            #if(page.isFallback):
+            <div class="admonition kiln-fallback">
+                <p class="admonition-title">Translation unavailable</p>
+                <p>This page hasn't been translated to #(language.name) yet, so the default language is shown.</p>
+            </div>
+            #endif
+
+            #import("content")
+
+            <nav class="kiln-page-nav" aria-label="Page navigation">
+                #if(nav.previous):<a class="kiln-prev" href="#(nav.previous.url)"><span class="kiln-page-nav-label">Previous</span><span class="kiln-page-nav-title">#(nav.previous.title)</span></a>#endif
+                #if(nav.next):<a class="kiln-next" href="#(nav.next.url)"><span class="kiln-page-nav-label">Next</span><span class="kiln-page-nav-title">#(nav.next.title)</span></a>#endif
+            </nav>
+
+            #if(page.editURL):<a class="kiln-edit-link" href="#(page.editURL)">Edit this page</a>#endif
+        </main>
+
+        <aside class="kiln-toc">
+            #if(page.hasTOC):
+            <div class="kiln-toc-inner">
+                <p class="kiln-toc-title">On this page</p>
+                #extend("partials/toc")
+            </div>
+            #endif
+        </aside>
+    </div>
+
+    #extend("partials/footer")
+
+    <script>window.kilnSearchIndex = "#(searchIndexURL)";</script>
+    <script src="/_kiln/js/vendor/highlight.min.js"></script>
+    <script src="/_kiln/js/theme.js"></script>
+    #if(site.searchEnabled):<script src="/_kiln/js/search.js"></script>#endif
+    #for(src in site.extraJS):<script src="/#(src)"></script>
+    #endfor
+</body>
+</html>

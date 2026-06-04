@@ -1,0 +1,41 @@
+<ul class="kiln-nav-list">
+    #for(item in items):
+    <li class="kiln-nav-item kiln-nav-#(item.kind)">
+        #if(item.kind == "section"):
+        <details class="kiln-nav-section"#if(item.isActive): open#endif>
+            <summary class="kiln-nav-summary">#(item.title)</summary>
+            <ul class="kiln-nav-list">
+                #for(child in item.items):
+                <li class="kiln-nav-item kiln-nav-#(child.kind)">
+                    #if(child.kind == "section"):
+                    <details class="kiln-nav-section"#if(child.isActive): open#endif>
+                        <summary class="kiln-nav-summary">#(child.title)</summary>
+                        <ul class="kiln-nav-list">
+                            #for(leaf in child.items):
+                            <li class="kiln-nav-item kiln-nav-#(leaf.kind)">
+                                #if(leaf.kind == "link"):
+                                <a class="kiln-nav-link kiln-nav-external" href="#(leaf.url)" rel="noopener" target="_blank">#(leaf.title)</a>
+                                #else:
+                                <a class="kiln-nav-link#if(leaf.isCurrent): kiln-current#endif" href="#(leaf.url)"#if(leaf.isCurrent): aria-current="page"#endif>#(leaf.title)</a>
+                                #endif
+                            </li>
+                            #endfor
+                        </ul>
+                    </details>
+                    #elseif(child.kind == "link"):
+                    <a class="kiln-nav-link kiln-nav-external" href="#(child.url)" rel="noopener" target="_blank">#(child.title)</a>
+                    #else:
+                    <a class="kiln-nav-link#if(child.isCurrent): kiln-current#endif" href="#(child.url)"#if(child.isCurrent): aria-current="page"#endif>#(child.title)</a>
+                    #endif
+                </li>
+                #endfor
+            </ul>
+        </details>
+        #elseif(item.kind == "link"):
+        <a class="kiln-nav-link kiln-nav-external" href="#(item.url)" rel="noopener" target="_blank">#(item.title)</a>
+        #else:
+        <a class="kiln-nav-link#if(item.isCurrent): kiln-current#endif" href="#(item.url)"#if(item.isCurrent): aria-current="page"#endif>#(item.title)</a>
+        #endif
+    </li>
+    #endfor
+</ul>

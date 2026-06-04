@@ -1,0 +1,14 @@
+<ul class="kiln-toc-list">
+    #for(entry in page.toc):
+    <li class="kiln-toc-entry kiln-toc-level-#(entry.level)">
+        <a href="&#35;#(entry.id)">#(entry.title)</a>
+        #if(entry.hasChildren):
+        <ul class="kiln-toc-sublist">
+            #for(child in entry.children):
+            <li class="kiln-toc-entry kiln-toc-level-#(child.level)"><a href="&#35;#(child.id)">#(child.title)</a></li>
+            #endfor
+        </ul>
+        #endif
+    </li>
+    #endfor
+</ul>
