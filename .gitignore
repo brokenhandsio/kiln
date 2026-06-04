@@ -63,3 +63,8 @@ fastlane/test_output
 
 .claude/
 .vscode/
+
+# Stray SwiftPM/swiftc compiler artifacts (dependency & diagnostics files)
+# occasionally emitted into the working tree instead of .build/
+*.d
+*.dia
