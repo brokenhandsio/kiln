@@ -1,3 +1,6 @@
+---
+description: Add Kiln to your SwiftPM project as a dependency and start building documentation.
+---
 # Installation
 
 Add Kiln as a dependency in your `Package.swift`:

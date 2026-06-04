@@ -1,3 +1,6 @@
+---
+description: Erstelle deine erste Kiln-Dokumentationsseite in drei Schritten.
+---
 # Schnellstart
 
 Diese Anleitung führt dich durch den Bau deiner ersten Seite.

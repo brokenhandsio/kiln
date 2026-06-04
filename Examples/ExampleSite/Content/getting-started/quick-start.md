@@ -1,3 +1,6 @@
+---
+description: Build your first Kiln documentation site in three steps.
+---
 # Quick Start
 
 This guide walks you through building your first site.

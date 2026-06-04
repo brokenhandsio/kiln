@@ -1,3 +1,6 @@
+---
+description: Kiln ist ein Generator für Dokumentationsseiten in Swift — typsichere Konfiguration, Lokalisierung, Themes und Suche.
+---
 # Willkommen bei Kiln
 
 **Kiln** ist ein Generator für Dokumentationsseiten, geschrieben in Swift. Du

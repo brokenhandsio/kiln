@@ -1,3 +1,6 @@
+---
+description: Customise Kiln's default theme with palette and fonts, or bring your own Leaf templates.
+---
 # Theming
 
 Kiln ships with a modern default theme that supports light and dark colour
