@@ -137,7 +137,16 @@ site is defined in Swift, `kiln` drives your project's own executable (via
 `swift run`) rather than reading a config file — so the conventions are: your
 build writes to `./site`, and your content lives in `./Content`.
 
-Install it by building the `kiln` product from this package:
+### Install
+
+With [Homebrew](https://brew.sh) (macOS, Apple Silicon):
+
+```sh
+brew install brokenhandsio/tap/kiln
+```
+
+Or build the `kiln` product from source (any platform with a Swift toolchain,
+including Intel Macs and Linux):
 
 ```sh
 git clone https://github.com/brokenhandsio/kiln.git

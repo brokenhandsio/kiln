@@ -1,0 +1,146 @@
+name: Release
+
+# Tag a release to publish it:
+#   git tag v0.1.0 && git push origin v0.1.0
+#
+# This builds an arm64 (Apple Silicon) macOS binary, attaches it to the GitHub
+# Release, and updates the Homebrew formula in brokenhandsio/homebrew-tap so
+# `brew install brokenhandsio/tap/kiln` picks up the new version.
+#
+# All Swift package dependencies (Kiln, NIO, ArgumentParser, LeafKit, …) are
+# statically linked into the binary by SwiftPM's default; the only dynamic
+# dependencies are the macOS-provided system libraries and Swift runtime, so the
+# binary is self-contained on macOS 13+.
+#
+# Requires a repository secret `HOMEBREW_TAP_TOKEN`: a (fine-grained) personal
+# access token with `contents: write` on the brokenhandsio/homebrew-tap repo.
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build & publish
+    runs-on: macos-15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Swift 6.2+ is required by the package's experimental settings.
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Swift version
+        run: swift --version
+
+      - name: Derive version
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Run tests
+        run: swift test
+
+      - name: Stamp the CLI version
+        run: |
+          sed -i '' "s/^let kilnVersion = \".*\"/let kilnVersion = \"${{ steps.version.outputs.version }}\"/" Sources/CLI/KilnCLI.swift
+          grep "kilnVersion" Sources/CLI/KilnCLI.swift
+
+      - name: Build release binary (arm64)
+        run: |
+          swift build -c release --arch arm64 --product kiln
+          BIN_PATH="$(swift build -c release --arch arm64 --show-bin-path)"
+          echo "BIN_PATH=$BIN_PATH" >> "$GITHUB_ENV"
+          file "$BIN_PATH/kiln"
+
+      - name: Package tarball
+        id: package
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          TARBALL="kiln-${VERSION}-macos-arm64.tar.gz"
+          rm -rf staging dist && mkdir -p staging dist
+          cp "$BIN_PATH/kiln" staging/
+          # Bundle any SwiftPM resource bundles next to the binary so Bundle.module resolves.
+          if compgen -G "$BIN_PATH"/*.bundle > /dev/null; then
+            cp -R "$BIN_PATH"/*.bundle staging/
+          fi
+          cp LICENSE staging/ 2>/dev/null || true
+          tar -czf "dist/${TARBALL}" -C staging .
+          SHA256="$(shasum -a 256 "dist/${TARBALL}" | awk '{print $1}')"
+          echo "tarball=${TARBALL}" >> "$GITHUB_OUTPUT"
+          echo "sha256=${SHA256}" >> "$GITHUB_OUTPUT"
+          echo "Built ${TARBALL} (sha256 ${SHA256})"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/${{ steps.package.outputs.tarball }}
+          generate_release_notes: true
+
+      - name: Update Homebrew tap
+        env:
+          TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          TARBALL="${{ steps.package.outputs.tarball }}"
+          SHA256="${{ steps.package.outputs.sha256 }}"
+          URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/${TARBALL}"
+
+          git clone "https://x-access-token:${TAP_TOKEN}@github.com/brokenhandsio/homebrew-tap.git" tap
+          mkdir -p tap/Formula
+          cat > tap/Formula/kiln.rb <<EOF
+          # This file is managed by the release workflow in brokenhandsio/kiln.
+          # Manual edits will be overwritten on the next tagged release.
+          class Kiln < Formula
+            desc "Documentation website generator written in Swift"
+            homepage "https://github.com/brokenhandsio/kiln"
+            url "${URL}"
+            sha256 "${SHA256}"
+            version "${VERSION}"
+            license "MIT"
+
+            # The release binary is built for Apple Silicon only.
+            depends_on arch: :arm64
+            depends_on macos: :ventura
+
+            def install
+              libexec.install "kiln"
+              libexec.install Dir["*.bundle"]
+              bin.install_symlink libexec/"kiln"
+              prefix.install "LICENSE" if File.exist?("LICENSE")
+            end
+
+            test do
+              assert_match version.to_s, shell_output("#{bin}/kiln --version")
+            end
+          end
+          EOF
+
+          cd tap
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Formula/kiln.rb
+          if git diff --cached --quiet; then
+            echo "Formula already up to date."
+          else
+            git commit -m "kiln ${VERSION}"
+            git push
+          fi
+
+      - name: Verify the published formula installs and runs
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: "1"
+          HOMEBREW_NO_INSTALL_CLEANUP: "1"
+        run: |
+          # Installs from the freshly-written formula, which downloads the just-
+          # published release asset — exercises url, sha256, the bundle layout,
+          # and that the binary actually launches. Fails the release if broken.
+          brew install --formula ./tap/Formula/kiln.rb
+          kiln --version
+          test "$(kiln --version)" = "${{ steps.version.outputs.version }}"
