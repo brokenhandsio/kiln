@@ -1,11 +1,13 @@
 // Kiln client-side search. Loads the per-language search index emitted at build
 // time and ranks documents with a small TF-style scorer — no external library.
 //
-// Tokenisation is Unicode-aware so it works across languages: accented Latin
-// scripts are kept whole, Han ideographs and Japanese kana (which aren't
-// space-separated) are segmented into overlapping bigrams so phrase queries
-// match, and everything else (incl. space-separated Hangul) is treated as
-// whole words. Matching itself is substring-based against the original text.
+// Tokenisation is Unicode-aware and works across languages:
+//   * matching is diacritic-insensitive — text and queries are folded
+//     (NFD + combining marks stripped), so "validacion" matches "validación";
+//   * Han ideographs and Japanese kana (not space-separated) are segmented into
+//     overlapping bigrams so phrase queries match;
+//   * everything else (incl. space-separated Hangul, Latin) is matched whole.
+// Display always uses the original, accented text.
 // (A future iteration may swap in a Wasm-backed index.)
 (function () {
     "use strict";
@@ -16,11 +18,17 @@
 
     // Han (incl. extension A & compatibility) + hiragana/katakana (incl.
     // halfwidth). Deliberately excludes Hangul, which is space-separated.
-    var SEGMENTED = /[぀-ヿ㐀-䶿一-鿿豈-﫿ｦ-ﾟ]/;
+    var SEGMENTED = /[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\uff66-\uff9f]/;
 
     var docs = [];
     var loaded = false;
     var loading = false;
+
+    // Lowercase and remove diacritics. Under NFC input each character folds to
+    // exactly one character, so folded offsets line up with the original text.
+    function fold(value) {
+        return value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    }
 
     function loadIndex() {
         if (loaded || loading) return;
@@ -29,6 +37,11 @@
             .then(function (response) { return response.json(); })
             .then(function (data) {
                 docs = (data && data.docs) || [];
+                // Precompute folded title/text once for matching.
+                docs.forEach(function (doc) {
+                    doc.foldedTitle = fold(doc.title || "");
+                    doc.foldedText = fold(doc.text || "");
+                });
                 loaded = true;
                 loading = false;
                 if (input.value.trim()) run(input.value);
@@ -36,15 +49,14 @@
             .catch(function () { loading = false; });
     }
 
-    // Whole-word units used for display (highlighting, snippet anchoring):
-    // maximal runs of letters/numbers, keeping accents and CJK runs intact.
+    // Maximal folded runs of letters/numbers (whole words, incl. CJK runs),
+    // used both for matching and for highlighting.
     function units(query) {
-        return query.toLowerCase().match(/[\p{L}\p{N}_]+/gu) || [];
+        return fold(query).match(/[\p{L}\p{N}_]+/gu) || [];
     }
 
-    // Expand a unit into the terms used for matching: segmented scripts become
-    // overlapping bigrams (single character if only one), everything else stays
-    // whole. Mixed units are split into their script runs first.
+    // Expand a unit into match terms: segmented scripts become overlapping
+    // bigrams (single char if only one), everything else stays whole.
     function expand(unit) {
         var terms = [];
         var word = "";
@@ -68,34 +80,31 @@
     }
 
     function score(doc, terms) {
-        var title = doc.title.toLowerCase();
-        var text = doc.text.toLowerCase();
         var total = 0;
         for (var i = 0; i < terms.length; i++) {
             var term = terms[i];
             if (!term) continue;
-            if (title.indexOf(term) !== -1) total += 10;
-            var occurrences = text.split(term).length - 1;
+            if (doc.foldedTitle.indexOf(term) !== -1) total += 10;
+            var occurrences = doc.foldedText.split(term).length - 1;
             total += occurrences;
-            if (occurrences === 0 && title.indexOf(term) === -1) {
+            if (occurrences === 0 && doc.foldedTitle.indexOf(term) === -1) {
                 return 0; // every term must appear somewhere
             }
         }
         return total;
     }
 
-    function snippet(text, displayUnits) {
-        var lower = text.toLowerCase();
+    function snippet(doc, queryUnits) {
+        var folded = doc.foldedText;
         var position = -1;
-        for (var i = 0; i < displayUnits.length; i++) {
-            position = lower.indexOf(displayUnits[i]);
+        for (var i = 0; i < queryUnits.length; i++) {
+            position = folded.indexOf(queryUnits[i]);
             if (position !== -1) break;
         }
         if (position === -1) position = 0;
         var start = Math.max(0, position - 50);
-        var excerpt = text.slice(start, start + 180);
-        if (start > 0) excerpt = "…" + excerpt;
-        return highlight(excerpt, displayUnits);
+        var prefix = start > 0 ? "…" : "";
+        return highlightRange(prefix + doc.text.slice(start, start + 180), queryUnits);
     }
 
     function escapeHTML(value) {
@@ -104,22 +113,38 @@
         });
     }
 
-    function highlight(value, displayUnits) {
-        var escaped = escapeHTML(value);
-        displayUnits.forEach(function (unit) {
+    // Diacritic-insensitive highlighting: fold a copy of the text to locate
+    // matches, then wrap the corresponding spans of the *original* text in
+    // <mark>. Folded/original offsets align for NFC input.
+    function highlightRange(text, queryUnits) {
+        var folded = fold(text);
+        var marked = new Array(text.length).fill(false);
+        queryUnits.forEach(function (unit) {
             if (!unit) return;
-            var pattern = new RegExp("(" + unit.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + ")", "ig");
-            escaped = escaped.replace(pattern, "<mark>$1</mark>");
+            var from = 0;
+            var index;
+            while ((index = folded.indexOf(unit, from)) !== -1) {
+                for (var i = index; i < index + unit.length && i < marked.length; i++) { marked[i] = true; }
+                from = index + unit.length;
+            }
         });
-        return escaped;
+        var out = "";
+        var open = false;
+        for (var i = 0; i < text.length; i++) {
+            if (marked[i] && !open) { out += "<mark>"; open = true; }
+            else if (!marked[i] && open) { out += "</mark>"; open = false; }
+            out += escapeHTML(text[i]);
+        }
+        if (open) out += "</mark>";
+        return out;
     }
 
     function run(query) {
-        var displayUnits = units(query);
-        if (!displayUnits.length) { hide(); return; }
+        var queryUnits = units(query);
+        if (!queryUnits.length) { hide(); return; }
 
         var terms = [];
-        displayUnits.forEach(function (unit) { terms = terms.concat(expand(unit)); });
+        queryUnits.forEach(function (unit) { terms = terms.concat(expand(unit)); });
         if (!terms.length) { hide(); return; }
 
         var matches = [];
@@ -128,10 +153,10 @@
             if (value > 0) matches.push({ doc: docs[i], score: value });
         }
         matches.sort(function (a, b) { return b.score - a.score; });
-        render(matches.slice(0, 10), displayUnits);
+        render(matches.slice(0, 10), queryUnits);
     }
 
-    function render(matches, displayUnits) {
+    function render(matches, queryUnits) {
         if (!matches.length) {
             results.innerHTML = '<div class="kiln-search-empty">No results found</div>';
             results.hidden = false;
@@ -141,8 +166,8 @@
         matches.forEach(function (match) {
             var location = match.doc.location ? "/" + match.doc.location : "/";
             html += '<a class="kiln-search-result" href="' + location + '">' +
-                '<span class="kiln-search-result-title">' + highlight(match.doc.title, displayUnits) + "</span>" +
-                '<span class="kiln-search-result-context">' + snippet(match.doc.text, displayUnits) + "</span>" +
+                '<span class="kiln-search-result-title">' + highlightRange(match.doc.title, queryUnits) + "</span>" +
+                '<span class="kiln-search-result-context">' + snippet(match.doc, queryUnits) + "</span>" +
                 "</a>";
         });
         results.innerHTML = html;

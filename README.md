@@ -257,7 +257,9 @@ and `searchIndexURL`. The rendered page body is injected with
 A search index (`search/search_index.json`) is generated per language at build
 time. The bundled theme includes a small, dependency-free client that fetches
 the index and ranks results in the browser — no external search service and no
-build-time JavaScript toolchain required.
+build-time JavaScript toolchain required. Tokenisation is Unicode-aware: accented
+Latin scripts are matched whole, and Han/kana (which aren't space-separated) are
+segmented into bigrams so CJK queries work.
 
 ## Output
 
@@ -294,8 +296,14 @@ python3 -m http.server --directory public
 
 Planned, roughly in priority order:
 
-- **Search improvements** — a dedicated results page, better ranking, and
-  search suggestions/highlighting.
+- **AI / agent-friendly output** — make the docs trivial for agents and other AI
+  tools to scan and parse: generate an [`llms.txt`](https://llmstxt.org) index
+  (and a concatenated `llms-full.txt`), expose each page's raw markdown source
+  alongside its HTML for clean machine consumption, and keep emitting semantic
+  HTML + structured metadata.
+- **Search improvements** — accent-insensitive matching (so accent-free queries
+  match accented text), localised UI strings (placeholder, "no results"), better
+  ranking, a dedicated results page, and suggestions/highlighting.
 - **`kiln` CLI** — `build`, `serve` (with live reload), and `new` (project
   scaffolding) for people who'd rather not write the small build executable.
 - **Versioned documentation** — multiple doc versions with a version switcher.
