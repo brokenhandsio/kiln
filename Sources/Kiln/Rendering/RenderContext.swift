@@ -99,6 +99,12 @@ struct RenderContext {
                 "code": .string(fonts.code),
             ])
         }
+        if let carbon = site.carbonAds {
+            dict["carbonAds"] = .dictionary([
+                "serve": .string(carbon.serve),
+                "placement": .string(carbon.placement),
+            ])
+        }
         return .dictionary(dict)
     }
 

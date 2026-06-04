@@ -426,3 +426,32 @@ details.admonition > summary.admonition-title::-webkit-details-marker { display:
 [data-palette="dark"] .hljs-title, [data-palette="dark"] .hljs-section, [data-palette="dark"] .hljs-function .hljs-title { color: #d2a8ff; }
 [data-palette="dark"] .hljs-type, [data-palette="dark"] .hljs-class .hljs-title, [data-palette="dark"] .hljs-attr, [data-palette="dark"] .hljs-attribute { color: #ffa657; }
 [data-palette="dark"] .hljs-meta { color: #8b949e; }
+
+/* ---- Carbon ads (in the TOC sidebar) ---- */
+.kiln-carbon { margin-top: 24px; }
+#carbonads {
+    font-size: 12px;
+    font-family: var(--kiln-font-text);
+}
+#carbonads > span {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--kiln-radius);
+}
+#carbonads a { color: var(--text); text-decoration: none; }
+#carbonads a:hover { color: var(--accent); }
+#carbonads .carbon-wrap { display: flex; flex-direction: column; gap: 10px; }
+#carbonads .carbon-img img { display: block; max-width: 100%; height: auto; border-radius: 6px; }
+#carbonads .carbon-text { line-height: 1.4; color: var(--muted); }
+#carbonads .carbon-poweredby {
+    display: block;
+    margin-top: 4px;
+    color: var(--muted);
+    font-size: 0.65em;
+    letter-spacing: 0.15ch;
+    text-transform: uppercase;
+}

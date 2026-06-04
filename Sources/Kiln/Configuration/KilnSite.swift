@@ -43,6 +43,9 @@ public struct KilnSite: Sendable {
     public var theme: Theme
     /// Social links shown in the footer.
     public var social: [SocialLink]
+    /// Optional Carbon Ads configuration. When set, the default theme shows a
+    /// Carbon ad in the table-of-contents sidebar on desktop.
+    public var carbonAds: CarbonAds?
     /// Extra CSS files (relative to the content directory) to include.
     public var extraCSS: [String]
     /// Extra JavaScript files (relative to the content directory) to include.
@@ -65,6 +68,7 @@ public struct KilnSite: Sendable {
         copyright: String? = nil,
         theme: Theme = .default(),
         social: [SocialLink] = [],
+        carbonAds: CarbonAds? = nil,
         extraCSS: [String] = [],
         extraJavaScript: [String] = [],
         languages: [Language] = [Language(.english, isDefault: true)],
@@ -81,6 +85,7 @@ public struct KilnSite: Sendable {
         self.copyright = copyright
         self.theme = theme
         self.social = social
+        self.carbonAds = carbonAds
         self.extraCSS = extraCSS
         self.extraJavaScript = extraJavaScript
         self.languages = languages

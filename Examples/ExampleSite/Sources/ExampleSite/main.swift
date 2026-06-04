@@ -27,6 +27,8 @@ let site = KilnSite(
         .init(icon: .github, link: "https://github.com/brokenhandsio"),
         .init(icon: .mastodon, link: "https://hachyderm.io/@kiln"),
     ],
+    // Demo Carbon Ads wiring (these placeholder IDs won't serve a real ad).
+    carbonAds: .init(serve: "DEMOSERVE", placement: "kiln-example"),
     languages: [
         .init(.english, isDefault: true),
         .init(

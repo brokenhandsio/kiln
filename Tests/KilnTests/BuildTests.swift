@@ -20,6 +20,7 @@ struct BuildTests {
             description: "Fixture site description.",
             image: "assets/card.png",
             twitterSite: "@fixture",
+            carbonAds: .init(serve: "TESTSERVE", placement: "fixture"),
             languages: [
                 .init(.english, isDefault: true),
                 .init(.german, navTranslations: ["Section": "Abschnitt"],
@@ -144,6 +145,16 @@ struct BuildTests {
         // English page uses the built-in defaults.
         let englishHome = try read(output.appendingPathComponent("index.html"))
         #expect(englishHome.contains("placeholder=\"Search\""))
+    }
+
+    @Test("Carbon ads slot is emitted when configured")
+    func carbonAds() async throws {
+        let output = try await buildFixture()
+        defer { try? FileManager.default.removeItem(at: output) }
+        let home = try read(output.appendingPathComponent("index.html"))
+        #expect(home.contains("id=\"kiln-carbon\""))
+        #expect(home.contains("data-serve=\"TESTSERVE\""))
+        #expect(home.contains("data-placement=\"fixture\""))
     }
 
     @Test("robots.txt points at the sitemap")

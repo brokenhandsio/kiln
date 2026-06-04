@@ -50,7 +50,8 @@ admonitions, and more.
   hreflang alternates, OpenGraph and Twitter card tags (with a site-wide default
   preview image and per-page front-matter overrides), plus `sitemap.xml` and
   `robots.txt`.
-- **Custom error pages**, pretty URLs, and automatic asset copying.
+- **Custom error pages** (a styled 404), pretty URLs, automatic asset copying,
+  and optional [Carbon Ads](https://www.carbonads.net).
 - **Cross-platform** — builds and runs on macOS and Linux.
 
 ## Requirements
@@ -223,6 +224,7 @@ Supported out of the box:
 | `copyright`       | `String?`             | Footer notice. |
 | `theme`           | `Theme`               | `.default(…)` or `.custom(directory:…)`. |
 | `social`          | `[SocialLink]`        | `icon` (`.github`, `.mastodon`, `.twitter`, `.discord`, `.linkedin`, `.youtube`, `.rss`, `.custom`) + `link`. |
+| `carbonAds`       | `CarbonAds?`          | [Carbon Ads](https://www.carbonads.net) `serve`/`placement`; shown in the TOC sidebar on desktop. |
 | `extraCSS`        | `[String]`            | Extra stylesheets (relative to the content dir). |
 | `extraJavaScript` | `[String]`            | Extra scripts. |
 | `languages`       | `[Language]`          | Each `Language(_ code: LanguageCode, …)` — a built-in case like `.english`/`.german` or `.custom(code:name:)` — with `isDefault`, `build`, `siteName`, `description`, `navTranslations`, `localisation`. |

@@ -92,6 +92,9 @@
                 #extend("partials/toc")
             </div>
             #endif
+            #if(site.carbonAds):
+            <div class="kiln-carbon" id="kiln-carbon" data-serve="#(site.carbonAds.serve)" data-placement="#(site.carbonAds.placement)"></div>
+            #endif
         </aside>
     </div>
 
