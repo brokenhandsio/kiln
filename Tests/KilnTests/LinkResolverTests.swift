@@ -6,7 +6,7 @@ struct LinkResolverTests {
     let urls = SiteURLs(defaultLocale: "en")
 
     func resolver(page: String, locale: String = "en") -> LinkResolver {
-        LinkResolver(currentLogicalPath: page, locale: locale, urls: urls)
+        LinkResolver(currentLogicalPath: page, locale: locale, urls: urls, knownLocales: ["en", "de", "es"])
     }
 
     @Test("Bare same-directory .md links resolve to pretty URLs")
@@ -26,6 +26,17 @@ struct LinkResolverTests {
     func indexLinks() {
         let r = resolver(page: "section/page.md")
         #expect(r.resolve("../index.md") == "/")
+    }
+
+    @Test("Locale-suffixed .md links resolve to that locale's URL")
+    func localeSuffixedLinks() {
+        let r = resolver(page: "security/authentication.de.md", locale: "de")
+        // An explicit locale suffix is stripped and honoured.
+        #expect(r.resolve("../basics/content.de.md") == "/de/basics/content/")
+        // Cross-locale explicit links honour the named locale, not the page's.
+        #expect(r.resolve("../basics/content.es.md") == "/es/basics/content/")
+        // A non-locale middle segment is left intact (and keeps the page's locale).
+        #expect(r.resolve("hello.world.md") == "/de/security/hello.world/")
     }
 
     @Test("Non-default locales are prefixed")

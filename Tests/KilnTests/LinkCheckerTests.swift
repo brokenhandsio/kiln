@@ -11,6 +11,7 @@ struct LinkCheckerTests {
             "basics/routing.md": ["en": ["overview", "http-method"]],
         ],
         defaultLocale: "en",
+        knownLocales: ["en", "de", "es"],
         // Resolved (content-relative) asset paths that exist.
         assetExists: { $0 == "basics/images/ok.png" || $0 == "basics/diagram.png" }
     )
@@ -32,6 +33,15 @@ struct LinkCheckerTests {
             "/already/absolute/",         // root-absolute — skipped
         ], images: ["images/ok.png", "../basics/diagram.png"])
         #expect(found.isEmpty)
+    }
+
+    @Test("Locale-suffixed links validate against the logical page")
+    func localeSuffixedLinks() {
+        // `content.de.md` → logical basics/content.md (built) → valid.
+        #expect(issues(["content.de.md"]).isEmpty)
+        // A locale-suffixed link to a page that isn't built is still reported,
+        // by its logical path.
+        #expect(issues(["typo.es.md"]).first?.kind == .missingPage(target: "basics/typo.md"))
     }
 
     @Test("A link to a non-built page is reported")

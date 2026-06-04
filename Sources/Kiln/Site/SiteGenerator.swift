@@ -113,6 +113,7 @@ public struct SiteGenerator {
             builtPages: linkData.builtPages,
             slugs: linkData.slugs,
             defaultLocale: defaultLocale,
+            knownLocales: Set(site.languages.map(\.locale)),
             assetExists: { [contentDirectory] relativePath in
                 FileManager.default.fileExists(atPath: contentDirectory.appendingPathComponent(relativePath).path)
             }
@@ -166,7 +167,8 @@ public struct SiteGenerator {
             throw ContentError.missingPage(logicalPath: logicalPath)
         }
 
-        let linkResolver = LinkResolver(currentLogicalPath: logicalPath, locale: language.locale, urls: urls)
+        let linkResolver = LinkResolver(currentLogicalPath: logicalPath, locale: language.locale, urls: urls,
+                                        knownLocales: Set(site.languages.map(\.locale)))
         let rendered = markdown.render(page.body, linkResolver: linkResolver)
         let title = page.frontMatter.title ?? rendered.firstHeading ?? navTitle
         let isFallback = !language.isDefault && !store.hasTranslation(forLogicalPath: logicalPath, locale: language.locale)

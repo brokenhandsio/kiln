@@ -81,6 +81,9 @@ struct LinkChecker {
     /// `logicalPath -> locale -> heading anchor ids` for anchor validation.
     let slugs: [String: [String: Set<String>]]
     let defaultLocale: String
+    /// Locale codes recognised as filename suffixes (so `content.de.md` is
+    /// treated as the logical path `content.md`).
+    let knownLocales: Set<String>
     /// Whether a content-relative asset path (e.g. `images/x.png`) exists.
     let assetExists: (String) -> Bool
 
@@ -117,9 +120,11 @@ struct LinkChecker {
 
         let (path, fragment) = splitFragment(raw)
         guard !path.isEmpty else { return nil }
-        let target = LinkChecker.resolve(path, from: logicalPath)
+        let resolved = LinkChecker.resolve(path, from: logicalPath)
 
-        if target.hasSuffix(".md") {
+        if resolved.hasSuffix(".md") {
+            // A localised target (`content.de.md`) maps to its logical path.
+            let target = LinkResolver.stripLocaleSuffix(resolved, knownLocales: knownLocales).logicalPath
             if !builtPages.contains(target) {
                 return LinkIssue(sourcePath: sourcePath, locale: locale, link: raw, kind: .missingPage(target: target))
             }
@@ -134,8 +139,8 @@ struct LinkChecker {
         }
 
         // A relative link to a non-`.md` file is an asset reference.
-        return assetExists(target) ? nil
-            : LinkIssue(sourcePath: sourcePath, locale: locale, link: raw, kind: .missingAsset(path: target))
+        return assetExists(resolved) ? nil
+            : LinkIssue(sourcePath: sourcePath, locale: locale, link: raw, kind: .missingAsset(path: resolved))
     }
 
     private func checkAsset(_ raw: String, isImage: Bool, from logicalPath: String, locale: String, sourcePath: String) -> LinkIssue? {

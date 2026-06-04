@@ -52,6 +52,9 @@ admonitions, and more.
   `robots.txt`.
 - **Custom error pages** (a styled 404), pretty URLs, automatic asset copying,
   and optional [Carbon Ads](https://www.carbonads.net).
+- **Build-time link checking** — internal `.md` links (incl. localised
+  `content.de.md` targets), `#anchor` fragments, and relative assets are
+  validated against the built site; warn or fail the build.
 - **Cross-platform** — builds and runs on macOS and Linux.
 
 ## Requirements
@@ -329,7 +332,6 @@ Planned, roughly in priority order:
 - **`kiln` CLI** — `build`, `serve` (with live reload), and `new` (project
   scaffolding) for people who'd rather not write the small build executable.
 - **Versioned documentation** — multiple doc versions with a version switcher.
-- **`mkdocs.yml` importer** — to ease migrating existing MkDocs sites.
 
 ## Development
 

@@ -6,6 +6,8 @@
 ///   target page's pretty, locale-prefixed URL (e.g. `content.md` →
 ///   `/basics/content/`, `../advanced/sessions.md#config` →
 ///   `/advanced/sessions/#config`).
+/// - A link that names a localised file directly (`content.de.md`) resolves to
+///   that locale's URL; the locale suffix is recognised and stripped.
 /// - Any other relative reference (images, downloads) becomes a root-absolute
 ///   path (e.g. `../images/x.png` → `/images/x.png`), since project assets are
 ///   copied to the site root preserving their layout.
@@ -15,11 +17,13 @@ public struct LinkResolver: Sendable {
     let currentLogicalPath: String
     let locale: String
     let urls: SiteURLs
+    let knownLocales: Set<String>
 
-    public init(currentLogicalPath: String, locale: String, urls: SiteURLs) {
+    public init(currentLogicalPath: String, locale: String, urls: SiteURLs, knownLocales: Set<String> = []) {
         self.currentLogicalPath = currentLogicalPath
         self.locale = locale
         self.urls = urls
+        self.knownLocales = knownLocales
     }
 
     public func resolve(_ destination: String) -> String {
@@ -47,10 +51,37 @@ public struct LinkResolver: Sendable {
         let resolved = Self.normalise(directory(of: currentLogicalPath) + "/" + path)
 
         if resolved.hasSuffix(".md") {
-            return urls.urlPath(forLogicalPath: resolved, locale: locale) + fragment
+            // A link may name a localised file directly (`content.de.md`); strip
+            // the locale to the logical path and resolve to that locale's URL.
+            let (logicalPath, explicitLocale) = Self.stripLocaleSuffix(resolved, knownLocales: knownLocales)
+            return urls.urlPath(forLogicalPath: logicalPath, locale: explicitLocale ?? locale) + fragment
         } else {
             return "/" + resolved + fragment
         }
+    }
+
+    /// Strip a recognised locale suffix from a `.md` path:
+    /// `"basics/content.de.md"` → (`"basics/content.md"`, `"de"`), while
+    /// `"basics/content.md"` and `"hello.world.md"` are returned unchanged with
+    /// a `nil` locale.
+    static func stripLocaleSuffix(_ path: String, knownLocales: Set<String>) -> (logicalPath: String, locale: String?) {
+        let directory: String
+        let filename: String
+        if let slash = path.lastIndex(of: "/") {
+            directory = String(path[...slash])
+            filename = String(path[path.index(after: slash)...])
+        } else {
+            directory = ""
+            filename = path
+        }
+        let components = filename.split(separator: ".", omittingEmptySubsequences: false).map(String.init)
+        guard components.count >= 3, knownLocales.contains(components[components.count - 2]) else {
+            return (path, nil)
+        }
+        let locale = components[components.count - 2]
+        var logicalComponents = components
+        logicalComponents.remove(at: logicalComponents.count - 2)
+        return (directory + logicalComponents.joined(separator: "."), locale)
     }
 
     /// The directory portion of a logical path (`"security/jwt.md"` → `"security"`,
