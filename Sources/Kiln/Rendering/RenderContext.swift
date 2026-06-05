@@ -15,6 +15,45 @@ public struct LanguageAlternate: Sendable {
     }
 }
 
+/// An entry in the version switcher (the URL is this page's equivalent in that
+/// version, or that version's home if the page doesn't exist there).
+public struct VersionAlternate: Sendable {
+    public var id: String
+    public var name: String
+    public var url: String
+    public var isCurrent: Bool
+    public var isPrerelease: Bool
+    public var deprecated: Bool
+
+    public init(id: String, name: String, url: String, isCurrent: Bool, isPrerelease: Bool, deprecated: Bool) {
+        self.id = id
+        self.name = name
+        self.url = url
+        self.isCurrent = isCurrent
+        self.isPrerelease = isPrerelease
+        self.deprecated = deprecated
+    }
+}
+
+/// Per-page versioning data passed to templates. The default (neutral) value
+/// produces no version-related markup, so unversioned sites are unchanged.
+struct VersionContext: Sendable {
+    var isVersioned: Bool = false
+    var alternates: [VersionAlternate] = []
+    var currentID: String = ""
+    var currentName: String = ""
+    var isPrerelease: Bool = false
+    var deprecated: Bool = false
+    /// Whether the current version is the default (latest) one.
+    var isLatest: Bool = true
+    /// The latest version's equivalent URL for this page (for the banner/canonical).
+    var latestURL: String? = nil
+    /// `""` for the default version, else `/<id>` (no trailing slash), for search.js.
+    var basePath: String = ""
+    /// Emit `<meta name="robots" content="noindex">` (non-default versions).
+    var noindex: Bool = false
+}
+
 /// Everything a Leaf template needs to render one page, assembled into the
 /// `[String: LeafData]` context `LeafRenderer` expects.
 ///
@@ -50,6 +89,9 @@ struct RenderContext {
 
     var navigation: PageNavigation
 
+    /// Versioning data (neutral by default ⇒ no version markup for unversioned sites).
+    var version: VersionContext = VersionContext()
+
     /// The localised site name (falls back to the global site name).
     private var siteName: String {
         language.siteName ?? site.name
@@ -66,7 +108,35 @@ struct RenderContext {
             "baseURL": .string(baseURL),
             "searchIndexURL": .string(searchIndexURL),
             "markdownURL": .string(markdownURL),
+            "versions": .array(version.alternates.map(Self.versionAlternateData)),
+            "currentVersion": currentVersionData,
+            "isVersioned": .bool(version.isVersioned),
+            "isLatest": .bool(version.isLatest),
+            "latestURL": .string(version.latestURL),
+            "versionBasePath": .string(version.basePath),
+            "noindex": .bool(version.noindex),
         ]
+    }
+
+    private var currentVersionData: LeafData {
+        .dictionary([
+            "id": .string(version.currentID),
+            "name": .string(version.currentName),
+            "isPrerelease": .bool(version.isPrerelease),
+            "deprecated": .bool(version.deprecated),
+            "isLatest": .bool(version.isLatest),
+        ])
+    }
+
+    private static func versionAlternateData(_ alternate: VersionAlternate) -> LeafData {
+        .dictionary([
+            "id": .string(alternate.id),
+            "name": .string(alternate.name),
+            "url": .string(alternate.url),
+            "isCurrent": .bool(alternate.isCurrent),
+            "isPrerelease": .bool(alternate.isPrerelease),
+            "deprecated": .bool(alternate.deprecated),
+        ])
     }
 
     // MARK: Site
@@ -155,6 +225,8 @@ struct RenderContext {
             "notFoundLink": .string(s.notFoundLink),
             "toggleNavigation": .string(s.toggleNavigation),
             "toggleColourScheme": .string(s.toggleColourScheme),
+            "oldVersionMessage": .string(s.oldVersionMessage),
+            "oldVersionLink": .string(s.oldVersionLink),
         ])
     }
 

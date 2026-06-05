@@ -200,6 +200,19 @@ struct BuildTests {
         #expect(robots.contains("Sitemap: https://fixture.example.com/sitemap.xml"))
     }
 
+    @Test("Unversioned sites emit no versioning artifacts (backward compatible)")
+    func unversioned() async throws {
+        let output = try await buildFixture()
+        defer { try? FileManager.default.removeItem(at: output) }
+
+        #expect(!FileManager.default.fileExists(atPath: output.appendingPathComponent("versions.json").path))
+        let home = try read(output.appendingPathComponent("index.html"))
+        #expect(home.contains("window.kilnVersionBase = \"\""))
+        #expect(!home.contains("kiln-version-switcher"))
+        #expect(!home.contains("kiln-version-notice"))
+        #expect(!home.contains("noindex"))
+    }
+
     @Test("Search index lists pages")
     func searchIndex() async throws {
         let output = try await buildFixture()

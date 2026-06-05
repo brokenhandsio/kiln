@@ -11,9 +11,13 @@ public import Foundation
 /// `/<locale>/`. This mirrors mkdocs-static-i18n's suffix layout.
 public struct SiteURLs: Sendable {
     public let defaultLocale: String
+    /// The version URL prefix, including a trailing slash when set (e.g.
+    /// `"4.0/"`), or `""` for the default version (served at the root).
+    public let versionPrefix: String
 
-    public init(defaultLocale: String) {
+    public init(defaultLocale: String, versionPrefix: String = "") {
         self.defaultLocale = defaultLocale
+        self.versionPrefix = versionPrefix
     }
 
     /// The pretty, locale-independent path for a logical path:
@@ -37,14 +41,17 @@ public struct SiteURLs: Sendable {
         locale == defaultLocale ? "" : locale + "/"
     }
 
-    /// The absolute, site-relative URL for a page, e.g. `/de/install/macos/`.
+    /// The absolute, site-relative URL for a page, e.g. `/4.0/de/install/macos/`.
     public func urlPath(forLogicalPath logicalPath: String, locale: String) -> String {
-        "/" + localePrefix(locale) + prettyPath(forLogicalPath: logicalPath)
+        "/" + versionPrefix + localePrefix(locale) + prettyPath(forLogicalPath: logicalPath)
     }
 
     /// The on-disk output file for a page (`…/install/macos/index.html`).
     public func outputFile(forLogicalPath logicalPath: String, locale: String, in outputDirectory: URL) -> URL {
         var url = outputDirectory
+        for component in versionPrefix.split(separator: "/") {
+            url.appendPathComponent(String(component), isDirectory: true)
+        }
         if locale != defaultLocale {
             url.appendPathComponent(locale, isDirectory: true)
         }
@@ -54,6 +61,25 @@ public struct SiteURLs: Sendable {
         }
         url.appendPathComponent("index.html", isDirectory: false)
         return url
+    }
+
+    /// The on-disk directory for a locale within this version (the version root
+    /// for the default locale), e.g. `<output>/4.0/de/`.
+    public func directory(forLocale locale: String, in outputDirectory: URL) -> URL {
+        var url = outputDirectory
+        for component in versionPrefix.split(separator: "/") {
+            url.appendPathComponent(String(component), isDirectory: true)
+        }
+        if locale != defaultLocale {
+            url.appendPathComponent(locale, isDirectory: true)
+        }
+        return url
+    }
+
+    /// The root-relative URL of a locale's search index within this version,
+    /// e.g. `/4.0/de/search/search_index.json`.
+    public func searchIndexURLPath(forLocale locale: String) -> String {
+        "/" + versionPrefix + localePrefix(locale) + "search/search_index.json"
     }
 
     /// The relative path from a page back to the site root, e.g. `../../`,

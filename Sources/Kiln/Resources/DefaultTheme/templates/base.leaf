@@ -10,6 +10,7 @@
     #if(site.author):<meta name="author" content="#(site.author)">#endif
     <meta name="theme-color" content="#(site.palette.primary)">
     <meta name="generator" content="Kiln">
+    #if(noindex):<meta name="robots" content="noindex">#endif
 
     <!-- Open Graph -->
     <meta property="og:type" content="#if(page.isHome):website#else:article#endif">
@@ -69,6 +70,12 @@
         </aside>
 
         <main class="kiln-main">
+            #if(isVersioned):#if(!isLatest):
+            <div class="admonition warning kiln-version-notice">
+                <p>#(strings.oldVersionMessage) <a href="#(latestURL)">#(strings.oldVersionLink)</a></p>
+            </div>
+            #endif#endif
+
             #if(page.isFallback):
             <div class="admonition kiln-fallback">
                 <p class="admonition-title">#(strings.fallbackTitle)</p>
@@ -101,7 +108,7 @@
 
     #extend("partials/footer")
 
-    <script>window.kilnSearchIndex = "#(searchIndexURL)";</script>
+    <script>window.kilnSearchIndex = "#(searchIndexURL)"; window.kilnVersionBase = "#(versionBasePath)";</script>
     <script src="/_kiln/js/vendor/highlight.min.js"></script>
     <script src="/_kiln/js/theme.js"></script>
     #if(site.searchEnabled):<script src="/_kiln/js/search.js"></script>#endif

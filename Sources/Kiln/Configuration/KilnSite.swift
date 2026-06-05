@@ -58,8 +58,13 @@ public struct KilnSite: Sendable {
     /// files and a raw-markdown copy of every page (`…/index.md`) alongside its
     /// HTML, with a `<link rel="alternate" type="text/markdown">` for discovery.
     public var llmsText: Bool
-    /// The navigation tree.
+    /// The navigation tree (used when the site is not versioned; otherwise each
+    /// ``DocVersion`` carries its own navigation).
     public var navigation: [NavItem]
+    /// Documentation versions. When non-empty, Kiln renders every version in one
+    /// build: the default version at the root, others under `/<id>/`. When empty
+    /// (the default), the site is unversioned and uses ``navigation``/``languages``.
+    public var versions: [DocVersion]
 
     public init(
         name: String,
@@ -78,7 +83,8 @@ public struct KilnSite: Sendable {
         languages: [Language] = [Language(.english, isDefault: true)],
         markdown: MarkdownExtensions = MarkdownExtensions(),
         llmsText: Bool = true,
-        @NavBuilder navigation: () -> [NavItem]
+        versions: [DocVersion] = [],
+        @NavBuilder navigation: () -> [NavItem] = { [] }
     ) {
         self.name = name
         self.url = url
@@ -96,6 +102,7 @@ public struct KilnSite: Sendable {
         self.languages = languages
         self.markdown = markdown
         self.llmsText = llmsText
+        self.versions = versions
         self.navigation = navigation()
     }
 
@@ -108,6 +115,33 @@ public struct KilnSite: Sendable {
     public var buildableLanguages: [Language] {
         languages.filter { $0.build }
     }
+
+    /// Whether the site declares explicit documentation versions.
+    public var isVersioned: Bool {
+        !versions.isEmpty
+    }
+
+    /// The versions to build. For an unversioned site this is a single synthetic
+    /// default version wrapping the site's `languages`/`navigation` and the
+    /// content base — so the unversioned build runs the identical code path with
+    /// an empty version prefix.
+    public var effectiveVersions: [DocVersion] {
+        if versions.isEmpty {
+            return [
+                DocVersion(
+                    id: "",
+                    name: name,
+                    isDefault: true,
+                    isPrerelease: false,
+                    deprecated: false,
+                    contentDirectory: "",
+                    languages: languages,
+                    navigationItems: navigation
+                )
+            ]
+        }
+        return versions
+    }
 }
 
 /// Errors thrown while validating a ``KilnSite`` configuration.
@@ -115,6 +149,12 @@ public enum ConfigurationError: Error, CustomStringConvertible {
     case noLanguages
     case noDefaultLanguage
     case multipleDefaultLanguages([String])
+    case noDefaultVersion
+    case multipleDefaultVersions([String])
+    case defaultVersionIsPrerelease(String)
+    case emptyVersionID
+    case invalidVersionID(String)
+    case duplicateVersionID(String)
 
     public var description: String {
         switch self {
@@ -124,6 +164,18 @@ public enum ConfigurationError: Error, CustomStringConvertible {
             return "KilnSite must declare exactly one default language (isDefault: true)."
         case .multipleDefaultLanguages(let locales):
             return "KilnSite declares multiple default languages: \(locales.joined(separator: ", ")). Exactly one is allowed."
+        case .noDefaultVersion:
+            return "KilnSite must declare exactly one default version (isDefault: true)."
+        case .multipleDefaultVersions(let ids):
+            return "KilnSite declares multiple default versions: \(ids.joined(separator: ", ")). Exactly one is allowed."
+        case .defaultVersionIsPrerelease(let id):
+            return "The default version '\(id)' must not be a pre-release."
+        case .emptyVersionID:
+            return "Every DocVersion must have a non-empty id."
+        case .invalidVersionID(let id):
+            return "Version id '\(id)' is invalid: ids must not contain '/' or whitespace."
+        case .duplicateVersionID(let id):
+            return "Duplicate version id '\(id)'. Version ids must be unique."
         }
     }
 }
@@ -131,6 +183,33 @@ public enum ConfigurationError: Error, CustomStringConvertible {
 extension KilnSite {
     /// Validate invariants that can't be expressed in the type system.
     public func validate() throws {
+        if versions.isEmpty {
+            try Self.validateLanguages(languages)
+        } else {
+            let defaults = versions.filter { $0.isDefault }
+            if defaults.isEmpty { throw ConfigurationError.noDefaultVersion }
+            if defaults.count > 1 {
+                throw ConfigurationError.multipleDefaultVersions(defaults.map { $0.id })
+            }
+            if let def = defaults.first, def.isPrerelease {
+                throw ConfigurationError.defaultVersionIsPrerelease(def.id)
+            }
+            var seen = Set<String>()
+            for version in versions {
+                if version.id.isEmpty { throw ConfigurationError.emptyVersionID }
+                if version.id.contains("/") || version.id.contains(where: \.isWhitespace) {
+                    throw ConfigurationError.invalidVersionID(version.id)
+                }
+                if !seen.insert(version.id).inserted {
+                    throw ConfigurationError.duplicateVersionID(version.id)
+                }
+                try Self.validateLanguages(version.languages)
+            }
+        }
+    }
+
+    /// Validate the single-default-language invariant for a set of languages.
+    static func validateLanguages(_ languages: [Language]) throws {
         guard !languages.isEmpty else { throw ConfigurationError.noLanguages }
         let defaults = languages.filter { $0.isDefault }
         if defaults.isEmpty { throw ConfigurationError.noDefaultLanguage }

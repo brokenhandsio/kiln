@@ -56,7 +56,10 @@ public struct LinkResolver: Sendable {
             let (logicalPath, explicitLocale) = Self.stripLocaleSuffix(resolved, knownLocales: knownLocales)
             return urls.urlPath(forLogicalPath: logicalPath, locale: explicitLocale ?? locale) + fragment
         } else {
-            return "/" + resolved + fragment
+            // A content asset (image, download). Project assets are copied under
+            // the current version's prefix, so root-absolute references must
+            // include it (empty for the default version).
+            return "/" + urls.versionPrefix + resolved + fragment
         }
     }
 

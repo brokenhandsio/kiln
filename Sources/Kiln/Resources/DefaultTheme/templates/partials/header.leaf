@@ -12,6 +12,8 @@
 
     #if(site.searchEnabled):#extend("partials/search")#endif
 
+    #extend("partials/version-switcher")
+
     #extend("partials/language-switcher")
 
     <button class="kiln-palette-toggle" id="kiln-palette-toggle" aria-label="#(strings.toggleColourScheme)">

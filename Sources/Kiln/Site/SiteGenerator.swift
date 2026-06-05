@@ -16,8 +16,8 @@ public enum ThemeError: Error, CustomStringConvertible {
 }
 
 /// Orchestrates a full site build: load content, render every page for every
-/// language (with fallback), emit search indexes and error pages, and copy
-/// assets.
+/// language (with fallback) of every version, emit search indexes, error pages,
+/// version manifest, and assets.
 public struct SiteGenerator {
     let site: KilnSite
     let contentDirectory: URL
@@ -31,16 +31,21 @@ public struct SiteGenerator {
         self.linkChecking = linkChecking
     }
 
+    /// Per-version resolved data, prepared once before rendering.
+    private struct VersionBuild {
+        let version: DocVersion
+        let contentURL: URL
+        let store: ContentStore
+        let urls: SiteURLs
+        let navigationBuilder: NavigationBuilder
+        let defaultLocale: String
+        let locales: Set<String>
+        /// Resolved navigation per locale.
+        let navByLocale: [String: ResolvedNavigation]
+    }
+
     public func build() async throws {
         try site.validate()
-
-        let locales = Set(site.languages.map(\.locale))
-        let defaultLocale = site.defaultLanguage.locale
-        let store = try ContentLoader().load(contentDirectory: contentDirectory, locales: locales, defaultLocale: defaultLocale)
-
-        let urls = SiteURLs(defaultLocale: defaultLocale)
-        let navigationBuilder = NavigationBuilder(urls: urls)
-        let markdown = MarkdownRenderer(options: site.markdown)
 
         let theme = try resolveTheme()
         let renderer = TemplateRenderer(templateDirectories: theme.templates)
@@ -49,65 +54,113 @@ public struct SiteGenerator {
         let writer = OutputWriter(outputDirectory: outputDirectory)
         try writer.reset()
 
-        var sitemapEntries: [String] = []
-        let linkData = LinkData()
-        var defaultNav: ResolvedNavigation?
+        let markdown = MarkdownRenderer(options: site.markdown)
+        let isVersioned = site.isVersioned
 
-        for language in site.buildableLanguages {
-            let resolvedNav = navigationBuilder.build(site.navigation, for: language)
-            if language.isDefault { defaultNav = resolvedNav }
-            var searchIndex = SearchIndexBuilder()
+        // Resolve every version's content/nav once, building the page registry
+        // used for cross-version equivalence.
+        var builds: [VersionBuild] = []
+        for version in site.effectiveVersions {
+            let contentURL = version.contentDirectory.isEmpty
+                ? contentDirectory
+                : URL(fileURLWithPath: version.contentDirectory, relativeTo: contentDirectory)
+            let locales = Set(version.languages.map(\.locale))
+            let defaultLocale = version.defaultLanguage.locale
+            let store = try ContentLoader().load(contentDirectory: contentURL, locales: locales, defaultLocale: defaultLocale)
+            let urls = SiteURLs(defaultLocale: defaultLocale, versionPrefix: version.urlPrefix)
+            let navigationBuilder = NavigationBuilder(urls: urls)
 
-            for pageRef in resolvedNav.orderedPages {
-                let location = try await renderPage(
-                    logicalPath: pageRef.logicalPath,
-                    navTitle: pageRef.title,
-                    language: language,
-                    defaultLocale: defaultLocale,
-                    store: store,
-                    markdown: markdown,
-                    urls: urls,
-                    navigationBuilder: navigationBuilder,
-                    resolvedNav: resolvedNav,
-                    renderer: renderer,
-                    writer: writer,
-                    searchIndex: &searchIndex,
-                    linkData: linkData
-                )
-                sitemapEntries.append(absoluteURL(forLocation: location))
+            var navByLocale: [String: ResolvedNavigation] = [:]
+            var pageSet: Set<String> = []
+            for language in version.buildableLanguages {
+                let nav = navigationBuilder.build(version.navigation, for: language)
+                navByLocale[language.locale] = nav
+                for ref in nav.orderedPages { pageSet.insert(ref.logicalPath) }
             }
 
-            // Per-language search index.
-            try writer.write(try searchIndex.jsonData(), to: searchIndexFile(locale: language.locale, isDefault: language.isDefault))
-
-            // Per-language 404 page.
-            let notFound = try await render404(
-                language: language,
-                urls: urls,
-                navigationBuilder: navigationBuilder,
-                resolvedNav: resolvedNav,
-                renderer: renderer
-            )
-            try writer.write(notFound, to: notFoundFile(locale: language.locale, isDefault: language.isDefault))
+            builds.append(VersionBuild(
+                version: version, contentURL: contentURL, store: store, urls: urls,
+                navigationBuilder: navigationBuilder, defaultLocale: defaultLocale,
+                locales: locales, navByLocale: navByLocale, pageSet: pageSet
+            ))
         }
 
-        // Assets: theme first (bundle then custom override), then project content.
-        let assetCopier = AssetCopier(outputDirectory: outputDirectory)
-        try assetCopier.copyThemeAssets(from: theme.assets)
-        try assetCopier.copyContentAssets(from: contentDirectory)
+        let defaultBuild = builds.first(where: { $0.version.isDefault }) ?? builds[0]
+        var sitemapEntries: [String] = []
 
-        // Sitemap + robots.txt.
+        for build in builds {
+            let version = build.version
+            let linkData = LinkData()
+            var defaultNav: ResolvedNavigation?
+
+            for language in version.buildableLanguages {
+                guard let resolvedNav = build.navByLocale[language.locale] else { continue }
+                if language.isDefault { defaultNav = resolvedNav }
+                var searchIndex = SearchIndexBuilder()
+
+                for pageRef in resolvedNav.orderedPages {
+                    let location = try await renderPage(
+                        logicalPath: pageRef.logicalPath,
+                        navTitle: pageRef.title,
+                        language: language,
+                        build: build,
+                        allBuilds: builds,
+                        defaultBuild: defaultBuild,
+                        isVersioned: isVersioned,
+                        markdown: markdown,
+                        resolvedNav: resolvedNav,
+                        renderer: renderer,
+                        writer: writer,
+                        searchIndex: &searchIndex,
+                        linkData: linkData
+                    )
+                    if version.isDefault {
+                        sitemapEntries.append(absoluteURL(forLocation: location))
+                    }
+                }
+
+                // Per-(version, locale) search index.
+                let searchFile = build.urls.directory(forLocale: language.locale, in: outputDirectory)
+                    .appendingPathComponent("search", isDirectory: true)
+                    .appendingPathComponent("search_index.json")
+                try writer.write(try searchIndex.jsonData(), to: searchFile)
+
+                // Per-(version, locale) 404 page.
+                let notFound = try await render404(
+                    language: language, build: build, allBuilds: builds,
+                    defaultBuild: defaultBuild, isVersioned: isVersioned,
+                    resolvedNav: resolvedNav, renderer: renderer
+                )
+                try writer.write(notFound, to: build.urls.directory(forLocale: language.locale, in: outputDirectory)
+                    .appendingPathComponent("404.html"))
+            }
+
+            // Content assets: default version → root, others → /<id>/.
+            try AssetCopier(outputDirectory: outputDirectory)
+                .copyContentAssets(from: build.contentURL, into: version.urlPrefix)
+
+            // AI/agent output (per version; the default version's also lands at root).
+            if site.llmsText, let defaultNav {
+                try writeLLMSFiles(build: build, nav: defaultNav, writer: writer)
+            }
+
+            // Link checking is per version (a page may exist in one version only).
+            if linkChecking != .off {
+                try checkLinks(linkData, contentURL: build.contentURL,
+                               defaultLocale: build.defaultLocale, knownLocales: build.locales)
+            }
+        }
+
+        // Theme assets once (identical across versions; referenced root-absolutely).
+        try AssetCopier(outputDirectory: outputDirectory).copyThemeAssets(from: theme.assets)
+
+        // Root sitemap (default version only — existing sites are unaffected) + robots.
         try writer.write(sitemap(for: sitemapEntries), to: outputDirectory.appendingPathComponent("sitemap.xml"))
         try writer.write(robotsTxt(), to: outputDirectory.appendingPathComponent("robots.txt"))
 
-        // AI/agent-friendly index files (default language).
-        if site.llmsText, let defaultNav {
-            try writeLLMSFiles(nav: defaultNav, store: store, defaultLocale: defaultLocale, writer: writer)
-        }
-
-        // Validate internal links last, once every page and its headings are known.
-        if linkChecking != .off {
-            try checkLinks(linkData, defaultLocale: defaultLocale)
+        // Versions manifest (only when versioned).
+        if isVersioned {
+            try writer.write(versionsManifest(builds), to: outputDirectory.appendingPathComponent("versions.json"))
         }
     }
 
@@ -115,19 +168,17 @@ public struct SiteGenerator {
 
     /// Validate collected internal links, report problems, and (in `.error`
     /// mode) throw if any were found.
-    private func checkLinks(_ linkData: LinkData, defaultLocale: String) throws {
+    private func checkLinks(_ linkData: LinkData, contentURL: URL, defaultLocale: String, knownLocales: Set<String>) throws {
         let checker = LinkChecker(
             builtPages: linkData.builtPages,
             slugs: linkData.slugs,
             defaultLocale: defaultLocale,
-            knownLocales: Set(site.languages.map(\.locale)),
-            assetExists: { [contentDirectory] relativePath in
-                FileManager.default.fileExists(atPath: contentDirectory.appendingPathComponent(relativePath).path)
+            knownLocales: knownLocales,
+            assetExists: { relativePath in
+                FileManager.default.fileExists(atPath: contentURL.appendingPathComponent(relativePath).path)
             }
         )
 
-        // Collect, de-duplicating issues that repeat across locales (a fallback
-        // page reproduces the default-language file's links in every locale).
         var issues: [LinkIssue] = []
         var seen: Set<String> = []
         for record in linkData.records {
@@ -153,10 +204,12 @@ public struct SiteGenerator {
 
     // MARK: AI / agent-friendly output
 
-    /// Write `llms.txt` (a structured index) and `llms-full.txt` (the full
-    /// corpus) for the default language.
-    private func writeLLMSFiles(nav: ResolvedNavigation, store: ContentStore, defaultLocale: String, writer: OutputWriter) throws {
-        // llms.txt — top-level pages first, then a section per nav group.
+    /// Write `llms.txt` + `llms-full.txt` under a version's root, for its default language.
+    private func writeLLMSFiles(build: VersionBuild, nav: ResolvedNavigation, writer: OutputWriter) throws {
+        let store = build.store
+        let defaultLocale = build.defaultLocale
+        let versionRoot = build.urls.directory(forLocale: defaultLocale, in: outputDirectory)
+
         var rootLinks: [LLMSText.Link] = []
         var sections: [LLMSText.Section] = []
         for node in nav.nodes {
@@ -171,16 +224,15 @@ public struct SiteGenerator {
         if !rootLinks.isEmpty { allSections.append(LLMSText.Section(title: nil, links: rootLinks)) }
         allSections.append(contentsOf: sections)
         let index = LLMSText.index(title: site.name, summary: site.description, sections: allSections)
-        try writer.write(index, to: outputDirectory.appendingPathComponent("llms.txt"))
+        try writer.write(index, to: versionRoot.appendingPathComponent("llms.txt"))
 
-        // llms-full.txt — every default-language page's markdown, in nav order.
         var pages: [LLMSText.Page] = []
         for ref in nav.orderedPages {
             guard let page = store.page(forLogicalPath: ref.logicalPath, locale: defaultLocale, defaultLocale: defaultLocale) else { continue }
             pages.append(LLMSText.Page(url: absoluteURL(forLocation: String(ref.url.drop(while: { $0 == "/" }))), body: page.body))
         }
         let full = LLMSText.full(title: site.name, summary: site.description, pages: pages)
-        try writer.write(full, to: outputDirectory.appendingPathComponent("llms-full.txt"))
+        try writer.write(full, to: versionRoot.appendingPathComponent("llms-full.txt"))
     }
 
     /// Flatten nav nodes into `llms.txt` links, pointing at each page's raw markdown.
@@ -210,42 +262,69 @@ public struct SiteGenerator {
         logicalPath: String,
         navTitle: String,
         language: Language,
-        defaultLocale: String,
-        store: ContentStore,
+        build: VersionBuild,
+        allBuilds: [VersionBuild],
+        defaultBuild: VersionBuild,
+        isVersioned: Bool,
         markdown: MarkdownRenderer,
-        urls: SiteURLs,
-        navigationBuilder: NavigationBuilder,
         resolvedNav: ResolvedNavigation,
         renderer: TemplateRenderer,
         writer: OutputWriter,
         searchIndex: inout SearchIndexBuilder,
         linkData: LinkData
     ) async throws -> String {
+        let version = build.version
+        let urls = build.urls
+        let store = build.store
+        let defaultLocale = build.defaultLocale
+
         guard let page = store.page(forLogicalPath: logicalPath, locale: language.locale, defaultLocale: defaultLocale) else {
             throw ContentError.missingPage(logicalPath: logicalPath)
         }
 
         let linkResolver = LinkResolver(currentLogicalPath: logicalPath, locale: language.locale, urls: urls,
-                                        knownLocales: Set(site.languages.map(\.locale)))
+                                        knownLocales: build.locales)
         let rendered = markdown.render(page.body, linkResolver: linkResolver)
         let title = page.frontMatter.title ?? rendered.firstHeading ?? navTitle
         let isFallback = !language.isDefault && !store.hasTranslation(forLogicalPath: logicalPath, locale: language.locale)
-        let pageNavigation = navigationBuilder.contextualise(resolvedNav, currentLogicalPath: logicalPath)
+        let pageNavigation = build.navigationBuilder.contextualise(resolvedNav, currentLogicalPath: logicalPath)
         let urlPath = urls.urlPath(forLogicalPath: logicalPath, locale: language.locale)
-        let sourceRelative = ContentLoader.relativePath(of: page.sourceURL, from: contentDirectory)
+        let sourceRelative = ContentLoader.relativePath(of: page.sourceURL, from: build.contentURL)
         let imagePath = page.frontMatter.image ?? site.image
 
         if linkChecking != .off {
             linkData.add(logicalPath: logicalPath, locale: language.locale, sourcePath: sourceRelative, rendered: rendered)
         }
 
+        // Versioning: cross-version switcher links and the latest-equivalent URL.
+        let latestEquivalent = equivalentURL(logicalPath: logicalPath, in: defaultBuild, currentLocale: language.locale)
+        let canonical: String
+        if version.isDefault {
+            canonical = absoluteURL(forLocation: String(urlPath.drop(while: { $0 == "/" })))
+        } else {
+            canonical = absoluteURL(forLocation: String(latestEquivalent.drop(while: { $0 == "/" })))
+        }
+        let versionContext = VersionContext(
+            isVersioned: isVersioned,
+            alternates: isVersioned ? versionAlternates(forLogicalPath: logicalPath, builds: allBuilds,
+                                                        currentVersionID: version.id, currentLocale: language.locale) : [],
+            currentID: version.id,
+            currentName: version.name,
+            isPrerelease: version.isPrerelease,
+            deprecated: version.deprecated,
+            isLatest: version.isDefault,
+            latestURL: (isVersioned && !version.isDefault) ? latestEquivalent : nil,
+            basePath: version.isDefault ? "" : "/" + version.id,
+            noindex: isVersioned && !version.isDefault
+        )
+
         let context = RenderContext(
             site: site,
             language: language,
             localisation: language.localisation,
-            alternates: alternates(forLogicalPath: logicalPath, current: language, urls: urls),
+            alternates: alternates(forLogicalPath: logicalPath, current: language, urls: urls, languages: version.buildableLanguages),
             searchEnabled: true,
-            searchIndexURL: searchIndexURLPath(locale: language.locale, isDefault: language.isDefault),
+            searchIndexURL: urls.searchIndexURLPath(forLocale: language.locale),
             markdownURL: site.llmsText ? urlPath + "index.md" : nil,
             baseURL: urls.baseURL(forLogicalPath: logicalPath, locale: language.locale),
             pageTitle: title,
@@ -253,14 +332,15 @@ public struct SiteGenerator {
             tableOfContents: rendered.tableOfContents,
             frontMatter: page.frontMatter,
             pageURL: urlPath,
-            canonicalURL: absoluteURL(forLocation: String(urlPath.drop(while: { $0 == "/" }))),
+            canonicalURL: canonical,
             pageDescription: page.frontMatter.description ?? language.description ?? site.description,
             socialImageURL: imagePath.map { absoluteURL(forPath: $0) },
             editURL: site.repository?.editURI.map { $0 + sourceRelative },
             sourcePath: sourceRelative,
             isHome: page.isHome,
             isFallback: isFallback,
-            navigation: pageNavigation
+            navigation: pageNavigation,
+            version: versionContext
         )
 
         let templateName = page.frontMatter.template ?? (page.isHome ? "home" : "page")
@@ -280,21 +360,43 @@ public struct SiteGenerator {
 
     private func render404(
         language: Language,
-        urls: SiteURLs,
-        navigationBuilder: NavigationBuilder,
+        build: VersionBuild,
+        allBuilds: [VersionBuild],
+        defaultBuild: VersionBuild,
+        isVersioned: Bool,
         resolvedNav: ResolvedNavigation,
         renderer: TemplateRenderer
     ) async throws -> String {
-        // A 404 page can be served from any path, so reference assets/links from
-        // the site root rather than a page-relative base.
-        let rootBase = language.isDefault ? "/" : "/\(language.locale)/"
+        let version = build.version
+        let urls = build.urls
+        // A 404 can be served from any path, so reference assets/links from the
+        // version+locale root rather than a page-relative base.
+        let rootBase = urls.urlPath(forLogicalPath: "index.md", locale: language.locale) // e.g. "/", "/de/", "/4.0/"
+        // No real logical path → the version switcher links to each version's home.
+        let alternatesForNotFound = isVersioned
+            ? versionAlternates(forLogicalPath: "\u{0}404", builds: allBuilds, currentVersionID: version.id, currentLocale: language.locale)
+            : []
+        let latestHome = equivalentURL(logicalPath: "\u{0}404", in: defaultBuild, currentLocale: language.locale)
+        let versionContext = VersionContext(
+            isVersioned: isVersioned,
+            alternates: alternatesForNotFound,
+            currentID: version.id,
+            currentName: version.name,
+            isPrerelease: version.isPrerelease,
+            deprecated: version.deprecated,
+            isLatest: version.isDefault,
+            latestURL: (isVersioned && !version.isDefault) ? latestHome : nil,
+            basePath: version.isDefault ? "" : "/" + version.id,
+            noindex: isVersioned && !version.isDefault
+        )
+
         let context = RenderContext(
             site: site,
             language: language,
             localisation: language.localisation,
             alternates: [],
             searchEnabled: true,
-            searchIndexURL: searchIndexURLPath(locale: language.locale, isDefault: language.isDefault),
+            searchIndexURL: urls.searchIndexURLPath(forLocale: language.locale),
             markdownURL: nil,
             baseURL: rootBase,
             pageTitle: language.localisation.resolved.notFoundTitle,
@@ -302,22 +404,83 @@ public struct SiteGenerator {
             tableOfContents: [],
             frontMatter: .empty,
             pageURL: rootBase + "404.html",
-            canonicalURL: absoluteURL(forLocation: "404.html"),
+            canonicalURL: absoluteURL(forLocation: String(rootBase.drop(while: { $0 == "/" })) + "404.html"),
             pageDescription: language.description ?? site.description,
             socialImageURL: site.image.map { absoluteURL(forPath: $0) },
             editURL: nil,
             sourcePath: "",
             isHome: false,
             isFallback: false,
-            navigation: navigationBuilder.contextualise(resolvedNav, currentLogicalPath: "")
+            navigation: build.navigationBuilder.contextualise(resolvedNav, currentLogicalPath: ""),
+            version: versionContext
         )
         return try await renderer.render("404", context: context.leafData)
     }
 
+    // MARK: Versioning helpers
+
+    /// The cross-version switcher entries for a page: each version's URL for this
+    /// page, or that version's home when the page doesn't exist there.
+    private func versionAlternates(forLogicalPath logicalPath: String, builds: [VersionBuild],
+                                   currentVersionID: String, currentLocale: String) -> [VersionAlternate] {
+        builds.map { build in
+            VersionAlternate(
+                id: build.version.id,
+                name: build.version.name,
+                url: equivalentURL(logicalPath: logicalPath, in: build, currentLocale: currentLocale),
+                isCurrent: build.version.id == currentVersionID,
+                isPrerelease: build.version.isPrerelease,
+                deprecated: build.version.deprecated
+            )
+        }
+    }
+
+    /// The URL of `logicalPath` within a version — same page (preferring the
+    /// current locale, else that version's default locale) if it exists, else the
+    /// version's home page.
+    private func equivalentURL(logicalPath: String, in build: VersionBuild, currentLocale: String) -> String {
+        let locale = build.locales.contains(currentLocale) ? currentLocale : build.defaultLocale
+        if build.pageSet.contains(logicalPath) {
+            return build.urls.urlPath(forLogicalPath: logicalPath, locale: locale)
+        }
+        return build.urls.urlPath(forLogicalPath: "index.md", locale: locale)
+    }
+
+    private struct VersionManifestEntry: Encodable {
+        let id: String
+        let name: String
+        let path: String
+        let isDefault: Bool
+        let isPrerelease: Bool
+        let deprecated: Bool
+        let order: Int
+        let locales: [String]
+    }
+
+    private func versionsManifest(_ builds: [VersionBuild]) -> String {
+        let entries = builds.enumerated().map { index, build -> VersionManifestEntry in
+            let v = build.version
+            return VersionManifestEntry(
+                id: v.id,
+                name: v.name,
+                path: v.isDefault ? "/" : "/\(v.id)/",
+                isDefault: v.isDefault,
+                isPrerelease: v.isPrerelease,
+                deprecated: v.deprecated,
+                order: index,
+                locales: v.buildableLanguages.map(\.locale)
+            )
+        }
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+        guard let data = try? encoder.encode(entries) else { return "[]\n" }
+        return String(decoding: data, as: UTF8.self) + "\n"
+    }
+
     // MARK: Helpers
 
-    private func alternates(forLogicalPath logicalPath: String, current: Language, urls: SiteURLs) -> [LanguageAlternate] {
-        site.buildableLanguages.map { language in
+    private func alternates(forLogicalPath logicalPath: String, current: Language, urls: SiteURLs, languages: [Language]) -> [LanguageAlternate] {
+        languages.map { language in
             LanguageAlternate(
                 locale: language.locale,
                 name: language.name,
@@ -325,25 +488,6 @@ public struct SiteGenerator {
                 isCurrent: language.locale == current.locale
             )
         }
-    }
-
-    private func localeDirectory(locale: String, isDefault: Bool) -> URL {
-        isDefault ? outputDirectory : outputDirectory.appendingPathComponent(locale, isDirectory: true)
-    }
-
-    private func searchIndexFile(locale: String, isDefault: Bool) -> URL {
-        localeDirectory(locale: locale, isDefault: isDefault)
-            .appendingPathComponent("search", isDirectory: true)
-            .appendingPathComponent("search_index.json")
-    }
-
-    private func notFoundFile(locale: String, isDefault: Bool) -> URL {
-        localeDirectory(locale: locale, isDefault: isDefault).appendingPathComponent("404.html")
-    }
-
-    /// Absolute, root-relative URL of a language's search index JSON.
-    private func searchIndexURLPath(locale: String, isDefault: Bool) -> String {
-        (isDefault ? "" : "/\(locale)") + "/search/search_index.json"
     }
 
     private func absoluteURL(forLocation location: String) -> String {

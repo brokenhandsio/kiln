@@ -27,10 +27,15 @@ struct AssetCopier {
         }
     }
 
-    /// Copy every non-markdown, non-hidden file from the content directory to
-    /// the output root, preserving relative paths.
-    func copyContentAssets(from contentDirectory: URL) throws {
+    /// Copy every non-markdown, non-hidden file from the content directory to the
+    /// output (under `subdirectory`, empty for the default version), preserving
+    /// relative paths.
+    func copyContentAssets(from contentDirectory: URL, into subdirectory: String = "") throws {
         let fileManager = FileManager.default
+        var destinationRoot = outputDirectory
+        for component in subdirectory.split(separator: "/") {
+            destinationRoot.appendPathComponent(String(component), isDirectory: true)
+        }
         guard let enumerator = fileManager.enumerator(
             at: contentDirectory,
             includingPropertiesForKeys: [.isRegularFileKey],
@@ -42,7 +47,7 @@ struct AssetCopier {
             guard isRegularFile, item.pathExtension.lowercased() != "md" else { continue }
 
             let relativePath = ContentLoader.relativePath(of: item, from: contentDirectory)
-            let destination = outputDirectory.appendingPathComponent(relativePath)
+            let destination = destinationRoot.appendingPathComponent(relativePath)
             try fileManager.createDirectory(at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
             if fileManager.fileExists(atPath: destination.path) {
                 try fileManager.removeItem(at: destination)

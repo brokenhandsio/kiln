@@ -39,6 +39,11 @@ public struct LocalisationConfiguration: Sendable {
     public var toggleNavigation: String?
     /// Accessible label for the colour-scheme toggle. Default: `"Toggle colour scheme"`.
     public var toggleColourScheme: String?
+    /// Banner shown on pages that aren't the latest version. Default:
+    /// `"You're viewing documentation for an older version."`.
+    public var oldVersionMessage: String?
+    /// Link text on the older-version banner. Default: `"View the latest version"`.
+    public var oldVersionLink: String?
 
     public init(
         searchPlaceholder: String? = nil,
@@ -53,7 +58,9 @@ public struct LocalisationConfiguration: Sendable {
         notFoundMessage: String? = nil,
         notFoundLink: String? = nil,
         toggleNavigation: String? = nil,
-        toggleColourScheme: String? = nil
+        toggleColourScheme: String? = nil,
+        oldVersionMessage: String? = nil,
+        oldVersionLink: String? = nil
     ) {
         self.searchPlaceholder = searchPlaceholder
         self.searchNoResults = searchNoResults
@@ -68,6 +75,8 @@ public struct LocalisationConfiguration: Sendable {
         self.notFoundLink = notFoundLink
         self.toggleNavigation = toggleNavigation
         self.toggleColourScheme = toggleColourScheme
+        self.oldVersionMessage = oldVersionMessage
+        self.oldVersionLink = oldVersionLink
     }
 }
 
@@ -88,6 +97,8 @@ extension LocalisationConfiguration {
         var notFoundLink: String
         var toggleNavigation: String
         var toggleColourScheme: String
+        var oldVersionMessage: String
+        var oldVersionLink: String
     }
 
     var resolved: Resolved {
@@ -104,7 +115,9 @@ extension LocalisationConfiguration {
             notFoundMessage: notFoundMessage ?? "The page you are looking for may have been moved, renamed, or might never have existed.",
             notFoundLink: notFoundLink ?? "Return to the home page",
             toggleNavigation: toggleNavigation ?? "Toggle navigation",
-            toggleColourScheme: toggleColourScheme ?? "Toggle colour scheme"
+            toggleColourScheme: toggleColourScheme ?? "Toggle colour scheme",
+            oldVersionMessage: oldVersionMessage ?? "You're viewing documentation for an older version.",
+            oldVersionLink: oldVersionLink ?? "View the latest version"
         )
     }
 }

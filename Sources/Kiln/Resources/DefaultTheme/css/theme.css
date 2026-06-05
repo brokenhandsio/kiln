@@ -362,6 +362,46 @@ details.admonition > summary.admonition-title::-webkit-details-marker { display:
 .kiln-lang-option:hover { background: var(--surface); text-decoration: none; }
 .kiln-lang-option.kiln-current { color: var(--accent); font-weight: 600; }
 
+/* Version switcher */
+.kiln-version-switcher { position: relative; }
+.kiln-version-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85rem;
+    padding: 4px 10px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    color: var(--text);
+}
+.kiln-version-button:hover { border-color: var(--accent); }
+.kiln-version-menu {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    list-style: none;
+    margin: 0;
+    padding: 6px;
+    min-width: 180px;
+    max-height: 60vh;
+    overflow-y: auto;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--kiln-radius);
+    box-shadow: var(--shadow);
+    display: none;
+    z-index: 100;
+}
+.kiln-version-switcher.kiln-open .kiln-version-menu { display: block; }
+.kiln-version-option { display: block; padding: 8px 12px; border-radius: 7px; color: var(--text); font-size: 0.88rem; }
+.kiln-version-option:hover { background: var(--surface); text-decoration: none; }
+.kiln-version-option.kiln-current { color: var(--accent); font-weight: 600; }
+.kiln-version-option.kiln-prerelease::after { content: " · pre"; opacity: 0.6; font-size: 0.78em; }
+.kiln-version-option.kiln-deprecated { opacity: 0.65; }
+
+/* "Viewing an older version" notice */
+.kiln-version-notice { margin-bottom: 1.5rem; }
+
 /* ---- Footer ---- */
 .kiln-footer { border-top: 1px solid var(--border); margin-top: 40px; }
 .kiln-footer-inner { max-width: var(--kiln-max-width); margin: 0 auto; padding: 28px 24px; display: flex; flex-direction: column; gap: 10px; align-items: center; text-align: center; }

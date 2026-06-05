@@ -42,6 +42,19 @@
         });
     }
 
+    // ---- Version switcher dropdown ----
+    var versionSwitcher = document.querySelector(".kiln-version-switcher");
+    if (versionSwitcher) {
+        var versionButton = versionSwitcher.querySelector(".kiln-version-button");
+        versionButton.addEventListener("click", function (event) {
+            event.stopPropagation();
+            versionSwitcher.classList.toggle("kiln-open");
+        });
+        document.addEventListener("click", function () {
+            versionSwitcher.classList.remove("kiln-open");
+        });
+    }
+
     // ---- Carbon ads (desktop only, where the TOC sidebar is visible) ----
     var carbon = document.getElementById("kiln-carbon");
     if (carbon && carbon.dataset.serve && window.innerWidth > 1200) {
