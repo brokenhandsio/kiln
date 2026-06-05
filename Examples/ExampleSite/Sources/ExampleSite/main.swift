@@ -4,31 +4,19 @@ import Kiln
 // the canonical example of how to configure Kiln. A downstream project (such as
 // Vapor's docs) is set up exactly the same way: define a `KilnSite` in Swift and
 // call `Kiln.build`.
-let site = KilnSite(
-    name: "Kiln",
-    // TODO: point this at the real deployment domain before going live.
-    url: "https://kiln.brokenhands.io",
-    author: "Broken Hands",
-    description: "Kiln is a documentation-site generator written in Swift — type-safe config, localisation, theming, and client-side search.",
-    // Default social/OpenGraph preview image. Real sites should prefer a PNG/JPG
-    // for best social-scraper support; an SVG is used here just to demo wiring.
-    image: "assets/social-card.svg",
-    twitterSite: "@brokenhandsio",
-    repository: .init(
-        name: "GitHub",
-        url: "https://github.com/brokenhandsio/kiln",
-        editURI: "https://github.com/brokenhandsio/kiln/edit/main/Examples/ExampleSite/Content/"
-    ),
-    copyright: "© 2026 Broken Hands. Licensed under MIT.",
-    theme: .default(
-        palette: .autoLightDark(primary: .black, accent: .blue),
-        logo: "assets/logo.svg",
-        favicon: "assets/logo.svg"
-    ),
-    social: [
-        .init(icon: .github, link: "https://github.com/brokenhandsio/kiln"),
-        .init(icon: .mastodon, link: "https://hachyderm.io/@brokenhandsio"),
-    ],
+//
+// This site is also *versioned*: the current docs are the default ("Latest")
+// version at the root, and a minimal "0.9" version under `/0.9/` demonstrates the
+// version switcher. Each version has its own content directory, navigation, and
+// languages.
+
+// The full, current documentation (English + German). This is the default
+// version, served at the site root with unchanged URLs.
+let latest = DocVersion(
+    id: "latest",
+    name: "Latest",
+    isDefault: true,
+    contentDirectory: "latest",
     languages: [
         .init(.english, isDefault: true),
         .init(
@@ -65,31 +53,71 @@ let site = KilnSite(
                 notFoundMessage: "Die gesuchte Seite wurde möglicherweise verschoben, umbenannt oder existiert nicht.",
                 notFoundLink: "Zurück zur Startseite",
                 toggleNavigation: "Navigation umschalten",
-                toggleColourScheme: "Farbschema umschalten"
+                toggleColourScheme: "Farbschema umschalten",
+                oldVersionMessage: "Sie sehen die Dokumentation für eine ältere Version.",
+                oldVersionLink: "Zur neuesten Version"
             )
         ),
-    ],
-    navigation: {
-        Page("Welcome", "index.md")
-        Section("Getting Started") {
-            Page("Installation", "getting-started/installation.md")
-            Page("Quick Start", "getting-started/quick-start.md")
-            Page("The CLI", "getting-started/cli.md")
-        }
-        Section("Guides") {
-            Page("Configuration", "guides/configuration.md")
-            Page("Content & Localisation", "guides/content-and-localisation.md")
-            Page("Navigation", "guides/navigation.md")
-            Page("Markdown", "guides/markdown.md")
-            Page("Theming", "guides/theming.md")
-            Page("Search", "guides/search.md")
-            Page("SEO & Social Cards", "guides/seo.md")
-            Page("Link Checking", "guides/link-checking.md")
-            Page("AI-Friendly Output", "guides/llms.md")
-            Page("Deployment", "guides/deployment.md")
-        }
-        Link("GitHub", "https://github.com/brokenhandsio/kiln")
+    ]
+) {
+    Page("Welcome", "index.md")
+    Section("Getting Started") {
+        Page("Installation", "getting-started/installation.md")
+        Page("Quick Start", "getting-started/quick-start.md")
+        Page("The CLI", "getting-started/cli.md")
     }
+    Section("Guides") {
+        Page("Configuration", "guides/configuration.md")
+        Page("Content & Localisation", "guides/content-and-localisation.md")
+        Page("Navigation", "guides/navigation.md")
+        Page("Markdown", "guides/markdown.md")
+        Page("Theming", "guides/theming.md")
+        Page("Search", "guides/search.md")
+        Page("SEO & Social Cards", "guides/seo.md")
+        Page("Link Checking", "guides/link-checking.md")
+        Page("AI-Friendly Output", "guides/llms.md")
+        Page("Deployment", "guides/deployment.md")
+    }
+    Link("GitHub", "https://github.com/brokenhandsio/kiln")
+}
+
+// A minimal older version, just one page — purely to demonstrate versioning.
+let v0_9 = DocVersion(
+    id: "0.9",
+    name: "0.9",
+    contentDirectory: "0.9",
+    languages: [.init(.english, isDefault: true)]
+) {
+    Page("Welcome", "index.md")
+}
+
+let site = KilnSite(
+    name: "Kiln",
+    // TODO: point this at the real deployment domain before going live.
+    url: "https://kiln.brokenhands.io",
+    author: "Broken Hands",
+    description: "Kiln is a documentation-site generator written in Swift — type-safe config, localisation, theming, and client-side search.",
+    // Default social/OpenGraph preview image. Real sites should prefer a PNG/JPG
+    // for best social-scraper support; an SVG is used here just to demo wiring.
+    image: "assets/social-card.svg",
+    twitterSite: "@brokenhandsio",
+    repository: .init(
+        name: "GitHub",
+        url: "https://github.com/brokenhandsio/kiln",
+        // The default (latest) version's content lives under Content/latest/.
+        editURI: "https://github.com/brokenhandsio/kiln/edit/main/Examples/ExampleSite/Content/latest/"
+    ),
+    copyright: "© 2026 Broken Hands. Licensed under MIT.",
+    theme: .default(
+        palette: .autoLightDark(primary: .black, accent: .blue),
+        logo: "assets/logo.svg",
+        favicon: "assets/logo.svg"
+    ),
+    social: [
+        .init(icon: .github, link: "https://github.com/brokenhandsio/kiln"),
+        .init(icon: .mastodon, link: "https://hachyderm.io/@brokenhandsio"),
+    ],
+    versions: [latest, v0_9]
 )
 
 let contentDirectory = "Content"

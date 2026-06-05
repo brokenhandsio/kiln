@@ -393,7 +393,8 @@ public/
 [`Examples/ExampleSite`](Examples/ExampleSite) is **Kiln's own documentation
 site** — a complete, runnable project that consumes Kiln as a dependency, and
 the canonical reference for how a real site is wired together (multi-page nav,
-localisation with fallback, SEO, search). Build and preview it with the CLI:
+localisation with fallback, SEO, search, and a `0.9` version that demonstrates
+the version switcher). Build and preview it with the CLI:
 
 ```sh
 cd Examples/ExampleSite

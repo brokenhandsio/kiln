@@ -327,7 +327,9 @@ public struct SiteGenerator {
             canonicalURL: canonical,
             pageDescription: page.frontMatter.description ?? language.description ?? site.description,
             socialImageURL: imagePath.map { absoluteURL(forPath: $0) },
-            editURL: site.repository?.editURI.map { $0 + sourceRelative },
+            // "Edit this page" only on the default (latest) version — the
+            // repository's editURI maps to the latest content directory.
+            editURL: version.isDefault ? site.repository?.editURI.map { $0 + sourceRelative } : nil,
             sourcePath: sourceRelative,
             isHome: page.isHome,
             isFallback: isFallback,

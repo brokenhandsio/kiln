@@ -17,6 +17,8 @@ struct VersioningTests {
         let site = KilnSite(
             name: "Versioned Docs",
             url: "https://v.example.com",
+            repository: .init(name: "GitHub", url: "https://github.com/x/y",
+                              editURI: "https://github.com/x/y/edit/main/Content/latest/"),
             versions: [
                 DocVersion(
                     id: "latest", name: "5.0 (latest)", isDefault: true,
@@ -141,6 +143,19 @@ struct VersioningTests {
         let rootPage = try read(output.appendingPathComponent("section/page/index.html"))
         #expect(!rootPage.contains("noindex"))
         #expect(rootPage.contains("<link rel=\"canonical\" href=\"https://v.example.com/section/page/\">"))
+    }
+
+    @Test("Edit link is emitted only on the default (latest) version")
+    func editLinkOnlyOnDefault() async throws {
+        let output = try await buildVersioned()
+        defer { try? FileManager.default.removeItem(at: output) }
+
+        let rootPage = try read(output.appendingPathComponent("section/page/index.html"))
+        #expect(rootPage.contains("kiln-edit-link"))
+        #expect(rootPage.contains("https://github.com/x/y/edit/main/Content/latest/section/page.md"))
+
+        let v4Page = try read(output.appendingPathComponent("4.0/section/page/index.html"))
+        #expect(!v4Page.contains("kiln-edit-link"))
     }
 
     @Test("Old-version banner shows on non-default versions only")
