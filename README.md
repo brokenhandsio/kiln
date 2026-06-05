@@ -1,6 +1,6 @@
 # Kiln
 
-**Kiln** is a documentation website generator written in Swift. You describe
+**Kiln** is a documentation tool for projects that provides first class support for multiple versions and localisation. It works as a static site generator written in Swift. You describe
 your site in a type-safe Swift configuration and Kiln turns a directory of
 markdown into a fast, modern static website — no YAML, no Python toolchain.
 
@@ -27,7 +27,6 @@ admonitions, and more.
 - [Search](#search)
 - [Output](#output)
 - [Example site](#example-site)
-- [Roadmap](#roadmap)
 - [Development](#development)
 - [License](#license)
 
@@ -35,6 +34,7 @@ admonitions, and more.
 
 - **Swift-defined configuration** — your whole site is a single type-safe
   `KilnSite` value with a navigation result-builder DSL.
+- **Version Support** - define multiple versions and make it easy to switch between and view the latest.
 - **Localisation** — multiple languages with automatic fallback to your default
   language, per-language navigation translations and site names, hreflang
   alternates, and a language switcher.
@@ -75,7 +75,7 @@ site:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/brokenhandsio/kiln.git", from: "1.0.0"),
+    .package(url: "https://github.com/brokenhandsio/kiln.git", from: "0.1.0"),
 ],
 targets: [
     .executableTarget(
@@ -402,16 +402,6 @@ kiln serve --directory public
 ```
 
 (or `swift run && python3 -m http.server --directory public` without the CLI).
-
-## Roadmap
-
-Planned, roughly in priority order:
-
-- **Search polish** (optional) — ranking tweaks and search suggestions /
-  highlight-on-destination. (Multi-language search itself — per-language indexes,
-  Unicode/CJK tokenisation, accent-insensitive matching, and localised UI
-  strings — is done.)
-- **Versioned documentation** — multiple doc versions with a version switcher.
 
 ## Development
 
