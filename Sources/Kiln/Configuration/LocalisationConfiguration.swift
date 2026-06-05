@@ -44,6 +44,11 @@ public struct LocalisationConfiguration: Sendable {
     public var oldVersionMessage: String?
     /// Link text on the older-version banner. Default: `"View the latest version"`.
     public var oldVersionLink: String?
+    /// Banner shown on pre-release versions. Default:
+    /// `"You're viewing documentation for a pre-release version."`.
+    public var preReleaseMessage: String?
+    /// Link text on the pre-release banner. Default: `"View the latest stable version"`.
+    public var preReleaseLink: String?
 
     public init(
         searchPlaceholder: String? = nil,
@@ -60,7 +65,9 @@ public struct LocalisationConfiguration: Sendable {
         toggleNavigation: String? = nil,
         toggleColourScheme: String? = nil,
         oldVersionMessage: String? = nil,
-        oldVersionLink: String? = nil
+        oldVersionLink: String? = nil,
+        preReleaseMessage: String? = nil,
+        preReleaseLink: String? = nil
     ) {
         self.searchPlaceholder = searchPlaceholder
         self.searchNoResults = searchNoResults
@@ -77,6 +84,8 @@ public struct LocalisationConfiguration: Sendable {
         self.toggleColourScheme = toggleColourScheme
         self.oldVersionMessage = oldVersionMessage
         self.oldVersionLink = oldVersionLink
+        self.preReleaseMessage = preReleaseMessage
+        self.preReleaseLink = preReleaseLink
     }
 }
 
@@ -99,6 +108,8 @@ extension LocalisationConfiguration {
         var toggleColourScheme: String
         var oldVersionMessage: String
         var oldVersionLink: String
+        var preReleaseMessage: String
+        var preReleaseLink: String
     }
 
     var resolved: Resolved {
@@ -117,7 +128,9 @@ extension LocalisationConfiguration {
             toggleNavigation: toggleNavigation ?? "Toggle navigation",
             toggleColourScheme: toggleColourScheme ?? "Toggle colour scheme",
             oldVersionMessage: oldVersionMessage ?? "You're viewing documentation for an older version.",
-            oldVersionLink: oldVersionLink ?? "View the latest version"
+            oldVersionLink: oldVersionLink ?? "View the latest version",
+            preReleaseMessage: preReleaseMessage ?? "You're viewing documentation for a pre-release version.",
+            preReleaseLink: preReleaseLink ?? "View the latest stable version"
         )
     }
 }

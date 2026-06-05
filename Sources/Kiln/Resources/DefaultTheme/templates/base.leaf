@@ -71,9 +71,15 @@
 
         <main class="kiln-main">
             #if(isVersioned):#if(!isLatest):
+            #if(currentVersion.isPrerelease):
+            <div class="admonition note kiln-version-notice">
+                <p>#(strings.preReleaseMessage) <a href="#(latestURL)">#(strings.preReleaseLink)</a></p>
+            </div>
+            #else:
             <div class="admonition warning kiln-version-notice">
                 <p>#(strings.oldVersionMessage) <a href="#(latestURL)">#(strings.oldVersionLink)</a></p>
             </div>
+            #endif
             #endif#endif
 
             #if(page.isFallback):

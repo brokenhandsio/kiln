@@ -38,6 +38,13 @@ struct VersioningTests {
                     Section("Section") { Page("Page", "section/page.md") }
                     Section("Legacy") { Page("Old", "legacy/old.md") }
                 },
+                DocVersion(
+                    id: "next", name: "2.0.0-alpha.1", isPrerelease: true,
+                    contentDirectory: "next",
+                    languages: [.init(.english, isDefault: true)]
+                ) {
+                    Page("Home", "index.md")
+                },
             ]
         )
 
@@ -91,7 +98,7 @@ struct VersioningTests {
         let data = try Data(contentsOf: output.appendingPathComponent("versions.json"))
         let array = try JSONSerialization.jsonObject(with: data) as? [[String: Any]]
         let versions = try #require(array)
-        #expect(versions.count == 2)
+        #expect(versions.count == 3)
 
         let latest = try #require(versions.first { $0["id"] as? String == "latest" })
         #expect(latest["isDefault"] as? Bool == true)
@@ -102,6 +109,10 @@ struct VersioningTests {
         #expect(v4["isDefault"] as? Bool == false)
         #expect(v4["path"] as? String == "/4.0/")
         #expect(v4["locales"] as? [String] == ["en"])
+
+        let next = try #require(versions.first { $0["id"] as? String == "next" })
+        #expect(next["isPrerelease"] as? Bool == true)
+        #expect(next["isDefault"] as? Bool == false)
     }
 
     @Test("Version switcher always links to each version's home page")
@@ -169,6 +180,27 @@ struct VersioningTests {
 
         let rootHome = try read(output.appendingPathComponent("index.html"))
         #expect(!rootHome.contains("kiln-version-notice"))
+    }
+
+    @Test("Pre-release versions get a distinct banner and switcher styling")
+    func preRelease() async throws {
+        let output = try await buildVersioned()
+        defer { try? FileManager.default.removeItem(at: output) }
+
+        // The pre-release page shows the pre-release banner (note), not the older-version one (warning).
+        let next = try read(output.appendingPathComponent("next/index.html"))
+        #expect(next.contains("admonition note kiln-version-notice"))
+        #expect(next.contains("pre-release version"))
+        #expect(!next.contains("admonition warning kiln-version-notice"))
+        #expect(next.contains("<meta name=\"robots\" content=\"noindex\">"))
+
+        // The older (4.0) page keeps the warning banner.
+        let v4 = try read(output.appendingPathComponent("4.0/index.html"))
+        #expect(v4.contains("admonition warning kiln-version-notice"))
+
+        // The switcher marks the pre-release entry.
+        let home = try read(output.appendingPathComponent("index.html"))
+        #expect(home.contains("kiln-version-option kiln-prerelease"))
     }
 
     @Test("Root sitemap covers the default version only")

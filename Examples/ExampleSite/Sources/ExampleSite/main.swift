@@ -14,7 +14,7 @@ import Kiln
 // version, served at the site root with unchanged URLs.
 let latest = DocVersion(
     id: "latest",
-    name: "Latest",
+    name: "latest (v1)",
     isDefault: true,
     contentDirectory: "latest",
     languages: [
@@ -55,7 +55,9 @@ let latest = DocVersion(
                 toggleNavigation: "Navigation umschalten",
                 toggleColourScheme: "Farbschema umschalten",
                 oldVersionMessage: "Sie sehen die Dokumentation für eine ältere Version.",
-                oldVersionLink: "Zur neuesten Version"
+                oldVersionLink: "Zur neuesten Version",
+                preReleaseMessage: "Sie sehen die Dokumentation für eine Vorabversion.",
+                preReleaseLink: "Zur neuesten stabilen Version"
             )
         ),
     ]
@@ -79,6 +81,18 @@ let latest = DocVersion(
         Page("Deployment", "guides/deployment.md")
     }
     Link("GitHub", "https://github.com/brokenhandsio/kiln")
+}
+
+// A pre-release version, marked as such so the switcher and banner treat it
+// differently from an older release.
+let v2alpha = DocVersion(
+    id: "2.0.0-alpha.1",
+    name: "2.0.0-alpha.1",
+    isPrerelease: true,
+    contentDirectory: "2.0.0-alpha.1",
+    languages: [.init(.english, isDefault: true)]
+) {
+    Page("Welcome", "index.md")
 }
 
 // A minimal older version, just one page — purely to demonstrate versioning.
@@ -117,7 +131,8 @@ let site = KilnSite(
         .init(icon: .github, link: "https://github.com/brokenhandsio/kiln"),
         .init(icon: .mastodon, link: "https://hachyderm.io/@brokenhandsio"),
     ],
-    versions: [latest, v0_9]
+    // Newest first: the pre-release, then the latest stable, then older versions.
+    versions: [v2alpha, latest, v0_9]
 )
 
 let contentDirectory = "Content"

@@ -227,6 +227,8 @@ struct RenderContext {
             "toggleColourScheme": .string(s.toggleColourScheme),
             "oldVersionMessage": .string(s.oldVersionMessage),
             "oldVersionLink": .string(s.oldVersionLink),
+            "preReleaseMessage": .string(s.preReleaseMessage),
+            "preReleaseLink": .string(s.preReleaseLink),
         ])
     }
 
