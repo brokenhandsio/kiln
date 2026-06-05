@@ -138,9 +138,12 @@ jobs:
           HOMEBREW_NO_AUTO_UPDATE: "1"
           HOMEBREW_NO_INSTALL_CLEANUP: "1"
         run: |
-          # Installs from the freshly-written formula, which downloads the just-
+          # Installs from the freshly-pushed tap, which downloads the just-
           # published release asset — exercises url, sha256, the bundle layout,
           # and that the binary actually launches. Fails the release if broken.
-          brew install --formula ./tap/Formula/kiln.rb
+          # Newer Homebrew rejects `brew install` of a bare local .rb path
+          # ("formulae must be in a tap"), so install via the tap reference.
+          brew tap brokenhandsio/tap
+          brew install brokenhandsio/tap/kiln
           kiln --version
           test "$(kiln --version)" = "${{ steps.version.outputs.version }}"
