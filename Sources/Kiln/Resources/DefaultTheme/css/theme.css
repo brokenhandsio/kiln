@@ -414,6 +414,9 @@ details.admonition > summary.admonition-title::-webkit-details-marker { display:
 .kiln-social { display: flex; gap: 14px; }
 .kiln-social-link { color: var(--muted); display: inline-flex; }
 .kiln-social-link:hover { color: var(--accent); }
+/* The icon paths sit flush to the viewBox edge; `visible` stops the bottom
+   antialiased row being clipped at small sizes. */
+.kiln-social-link svg { overflow: visible; }
 .kiln-copyright, .kiln-built-with { margin: 0; font-size: 0.82rem; color: var(--muted); }
 
 /* ---- Error page ---- */
