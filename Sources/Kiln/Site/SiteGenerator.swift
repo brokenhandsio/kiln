@@ -178,7 +178,8 @@ public struct SiteGenerator {
         var seen: Set<String> = []
         for record in linkData.records {
             for issue in checker.issues(forPage: record.logicalPath, locale: record.locale,
-                                        sourcePath: record.sourcePath, links: record.links, images: record.images) {
+                                        sourcePath: record.sourcePath, isFallback: record.isFallback,
+                                        links: record.links, images: record.images) {
                 let key = "\(issue.sourcePath)\t\(issue.link)\t\(issue.message)"
                 if seen.insert(key).inserted { issues.append(issue) }
             }
@@ -326,7 +327,7 @@ public struct SiteGenerator {
         let imagePath = page.frontMatter.image ?? site.image
 
         if linkChecking != .off {
-            linkData.add(logicalPath: logicalPath, locale: language.locale, sourcePath: sourceRelative, rendered: rendered)
+            linkData.add(logicalPath: logicalPath, locale: language.locale, sourcePath: sourceRelative, isFallback: isFallback, rendered: rendered)
         }
 
         // Versioning. Each version page is self-canonical (non-default versions

@@ -7,7 +7,7 @@ struct LinkCheckerTests {
     let checker = LinkChecker(
         builtPages: ["index.md", "basics/routing.md", "basics/content.md"],
         slugs: [
-            "index.md": ["en": ["welcome", "section-one"]],
+            "index.md": ["en": ["welcome", "section-one"], "es": ["bienvenido", "seccion-uno"]],
             "basics/routing.md": ["en": ["overview", "http-method"]],
         ],
         defaultLocale: "en",
@@ -16,9 +16,9 @@ struct LinkCheckerTests {
         assetExists: { $0 == "basics/images/ok.png" || $0 == "basics/diagram.png" }
     )
 
-    func issues(_ links: [String], images: [String] = []) -> [LinkIssue] {
-        checker.issues(forPage: "basics/routing.md", locale: "en",
-                       sourcePath: "basics/routing.md", links: links, images: images)
+    func issues(_ links: [String], images: [String] = [], locale: String = "en", isFallback: Bool = false) -> [LinkIssue] {
+        checker.issues(forPage: "basics/routing.md", locale: locale,
+                       sourcePath: "basics/routing.md", isFallback: isFallback, links: links, images: images)
     }
 
     @Test("Valid internal links, anchors and externals produce no issues")
@@ -61,6 +61,19 @@ struct LinkCheckerTests {
     func missingCrossPageAnchor() {
         let found = issues(["../index.md#nope"])
         #expect(found.first?.kind == .missingAnchor(target: "index.md", fragment: "nope"))
+    }
+
+    @Test("Cross-page anchors validate against the target in the source locale")
+    func crossPageAnchorLocale() {
+        // A Spanish page linking to the target's Spanish anchor passes (the old
+        // checker wrongly validated against the default-language headings).
+        #expect(issues(["../index.md#seccion-uno"], locale: "es").isEmpty)
+        // The stale English anchor is correctly flagged on the Spanish page.
+        #expect(issues(["../index.md#section-one"], locale: "es").first?.kind
+                == .missingAnchor(target: "index.md", fragment: "section-one"))
+        // A fallback page carries the default content's (English) anchors, so it's
+        // validated against the default target — no unactionable noise.
+        #expect(issues(["../index.md#section-one"], locale: "es", isFallback: true).isEmpty)
     }
 
     @Test("A missing relative asset/image is reported")

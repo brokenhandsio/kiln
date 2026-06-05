@@ -64,6 +64,9 @@
 
     <div class="kiln-layout">
         <aside class="kiln-sidebar" id="kiln-sidebar">
+            <div class="kiln-controls kiln-controls-drawer">
+                #extend("partials/controls")
+            </div>
             <nav class="kiln-nav" aria-label="Main navigation">
                 #extend("partials/nav-tree", nav)
             </nav>

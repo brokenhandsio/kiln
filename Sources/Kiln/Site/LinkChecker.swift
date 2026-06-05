@@ -57,17 +57,20 @@ final class LinkData {
         var sourcePath: String
         var links: [String]
         var images: [String]
+        /// Whether this page fell back to the default-language content (so its
+        /// links are the default content's links, not a real translation's).
+        var isFallback: Bool
     }
 
     private(set) var records: [Record] = []
     private(set) var slugs: [String: [String: Set<String>]] = [:]
     private(set) var builtPages: Set<String> = []
 
-    func add(logicalPath: String, locale: String, sourcePath: String, rendered: RenderedMarkdown) {
+    func add(logicalPath: String, locale: String, sourcePath: String, isFallback: Bool, rendered: RenderedMarkdown) {
         builtPages.insert(logicalPath)
         slugs[logicalPath, default: [:]][locale] = Set(rendered.headingIDs)
         records.append(Record(logicalPath: logicalPath, locale: locale, sourcePath: sourcePath,
-                              links: rendered.links, images: rendered.images))
+                              links: rendered.links, images: rendered.images, isFallback: isFallback))
     }
 }
 
@@ -87,10 +90,10 @@ struct LinkChecker {
     /// Whether a content-relative asset path (e.g. `images/x.png`) exists.
     let assetExists: (String) -> Bool
 
-    func issues(forPage logicalPath: String, locale: String, sourcePath: String, links: [String], images: [String]) -> [LinkIssue] {
+    func issues(forPage logicalPath: String, locale: String, sourcePath: String, isFallback: Bool, links: [String], images: [String]) -> [LinkIssue] {
         var found: [LinkIssue] = []
         for link in links {
-            if let issue = checkLink(link, from: logicalPath, locale: locale, sourcePath: sourcePath) {
+            if let issue = checkLink(link, from: logicalPath, locale: locale, isFallback: isFallback, sourcePath: sourcePath) {
                 found.append(issue)
             }
         }
@@ -104,7 +107,7 @@ struct LinkChecker {
 
     // MARK: Link kinds
 
-    private func checkLink(_ raw: String, from logicalPath: String, locale: String, sourcePath: String) -> LinkIssue? {
+    private func checkLink(_ raw: String, from logicalPath: String, locale: String, isFallback: Bool, sourcePath: String) -> LinkIssue? {
         guard !raw.isEmpty, !isExternal(raw), !raw.hasPrefix("/") else { return nil }
 
         // Same-page anchor — checked against this page's own headings.
@@ -128,10 +131,13 @@ struct LinkChecker {
             if !builtPages.contains(target) {
                 return LinkIssue(sourcePath: sourcePath, locale: locale, link: raw, kind: .missingPage(target: target))
             }
-            // Cross-page anchors are validated against the target's default-language
-            // headings; a translated target missing the anchor is a translation gap,
-            // not a broken link.
-            if !fragment.isEmpty, let targetSlugs = canonicalSlugs(target), !targetSlugs.contains(fragment) {
+            // Validate cross-page anchors against the target as it renders for this
+            // page. A real translation is checked against the target's same-locale
+            // headings (so a correct translated anchor passes, and a wrong one is
+            // caught); a fallback page carries the default content's links, so it's
+            // checked against the default-language target (avoids unactionable noise).
+            let lookupLocale = isFallback ? defaultLocale : locale
+            if !fragment.isEmpty, let targetSlugs = slugsForTarget(target, locale: lookupLocale), !targetSlugs.contains(fragment) {
                 return LinkIssue(sourcePath: sourcePath, locale: locale, link: raw,
                                  kind: .missingAnchor(target: target, fragment: fragment))
             }
@@ -154,9 +160,10 @@ struct LinkChecker {
 
     // MARK: Helpers
 
-    /// Heading slugs for a page's canonical (default-language) build.
-    private func canonicalSlugs(_ logicalPath: String) -> Set<String>? {
-        slugs[logicalPath]?[defaultLocale] ?? slugs[logicalPath]?.first?.value
+    /// Heading slugs for a target page as it renders in `locale`: the translated
+    /// build if it exists, else the default-language (fallback) build.
+    private func slugsForTarget(_ logicalPath: String, locale: String) -> Set<String>? {
+        slugs[logicalPath]?[locale] ?? slugs[logicalPath]?[defaultLocale] ?? slugs[logicalPath]?.first?.value
     }
 
     private func isExternal(_ s: String) -> Bool {

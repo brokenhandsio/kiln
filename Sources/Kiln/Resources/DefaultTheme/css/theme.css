@@ -84,7 +84,7 @@ a:hover { text-decoration: underline; }
 
 .kiln-header-spacer { flex: 1; }
 
-.kiln-header button {
+.kiln-header button, .kiln-controls button {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -95,7 +95,13 @@ a:hover { text-decoration: underline; }
     cursor: pointer;
     padding: 8px;
 }
-.kiln-header button:hover { color: var(--text); background: var(--surface-2); }
+.kiln-header button:hover, .kiln-controls button:hover { color: var(--text); background: var(--surface-2); }
+
+/* Header / drawer control groups (version + language switchers, palette, repo). */
+.kiln-controls { display: flex; align-items: center; gap: 12px; }
+.kiln-controls-drawer { display: none; }   /* shown only in the mobile drawer */
+/* Hidden on large screens (the qualified selector beats `.kiln-header button`). */
+.kiln-header .kiln-search-toggle { display: none; }
 
 /* Hidden on large screens (selector beats `.kiln-header button`); shown on
    mobile in the responsive block below. */
@@ -426,7 +432,53 @@ details.admonition > summary.admonition-title::-webkit-details-marker { display:
 @media (max-width: 900px) {
     .kiln-layout { grid-template-columns: minmax(0, 1fr); padding: 0 18px; }
     .kiln-header .kiln-menu-toggle { display: inline-flex; }
-    .kiln-repo .kiln-repo-name { display: none; }
+
+    /* Mobile header: hamburger + logo + search button only. The switchers,
+       palette toggle and repo link move into the drawer. */
+    .kiln-controls-header { display: none; }
+    .kiln-header .kiln-search-toggle { display: inline-flex; }
+
+    /* Search becomes a full-width overlay panel below the header. */
+    .kiln-search {
+        position: fixed;
+        top: var(--kiln-header-height);
+        left: 0;
+        right: 0;
+        display: none;
+        flex-direction: column;
+        padding: 12px 18px 16px;
+        background: var(--bg);
+        border-bottom: 1px solid var(--border);
+        box-shadow: var(--shadow);
+        z-index: 60;
+    }
+    body.kiln-search-open .kiln-search { display: flex; }
+    .kiln-search-icon { display: none; }
+    .kiln-search-input { width: 100%; max-width: none; padding-left: 12px; }
+    .kiln-search-results {
+        position: static;
+        width: 100%;
+        margin-top: 8px;
+        max-height: calc(100vh - var(--kiln-header-height) - 96px);
+        border: none;
+        box-shadow: none;
+        padding: 4px 0 0;
+    }
+
+    /* Controls in the drawer, wrapping onto multiple rows. */
+    .kiln-controls-drawer {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px;
+        padding-bottom: 16px;
+        margin-bottom: 12px;
+        border-bottom: 1px solid var(--border);
+    }
+    /* Dropdowns open inward (left-aligned) so they don't clip off the drawer. */
+    .kiln-controls-drawer .kiln-lang-menu,
+    .kiln-controls-drawer .kiln-version-menu { left: 0; right: auto; }
+
     .kiln-sidebar {
         position: fixed;
         top: var(--kiln-header-height);
@@ -448,7 +500,6 @@ details.admonition > summary.admonition-title::-webkit-details-marker { display:
         background: rgba(0, 0, 0, 0.4);
         z-index: 55;
     }
-    .kiln-search-input { width: 150px; }
 }
 
 /* ---- Syntax highlighting (highlight.js token colours) ---- */
