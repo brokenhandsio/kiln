@@ -78,7 +78,7 @@ jobs:
           echo "Built ${TARBALL} (sha256 ${SHA256})"
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: dist/${{ steps.package.outputs.tarball }}
           generate_release_notes: true
