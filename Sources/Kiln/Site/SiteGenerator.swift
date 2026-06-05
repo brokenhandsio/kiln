@@ -141,7 +141,7 @@ public struct SiteGenerator {
 
             // Link checking is per version (a page may exist in one version only).
             if linkChecking != .off {
-                try checkLinks(linkData, contentURL: build.contentURL,
+                try checkLinks(linkData, version: version, contentURL: build.contentURL,
                                defaultLocale: build.defaultLocale, knownLocales: build.locales)
             }
         }
@@ -163,7 +163,7 @@ public struct SiteGenerator {
 
     /// Validate collected internal links, report problems, and (in `.error`
     /// mode) throw if any were found.
-    private func checkLinks(_ linkData: LinkData, contentURL: URL, defaultLocale: String, knownLocales: Set<String>) throws {
+    private func checkLinks(_ linkData: LinkData, version: DocVersion, contentURL: URL, defaultLocale: String, knownLocales: Set<String>) throws {
         let checker = LinkChecker(
             builtPages: linkData.builtPages,
             slugs: linkData.slugs,
@@ -186,9 +186,12 @@ public struct SiteGenerator {
 
         guard !issues.isEmpty else { return }
 
-        var report = "[kiln] link check: \(issues.count) broken link(s):\n"
+        // Label the report with the version, so broken links are attributable in
+        // a multi-version build (empty for an unversioned site).
+        let versionLabel = version.id.isEmpty ? "" : " [\(version.id)]"
+        var report = "[kiln] link check\(versionLabel): \(issues.count) broken link(s):\n"
         for issue in issues {
-            report += "  \(issue.sourcePath): \(issue.message)\n"
+            report += "  \(versionLabel.isEmpty ? "" : "\(version.id)/")\(issue.sourcePath): \(issue.message)\n"
         }
         FileHandle.standardError.write(Data(report.utf8))
 
