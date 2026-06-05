@@ -76,6 +76,19 @@ struct LinkCheckerTests {
         #expect(issues(["../index.md#section-one"], locale: "es", isFallback: true).isEmpty)
     }
 
+    @Test("Directory-style (pretty URL) page links are recognised, not treated as assets")
+    func directoryStylePageLinks() {
+        // `../index/` and `../index` map to the built index.md page (MkDocs-style links).
+        #expect(issues(["../index/"]).isEmpty)
+        #expect(issues(["../index"]).isEmpty)
+        // A valid anchor on a directory-style page link passes.
+        #expect(issues(["../index/#section-one"]).isEmpty)
+        // A bad anchor on one is still caught (as a missing anchor, not a missing file).
+        #expect(issues(["../index/#nope"]).first?.kind == .missingAnchor(target: "index.md", fragment: "nope"))
+        // A directory-style link to a non-page is still an asset miss.
+        #expect(issues(["../nope/"]).first?.kind == .missingAsset(path: "nope"))
+    }
+
     @Test("A missing relative asset/image is reported")
     func missingAsset() {
         let linkIssues = issues(["data.csv"])

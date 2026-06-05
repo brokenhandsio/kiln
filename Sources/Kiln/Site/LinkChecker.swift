@@ -125,12 +125,28 @@ struct LinkChecker {
         guard !path.isEmpty else { return nil }
         let resolved = LinkChecker.resolve(path, from: logicalPath)
 
+        // Resolve to a target page. Either an explicit `.md` link, or a
+        // directory-style "pretty URL" (e.g. `../http/request/` or `../http/request`)
+        // that maps to a built page — the form MkDocs-era content uses.
+        var target: String?
         if resolved.hasSuffix(".md") {
             // A localised target (`content.de.md`) maps to its logical path.
-            let target = LinkResolver.stripLocaleSuffix(resolved, knownLocales: knownLocales).logicalPath
-            if !builtPages.contains(target) {
-                return LinkIssue(sourcePath: sourcePath, locale: locale, link: raw, kind: .missingPage(target: target))
+            let logical = LinkResolver.stripLocaleSuffix(resolved, knownLocales: knownLocales).logicalPath
+            if !builtPages.contains(logical) {
+                return LinkIssue(sourcePath: sourcePath, locale: locale, link: raw, kind: .missingPage(target: logical))
             }
+            target = logical
+        } else {
+            let bare = resolved.hasSuffix("/") ? String(resolved.dropLast()) : resolved
+            if !bare.isEmpty {
+                for candidate in [bare + ".md", bare + "/index.md"] {
+                    let logical = LinkResolver.stripLocaleSuffix(candidate, knownLocales: knownLocales).logicalPath
+                    if builtPages.contains(logical) { target = logical; break }
+                }
+            }
+        }
+
+        if let target {
             // Validate cross-page anchors against the target as it renders for this
             // page. A real translation is checked against the target's same-locale
             // headings (so a correct translated anchor passes, and a wrong one is
