@@ -139,5 +139,6 @@ let contentDirectory = "Content"
 let outputDirectory = "public"
 
 print("Building site into ./\(outputDirectory) …")
-try await Kiln.build(site, contentDirectory: contentDirectory, outputDirectory: outputDirectory)
+// `.error` fails the build on any broken internal link, so CI catches them.
+try await Kiln.build(site, contentDirectory: contentDirectory, outputDirectory: outputDirectory, linkChecking: .error)
 print("Done. Serve it with:  kiln serve --directory \(outputDirectory)")
