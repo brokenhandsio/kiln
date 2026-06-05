@@ -15,6 +15,25 @@ generates machine-friendly output alongside the HTML, following the
 | `llms-full.txt`   | The full corpus — every page's markdown concatenated, with source markers. |
 | `…/index.md`      | A raw-markdown copy of every page, sitting next to its `index.html`. |
 
+## Translations
+
+When a version has more than one language, each language gets its own
+`llms.txt` index (the default language's at the root, others under `/<locale>/`,
+e.g. `/de/llms.txt`). Every index ends with a **Translations** section linking
+to the other languages' `llms.txt`:
+
+```text
+## Translations
+
+- [Deutsch](https://kiln.brokenhands.io/de/llms.txt)
+```
+
+The [llms.txt convention](https://llmstxt.org) only standardises the single root
+`/llms.txt`, so this is a best-effort discovery hook: a tool that reads the
+canonical index can follow the links to the localised ones. The full corpus
+(`llms-full.txt`) is emitted for the default language only, to avoid duplicating
+mostly-fallback content for every locale.
+
 ## Per-page markdown alternate
 
 Every HTML page advertises its markdown twin so tools can discover it:

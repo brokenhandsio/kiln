@@ -190,6 +190,17 @@ struct BuildTests {
         // Each HTML page advertises its markdown alternate.
         let home = try read(output.appendingPathComponent("index.html"))
         #expect(home.contains("<link rel=\"alternate\" type=\"text/markdown\" href=\"/index.md\">"))
+
+        // Best-effort translation discovery: the root index links other languages'
+        // llms.txt under a "Translations" heading, and each language has its own.
+        #expect(llms.contains("## Translations"))
+        #expect(llms.contains("https://fixture.example.com/de/llms.txt"))
+        let germanLLMS = try read(output.appendingPathComponent("de/llms.txt"))
+        #expect(germanLLMS.contains("## Translations"))
+        #expect(germanLLMS.contains("https://fixture.example.com/llms.txt"))  // links back to default
+        #expect(germanLLMS.contains("/de/section/page/index.md"))             // localised page links
+        // Only the default language gets the full corpus (avoids N× duplication).
+        #expect(!FileManager.default.fileExists(atPath: output.appendingPathComponent("de/llms-full.txt").path))
     }
 
     @Test("robots.txt points at the sitemap")

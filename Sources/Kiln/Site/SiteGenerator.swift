@@ -88,11 +88,9 @@ public struct SiteGenerator {
         for build in builds {
             let version = build.version
             let linkData = LinkData()
-            var defaultNav: ResolvedNavigation?
 
             for language in version.buildableLanguages {
                 guard let resolvedNav = build.navByLocale[language.locale] else { continue }
-                if language.isDefault { defaultNav = resolvedNav }
                 var searchIndex = SearchIndexBuilder()
 
                 for pageRef in resolvedNav.orderedPages {
@@ -136,9 +134,9 @@ public struct SiteGenerator {
             try AssetCopier(outputDirectory: outputDirectory)
                 .copyContentAssets(from: build.contentURL, into: version.urlPrefix)
 
-            // AI/agent output (per version; the default version's also lands at root).
-            if site.llmsText, let defaultNav {
-                try writeLLMSFiles(build: build, nav: defaultNav, writer: writer)
+            // AI/agent output (per version, per language).
+            if site.llmsText {
+                try writeLLMSFiles(build: build, writer: writer)
             }
 
             // Link checking is per version (a page may exist in one version only).
@@ -201,35 +199,70 @@ public struct SiteGenerator {
 
     // MARK: AI / agent-friendly output
 
-    /// Write `llms.txt` + `llms-full.txt` under a version's root, for its default language.
-    private func writeLLMSFiles(build: VersionBuild, nav: ResolvedNavigation, writer: OutputWriter) throws {
+    /// Write `llms.txt` for every language of a version (the default language's at
+    /// the version root, others under `/<locale>/`), plus a single `llms-full.txt`
+    /// corpus for the default language.
+    ///
+    /// When a version has more than one language, each `llms.txt` gets a
+    /// "Translations" section linking to the other languages' `llms.txt`. The
+    /// llms.txt convention only standardises the root `/llms.txt`, so this is a
+    /// best-effort discovery hook: a tool that reads the canonical index can
+    /// follow the links to the localised indexes. Only the default-language full
+    /// corpus is emitted, to avoid duplicating mostly-fallback content N times.
+    private func writeLLMSFiles(build: VersionBuild, writer: OutputWriter) throws {
         let store = build.store
         let defaultLocale = build.defaultLocale
-        let versionRoot = build.urls.directory(forLocale: defaultLocale, in: outputDirectory)
+        let languages = build.version.buildableLanguages
 
-        var rootLinks: [LLMSText.Link] = []
-        var sections: [LLMSText.Section] = []
-        for node in nav.nodes {
-            switch node.kind {
-            case .section:
-                sections.append(LLMSText.Section(title: node.title, links: llmsLinks(node.items)))
-            case .page, .link:
-                rootLinks.append(contentsOf: llmsLinks([node]))
+        for language in languages {
+            guard let nav = build.navByLocale[language.locale] else { continue }
+            let localeRoot = build.urls.directory(forLocale: language.locale, in: outputDirectory)
+            let title = language.siteName ?? site.name
+            let summary = language.description ?? site.description
+
+            var rootLinks: [LLMSText.Link] = []
+            var sections: [LLMSText.Section] = []
+            for node in nav.nodes {
+                switch node.kind {
+                case .section:
+                    sections.append(LLMSText.Section(title: node.title, links: llmsLinks(node.items)))
+                case .page, .link:
+                    rootLinks.append(contentsOf: llmsLinks([node]))
+                }
+            }
+            var allSections: [LLMSText.Section] = []
+            if !rootLinks.isEmpty { allSections.append(LLMSText.Section(title: nil, links: rootLinks)) }
+            allSections.append(contentsOf: sections)
+
+            // Best-effort translation discovery: link the other languages' indexes.
+            let others = languages.filter { $0.locale != language.locale }
+            if !others.isEmpty {
+                let links = others.map { other in
+                    LLMSText.Link(title: other.name, url: llmsURL(forLocale: other.locale, build: build))
+                }
+                allSections.append(LLMSText.Section(title: "Translations", links: links))
+            }
+
+            let index = LLMSText.index(title: title, summary: summary, sections: allSections)
+            try writer.write(index, to: localeRoot.appendingPathComponent("llms.txt"))
+
+            // Full corpus: default language only (avoids N× mostly-fallback duplication).
+            if language.isDefault {
+                var pages: [LLMSText.Page] = []
+                for ref in nav.orderedPages {
+                    guard let page = store.page(forLogicalPath: ref.logicalPath, locale: language.locale, defaultLocale: defaultLocale) else { continue }
+                    pages.append(LLMSText.Page(url: absoluteURL(forLocation: String(ref.url.drop(while: { $0 == "/" }))), body: page.body))
+                }
+                let full = LLMSText.full(title: title, summary: summary, pages: pages)
+                try writer.write(full, to: localeRoot.appendingPathComponent("llms-full.txt"))
             }
         }
-        var allSections: [LLMSText.Section] = []
-        if !rootLinks.isEmpty { allSections.append(LLMSText.Section(title: nil, links: rootLinks)) }
-        allSections.append(contentsOf: sections)
-        let index = LLMSText.index(title: site.name, summary: site.description, sections: allSections)
-        try writer.write(index, to: versionRoot.appendingPathComponent("llms.txt"))
+    }
 
-        var pages: [LLMSText.Page] = []
-        for ref in nav.orderedPages {
-            guard let page = store.page(forLogicalPath: ref.logicalPath, locale: defaultLocale, defaultLocale: defaultLocale) else { continue }
-            pages.append(LLMSText.Page(url: absoluteURL(forLocation: String(ref.url.drop(while: { $0 == "/" }))), body: page.body))
-        }
-        let full = LLMSText.full(title: site.name, summary: site.description, pages: pages)
-        try writer.write(full, to: versionRoot.appendingPathComponent("llms-full.txt"))
+    /// Absolute URL of a language's `llms.txt` within this version.
+    private func llmsURL(forLocale locale: String, build: VersionBuild) -> String {
+        let root = build.urls.urlPath(forLogicalPath: "index.md", locale: locale)
+        return absoluteURL(forLocation: String(root.drop(while: { $0 == "/" })) + "llms.txt")
     }
 
     /// Flatten nav nodes into `llms.txt` links, pointing at each page's raw markdown.
