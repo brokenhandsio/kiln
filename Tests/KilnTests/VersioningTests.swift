@@ -102,8 +102,8 @@ struct VersioningTests {
         #expect(v4["locales"] as? [String] == ["en"])
     }
 
-    @Test("Version switcher links to the equivalent page, or the version home as a fallback")
-    func switcherEquivalence() async throws {
+    @Test("Version switcher always links to each version's home page")
+    func switcherGoesToVersionHome() async throws {
         let output = try await buildVersioned()
         defer { try? FileManager.default.removeItem(at: output) }
 
@@ -113,27 +113,29 @@ struct VersioningTests {
         #expect(home.contains("5.0 (latest)"))
         #expect(home.contains(">4.0<"))
 
-        // guides/new exists only in latest → its switcher link to 4.0 falls back to 4.0's home.
+        // From a deep latest page, the switcher option for 4.0 links to 4.0's home.
         let newGuide = try read(output.appendingPathComponent("guides/new/index.html"))
-        #expect(newGuide.contains("href=\"/4.0/\""))
+        #expect(newGuide.contains("href=\"/4.0/\" class=\"kiln-version-option"))
 
-        // section/page exists in both → from 4.0, the link to latest is the same page.
+        // From a 4.0 page, the switcher option for latest is latest's home,
+        // not the equivalent page (/section/page/).
         let v4Page = try read(output.appendingPathComponent("4.0/section/page/index.html"))
-        #expect(v4Page.contains("href=\"/section/page/\""))
+        #expect(v4Page.contains("href=\"/\" class=\"kiln-version-option"))
+        #expect(!v4Page.contains("href=\"/section/page/\" class=\"kiln-version-option"))
 
-        // German section/page → switching to 4.0 (no German) degrades to 4.0's default locale page.
+        // German page → 4.0 (no German) lands on 4.0's default-locale home.
         let dePage = try read(output.appendingPathComponent("de/section/page/index.html"))
-        #expect(dePage.contains("href=\"/4.0/section/page/\""))
+        #expect(dePage.contains("href=\"/4.0/\" class=\"kiln-version-option"))
     }
 
-    @Test("Non-default versions are noindex + canonical to the latest equivalent")
+    @Test("Non-default versions are noindex + self-canonical")
     func seo() async throws {
         let output = try await buildVersioned()
         defer { try? FileManager.default.removeItem(at: output) }
 
         let v4Page = try read(output.appendingPathComponent("4.0/section/page/index.html"))
         #expect(v4Page.contains("<meta name=\"robots\" content=\"noindex\">"))
-        #expect(v4Page.contains("<link rel=\"canonical\" href=\"https://v.example.com/section/page/\">"))
+        #expect(v4Page.contains("<link rel=\"canonical\" href=\"https://v.example.com/4.0/section/page/\">"))
 
         // The default version is unaffected: no noindex, self canonical.
         let rootPage = try read(output.appendingPathComponent("section/page/index.html"))

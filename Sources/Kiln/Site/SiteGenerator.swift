@@ -71,17 +71,14 @@ public struct SiteGenerator {
             let navigationBuilder = NavigationBuilder(urls: urls)
 
             var navByLocale: [String: ResolvedNavigation] = [:]
-            var pageSet: Set<String> = []
             for language in version.buildableLanguages {
-                let nav = navigationBuilder.build(version.navigation, for: language)
-                navByLocale[language.locale] = nav
-                for ref in nav.orderedPages { pageSet.insert(ref.logicalPath) }
+                navByLocale[language.locale] = navigationBuilder.build(version.navigation, for: language)
             }
 
             builds.append(VersionBuild(
                 version: version, contentURL: contentURL, store: store, urls: urls,
                 navigationBuilder: navigationBuilder, defaultLocale: defaultLocale,
-                locales: locales, navByLocale: navByLocale, pageSet: pageSet
+                locales: locales, navByLocale: navByLocale
             ))
         }
 
@@ -296,24 +293,19 @@ public struct SiteGenerator {
             linkData.add(logicalPath: logicalPath, locale: language.locale, sourcePath: sourceRelative, rendered: rendered)
         }
 
-        // Versioning: cross-version switcher links and the latest-equivalent URL.
-        let latestEquivalent = equivalentURL(logicalPath: logicalPath, in: defaultBuild, currentLocale: language.locale)
-        let canonical: String
-        if version.isDefault {
-            canonical = absoluteURL(forLocation: String(urlPath.drop(while: { $0 == "/" })))
-        } else {
-            canonical = absoluteURL(forLocation: String(latestEquivalent.drop(while: { $0 == "/" })))
-        }
+        // Versioning. Each version page is self-canonical (non-default versions
+        // are also `noindex`, so there's no duplicate-content concern), and the
+        // version switcher links to each version's home page.
+        let canonical = absoluteURL(forLocation: String(urlPath.drop(while: { $0 == "/" })))
         let versionContext = VersionContext(
             isVersioned: isVersioned,
-            alternates: isVersioned ? versionAlternates(forLogicalPath: logicalPath, builds: allBuilds,
-                                                        currentVersionID: version.id, currentLocale: language.locale) : [],
+            alternates: isVersioned ? versionAlternates(builds: allBuilds, currentVersionID: version.id, currentLocale: language.locale) : [],
             currentID: version.id,
             currentName: version.name,
             isPrerelease: version.isPrerelease,
             deprecated: version.deprecated,
             isLatest: version.isDefault,
-            latestURL: (isVersioned && !version.isDefault) ? latestEquivalent : nil,
+            latestURL: (isVersioned && !version.isDefault) ? homeURL(in: defaultBuild, currentLocale: language.locale) : nil,
             basePath: version.isDefault ? "" : "/" + version.id,
             noindex: isVersioned && !version.isDefault
         )
@@ -372,11 +364,10 @@ public struct SiteGenerator {
         // A 404 can be served from any path, so reference assets/links from the
         // version+locale root rather than a page-relative base.
         let rootBase = urls.urlPath(forLogicalPath: "index.md", locale: language.locale) // e.g. "/", "/de/", "/4.0/"
-        // No real logical path → the version switcher links to each version's home.
         let alternatesForNotFound = isVersioned
-            ? versionAlternates(forLogicalPath: "\u{0}404", builds: allBuilds, currentVersionID: version.id, currentLocale: language.locale)
+            ? versionAlternates(builds: allBuilds, currentVersionID: version.id, currentLocale: language.locale)
             : []
-        let latestHome = equivalentURL(logicalPath: "\u{0}404", in: defaultBuild, currentLocale: language.locale)
+        let latestHome = homeURL(in: defaultBuild, currentLocale: language.locale)
         let versionContext = VersionContext(
             isVersioned: isVersioned,
             alternates: alternatesForNotFound,
@@ -419,15 +410,15 @@ public struct SiteGenerator {
 
     // MARK: Versioning helpers
 
-    /// The cross-version switcher entries for a page: each version's URL for this
-    /// page, or that version's home when the page doesn't exist there.
-    private func versionAlternates(forLogicalPath logicalPath: String, builds: [VersionBuild],
-                                   currentVersionID: String, currentLocale: String) -> [VersionAlternate] {
+    /// The version switcher entries: each version's home page. Switching version
+    /// always lands on that version's home (kept deliberately simple — versions
+    /// can have entirely different structures).
+    private func versionAlternates(builds: [VersionBuild], currentVersionID: String, currentLocale: String) -> [VersionAlternate] {
         builds.map { build in
             VersionAlternate(
                 id: build.version.id,
                 name: build.version.name,
-                url: equivalentURL(logicalPath: logicalPath, in: build, currentLocale: currentLocale),
+                url: homeURL(in: build, currentLocale: currentLocale),
                 isCurrent: build.version.id == currentVersionID,
                 isPrerelease: build.version.isPrerelease,
                 deprecated: build.version.deprecated
@@ -435,14 +426,10 @@ public struct SiteGenerator {
         }
     }
 
-    /// The URL of `logicalPath` within a version — same page (preferring the
-    /// current locale, else that version's default locale) if it exists, else the
-    /// version's home page.
-    private func equivalentURL(logicalPath: String, in build: VersionBuild, currentLocale: String) -> String {
+    /// A version's home page URL, in the current locale if that version has it,
+    /// otherwise the version's default locale.
+    private func homeURL(in build: VersionBuild, currentLocale: String) -> String {
         let locale = build.locales.contains(currentLocale) ? currentLocale : build.defaultLocale
-        if build.pageSet.contains(logicalPath) {
-            return build.urls.urlPath(forLogicalPath: logicalPath, locale: locale)
-        }
         return build.urls.urlPath(forLogicalPath: "index.md", locale: locale)
     }
 

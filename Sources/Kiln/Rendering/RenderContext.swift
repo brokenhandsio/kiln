@@ -46,7 +46,7 @@ struct VersionContext: Sendable {
     var deprecated: Bool = false
     /// Whether the current version is the default (latest) one.
     var isLatest: Bool = true
-    /// The latest version's equivalent URL for this page (for the banner/canonical).
+    /// The latest version's home URL (for the "view latest version" banner).
     var latestURL: String? = nil
     /// `""` for the default version, else `/<id>` (no trailing slash), for search.js.
     var basePath: String = ""
