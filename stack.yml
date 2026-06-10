@@ -1,0 +1,125 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Kiln documentation site (kiln.brokenhands.io) — S3 website behind CloudFront'
+Parameters:
+  DomainName:
+    Type: String
+    Description: The domain name for the site
+    AllowedPattern: (?!-)[a-zA-Z0-9-.]{1,63}(?<!-)
+    ConstraintDescription: Must be a valid DNS zone name.
+  AcmCertificateArn:
+    Type: String
+    Description: ARN of an AWS Certificate Manager (ACM) certificate. Must be in us-east-1 for CloudFront.
+    AllowedPattern: "arn:aws:acm:.*"
+  S3BucketName:
+    Type: String
+    Description: Name for the bucket holding the site content
+Resources:
+  S3BucketForWebsiteContent:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref 'S3BucketName'
+      WebsiteConfiguration:
+        # Kiln emits "pretty" directory-style URLs (/guides/x/), so the S3
+        # website endpoint's IndexDocument resolves /guides/x/ -> index.html.
+        IndexDocument: index.html
+        ErrorDocument: /404.html
+      # The website endpoint serves content publicly; new buckets block public
+      # access by default, so relax it and grant read via the bucket policy below.
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        IgnorePublicAcls: true
+        BlockPublicPolicy: false
+        RestrictPublicBuckets: false
+  WebsiteBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref 'S3BucketForWebsiteContent'
+      PolicyDocument:
+        Statement:
+          - Sid: PublicReadForWebsite
+            Effect: Allow
+            Principal: '*'
+            Action: 's3:GetObject'
+            Resource: !Sub '${S3BucketForWebsiteContent.Arn}/*'
+  WebsiteCloudfront:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Comment: CloudFront distribution for the Kiln documentation site
+        Origins:
+        # Use the S3 *website* endpoint (not the REST endpoint) so the bucket's
+        # IndexDocument behaviour gives us pretty URLs. A website endpoint only
+        # speaks HTTP, hence http-only below.
+        - DomainName: !Join [ '', !Split [ 'http://', !GetAtt 'S3BucketForWebsiteContent.WebsiteURL' ] ]
+          Id: S3Origin
+          CustomOriginConfig:
+            OriginProtocolPolicy: 'http-only'
+        Enabled: true
+        HttpVersion: 'http2'
+        Aliases:
+        - !Ref 'DomainName'
+        CustomErrorResponses:
+          - ErrorCode: 403
+            ResponseCode: 404
+            ResponsePagePath: /404.html
+        DefaultCacheBehavior:
+          AllowedMethods:
+          - GET
+          - HEAD
+          - OPTIONS
+          Compress: true
+          TargetOriginId: S3Origin
+          ForwardedValues:
+            QueryString: false
+            Cookies:
+              Forward: none
+          ViewerProtocolPolicy: redirect-to-https
+          ResponseHeadersPolicyId: !Ref WebsiteCloudFrontPolicies
+        PriceClass: PriceClass_All
+        ViewerCertificate:
+          AcmCertificateArn: !Ref 'AcmCertificateArn'
+          SslSupportMethod: sni-only
+  WebsiteCloudFrontPolicies:
+    Type: AWS::CloudFront::ResponseHeadersPolicy
+    Properties:
+      ResponseHeadersPolicyConfig:
+        # Names are unique per account, so this must differ from other
+        # Broken Hands docs stacks (e.g. Vapor's "Docs-Security-Header-Policy").
+        Name: Kiln-Docs-Security-Header-Policy
+        Comment: The Kiln docs security header policy
+        CustomHeadersConfig:
+          Items:
+            - Header: Permissions-Policy
+              Value: accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=(), interest-cohort=()
+              Override: false
+            - Header: server
+              Value: 'Kiln Docs'
+              Override: true
+        SecurityHeadersConfig:
+          ContentTypeOptions:
+            Override: false
+          FrameOptions:
+            FrameOption: DENY
+            Override: false
+          ReferrerPolicy:
+            ReferrerPolicy: strict-origin-when-cross-origin
+            Override: false
+          StrictTransportSecurity:
+            AccessControlMaxAgeSec: 63072000
+            IncludeSubdomains: true
+            Preload: false
+            Override: false
+          XSSProtection:
+            ModeBlock: true
+            Protection: true
+            Override: false
+Outputs:
+  CloudfrontURL:
+    Description: 'CloudFront distribution domain name (point the DNS record here)'
+    Value: !GetAtt WebsiteCloudfront.DomainName
+  DistributionId:
+    Description: 'CloudFront distribution ID (used for cache invalidation)'
+    Value: !Ref WebsiteCloudfront
+  BucketName:
+    Description: 'Name of the S3 bucket holding the site content'
+    Value: !Ref 'S3BucketForWebsiteContent'

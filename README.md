@@ -9,6 +9,10 @@ It was built as a replacement for MkDocs-based documentation sites (such as
 on: multi-language docs with fallback, a themeable UI, client-side search,
 admonitions, and more.
 
+📖 **See it in action:** Kiln's own documentation site — built with Kiln — is
+live at **[kiln.brokenhands.io](https://kiln.brokenhands.io)**. Its source is the
+[example site](Examples/ExampleSite) in this repo.
+
 > [!NOTE]
 > Kiln is under active development ahead of a 1.0 release. APIs may change.
 

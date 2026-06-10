@@ -1,0 +1,80 @@
+name: Deploy docs site
+
+# Builds the example site (Kiln's own documentation) and deploys it to
+# kiln.brokenhands.io: an S3 website fronted by CloudFront, with the
+# infrastructure managed by stack.yml (CloudFormation).
+#
+# Required GitHub configuration (Settings → Secrets and variables → Actions):
+#   Variables:
+#     OIDC_ROLE_ARN     - IAM role for this repo to assume via GitHub OIDC
+#     OIDC_ROLE_REGION  - region to run the AWS calls in (use us-east-1)
+#   Secrets:
+#     CERTIFICATE_ARN   - ACM certificate ARN for kiln.brokenhands.io (us-east-1)
+#
+# After the first run, create a DNS record for kiln.brokenhands.io pointing at
+# the CloudFront domain shown in the stack's CloudfrontURL output.
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches: [main]
+  # Allow manual redeploys from the Actions tab.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  DOMAIN_NAME: kiln.brokenhands.io
+  S3_BUCKET_NAME: kiln.brokenhands.io
+  STACK_NAME: kiln-docs-stack
+
+jobs:
+  deploy:
+    name: Build and deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      # Build in the same Swift container CI uses; output lands in
+      # Examples/ExampleSite/public on the host via the bind mount.
+      - name: Build the site
+        run: |
+          docker run --rm -v "$PWD":/kiln -w /kiln/Examples/ExampleSite swift:6.2 \
+            swift run ExampleSite
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b # v6.2.0
+        with:
+          role-to-assume: ${{ vars.OIDC_ROLE_ARN }}
+          aws-region: ${{ vars.OIDC_ROLE_REGION }}
+
+      - name: Deploy CloudFormation stack
+        uses: aws-actions/aws-cloudformation-github-deploy@81e3b03d2266bcb76c4bcc37a7d71d9cb67838bb # v2.2.0
+        with:
+          name: ${{ env.STACK_NAME }}
+          template: stack.yml
+          no-fail-on-empty-changeset: "1"
+          parameter-overrides: >-
+            DomainName=${{ env.DOMAIN_NAME }},
+            S3BucketName=${{ env.S3_BUCKET_NAME }},
+            AcmCertificateArn=${{ secrets.CERTIFICATE_ARN }}
+
+      - name: Upload site to S3
+        run: |
+          aws s3 sync ./Examples/ExampleSite/public "s3://${S3_BUCKET_NAME}" --delete --no-progress
+
+      - name: Invalidate CloudFront
+        run: |
+          DIST_ID="$(aws cloudformation describe-stacks \
+            --stack-name "${STACK_NAME}" \
+            --query "Stacks[0].Outputs[?OutputKey=='DistributionId'].OutputValue" \
+            --output text)"
+          echo "Invalidating distribution ${DIST_ID}"
+          aws cloudfront create-invalidation --distribution-id "${DIST_ID}" --paths '/*'
