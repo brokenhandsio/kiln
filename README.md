@@ -13,9 +13,6 @@ admonitions, and more.
 live at **[kiln.brokenhands.io](https://kiln.brokenhands.io)**. Its source is the
 [example site](Examples/ExampleSite) in this repo.
 
-> [!NOTE]
-> Kiln is under active development ahead of a 1.0 release. APIs may change.
-
 ## Contents
 
 - [Features](#features)
@@ -82,7 +79,7 @@ site:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/brokenhandsio/kiln.git", from: "0.1.0"),
+    .package(url: "https://github.com/brokenhandsio/kiln.git", from: "1.0.0"),
 ],
 targets: [
     .executableTarget(
