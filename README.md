@@ -38,7 +38,10 @@ live at **[kiln.brokenhands.io](https://kiln.brokenhands.io)**. Its source is th
 
 - **Swift-defined configuration** — your whole site is a single type-safe
   `KilnSite` value with a navigation result-builder DSL.
-- **Version Support** - define multiple versions and make it easy to switch between and view the latest.
+- **Versioned docs** — define multiple documentation versions with a built-in
+  version switcher. The default ("latest") version is served at the site root and
+  others under `/<version>/`, with automatic banners for pre-release and outdated
+  versions.
 - **Localisation** — multiple languages with automatic fallback to your default
   language, per-language navigation translations and site names, hreflang
   alternates, and a language switcher.

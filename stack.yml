@@ -22,7 +22,10 @@ Resources:
         # Kiln emits "pretty" directory-style URLs (/guides/x/), so the S3
         # website endpoint's IndexDocument resolves /guides/x/ -> index.html.
         IndexDocument: index.html
-        ErrorDocument: /404.html
+        # No leading slash: the S3 website ErrorDocument is an object *key*.
+        # Our bucket is public, so a missing key returns 404 (not 403) and is
+        # served by this error document directly.
+        ErrorDocument: 404.html
       # The website endpoint serves content publicly; new buckets block public
       # access by default, so relax it and grant read via the bucket policy below.
       PublicAccessBlockConfiguration:

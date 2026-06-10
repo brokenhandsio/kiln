@@ -25,6 +25,9 @@ admonitions, and more.
 - **Localised** — first-class multi-language support with automatic fallback to
   your default language, per-language navigation and UI strings, hreflang
   alternates, and a language switcher.
+- **Versioned** — ship multiple documentation versions with a built-in version
+  switcher (try it in the top bar). The latest version lives at the root; older
+  and pre-release versions get their own URLs and a banner.
 - **Themeable** — ships with a fresh, responsive default theme (light/dark,
   sidebar nav, on-page table of contents). Override any part with your own
   [Leaf](https://github.com/vapor/leaf-kit) templates.
@@ -59,7 +62,7 @@ try await Kiln.build(site, contentDirectory: "Content", outputDirectory: "public
 | Theming via Leaf templates                      | ✅ Supported |
 | SEO, social cards, sitemap, link checking       | ✅ Supported |
 | `kiln` CLI (`new` / `build` / `serve`)          | ✅ Supported |
-| Versioned documentation                         | 🚧 Planned   |
+| Versioned documentation                         | ✅ Supported |
 
 !!! warning
     Kiln is under active development ahead of a 1.0 release. APIs may change.
