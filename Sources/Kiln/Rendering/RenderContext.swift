@@ -105,6 +105,7 @@ struct RenderContext {
             "page": pageData,
             "nav": navData,
             "strings": stringsData,
+            "customStrings": customStringsData,
             "baseURL": .string(baseURL),
             "searchIndexURL": .string(searchIndexURL),
             "markdownURL": .string(markdownURL),
@@ -229,7 +230,33 @@ struct RenderContext {
             "oldVersionLink": .string(s.oldVersionLink),
             "preReleaseMessage": .string(s.preReleaseMessage),
             "preReleaseLink": .string(s.preReleaseLink),
+            "home": .string(s.home),
+            "store": .string(s.store),
+            "blog": .string(s.blog),
+            "showcase": .string(s.showcase),
+            "team": .string(s.team),
+            "help": .string(s.help),
+            "pressKit": .string(s.pressKit),
+            "community": .string(s.community),
+            "resources": .string(s.resources),
+            "language": .string(s.language),
+            "version": .string(s.version),
+            "theme": .string(s.theme),
+            "lightTheme": .string(s.lightTheme),
+            "darkTheme": .string(s.darkTheme),
+            "systemTheme": .string(s.systemTheme),
         ])
+    }
+
+    /// Per-language custom strings (``Language/customStrings``) for the custom
+    /// `#localise("key")` tag, resolved with the default language's values as a
+    /// fallback so an untranslated key still renders the default-language text.
+    private var customStringsData: LeafData {
+        var merged = site.defaultLanguage.customStrings
+        for (key, value) in language.customStrings {
+            merged[key] = value
+        }
+        return .dictionary(merged.mapValues { LeafData.string($0) })
     }
 
     private var languageData: LeafData {

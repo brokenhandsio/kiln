@@ -1,0 +1,16 @@
+<!--
+  Overrides the bundled theme's footer to demonstrate a localised, theme-defined
+  string. `#localise("tagline")` looks up `tagline` in the current language's
+  `Language.customStrings`, falling back to the default language when a locale
+  hasn't translated it (try the language switcher — the tagline changes with it).
+  Everything else here mirrors the default footer; we only override what we need.
+  See guides/content-and-localisation and guides/theming.
+-->
+<footer class="kiln-footer">
+    <div class="kiln-footer-inner">
+        <p class="kiln-tagline">#localise("tagline")</p>
+        #if(site.social):<div class="kiln-social">#extend("partials/social-icons")</div>#endif
+        #if(site.copyright):<p class="kiln-copyright">#(site.copyright)</p>#endif
+        <p class="kiln-built-with">Built with <a href="https://github.com/brokenhandsio/kiln" rel="noopener" target="_blank">Kiln</a></p>
+    </div>
+</footer>

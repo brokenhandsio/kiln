@@ -76,3 +76,22 @@ jobs:
       - name: Build & generate the example site
         working-directory: Examples/ExampleSite
         run: swift run ExampleSite
+
+  api-breakage:
+    name: API breakage
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    container: swift:6.2
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          # Full history so the public API can be diffed against the PR's base.
+          fetch-depth: 0
+
+      # https://github.com/actions/checkout/issues/766
+      - name: API breaking changes
+        run: |
+          git config --global --add safe.directory "${GITHUB_WORKSPACE}"
+          swift package diagnose-api-breaking-changes origin/main

@@ -24,6 +24,12 @@ public struct Language: Sendable {
     /// Translations for navigation titles, keyed by the default-language title,
     /// e.g. `["Advanced": "Erweitert"]`.
     public var navTranslations: [String: String]
+    /// Theme-defined localised strings, keyed by an arbitrary identifier, for
+    /// text that isn't part of Kiln's built-in chrome (e.g. a tagline or a
+    /// "Join our Discord" link). Look them up in templates with the `#localise("key")`
+    /// tag. Keys missing from a non-default language fall back to the default
+    /// language's value, e.g. `["tagline": "Build APIs in Swift"]`.
+    public var customStrings: [String: String]
     /// Localised UI strings (search box, nav labels, error page, …) for this
     /// language. Unset strings fall back to Kiln's English defaults.
     public var localisation: LocalisationConfiguration
@@ -41,6 +47,7 @@ public struct Language: Sendable {
         siteName: String? = nil,
         description: String? = nil,
         navTranslations: [String: String] = [:],
+        customStrings: [String: String] = [:],
         localisation: LocalisationConfiguration = LocalisationConfiguration()
     ) {
         self.locale = code.code
@@ -50,6 +57,7 @@ public struct Language: Sendable {
         self.siteName = siteName
         self.description = description
         self.navTranslations = navTranslations
+        self.customStrings = customStrings
         self.localisation = localisation
     }
 }
