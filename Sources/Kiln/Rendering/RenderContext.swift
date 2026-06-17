@@ -249,7 +249,7 @@ struct RenderContext {
     }
 
     /// Per-language custom strings (``Language/customStrings``) for the custom
-    /// `#t("key")` tag, resolved with the default language's values as a
+    /// `#localise("key")` tag, resolved with the default language's values as a
     /// fallback so an untranslated key still renders the default-language text.
     private var customStringsData: LeafData {
         var merged = site.defaultLanguage.customStrings

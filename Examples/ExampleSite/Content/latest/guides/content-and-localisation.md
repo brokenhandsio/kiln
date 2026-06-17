@@ -90,7 +90,7 @@ override the whole `siteName`:
 `LocalisationConfiguration` covers Kiln's built-in chrome, but a custom theme
 often needs strings of its own — a tagline, a "Join our chat" link, a call to
 action. Define those per language in `customStrings` and look them up in a
-template with the `#t("key")` tag:
+template with the `#localise("key")` tag:
 
 ```swift
 .init(.english, isDefault: true, customStrings: [
@@ -103,13 +103,13 @@ template with the `#t("key")` tag:
 ```
 
 ```leaf
-<p class="tagline">#t("tagline")</p>
+<p class="tagline">#localise("tagline")</p>
 ```
 
 A key missing from a language falls back to the **default language's** value, so
 you can translate incrementally; a key that's unknown everywhere renders as the
 key itself, making missing translations easy to spot. This site's own footer
-(`Theme/templates/partials/footer.leaf`) uses `#t("tagline")` — switch the
+(`Theme/templates/partials/footer.leaf`) uses `#localise("tagline")` — switch the
 language and watch the tagline change with it.
 
 ## hreflang & the language switcher

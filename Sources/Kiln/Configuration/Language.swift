@@ -26,7 +26,7 @@ public struct Language: Sendable {
     public var navTranslations: [String: String]
     /// Theme-defined localised strings, keyed by an arbitrary identifier, for
     /// text that isn't part of Kiln's built-in chrome (e.g. a tagline or a
-    /// "Join our Discord" link). Look them up in templates with the `#t("key")`
+    /// "Join our Discord" link). Look them up in templates with the `#localise("key")`
     /// tag. Keys missing from a non-default language fall back to the default
     /// language's value, e.g. `["tagline": "Build APIs in Swift"]`.
     public var customStrings: [String: String]

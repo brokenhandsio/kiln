@@ -21,7 +21,7 @@ let latest = DocVersion(
         .init(
             .english,
             isDefault: true,
-            // Theme-defined strings, looked up in templates with `#t("key")`
+            // Theme-defined strings, looked up in templates with `#localise("key")`
             // (see Theme/templates/partials/footer.leaf). English is the default
             // language, so these also act as the fallback for any locale that
             // doesn't translate a given key.
@@ -132,7 +132,7 @@ let site = KilnSite(
     ),
     copyright: "© 2026 Broken Hands. Licensed under MIT.",
     // A custom theme that overrides a single partial (the footer, to show off a
-    // localised `#t("tagline")`) and inherits everything else — templates *and*
+    // localised `#localise("tagline")`) and inherits everything else — templates *and*
     // CSS/JS — from the bundled default theme. See guides/theming.
     theme: .custom(
         directory: "Theme",

@@ -72,11 +72,11 @@ injected with `#unsafeHTML(page.content)`.
 box, navigation/footer labels, error-page text, and so on — e.g.
 `#(strings.previousPage)` or `#(strings.home)`. `customStrings` holds your own
 theme-defined strings; rather than reaching into it directly, look strings up
-with the **`#t("key")`** tag, which resolves against the current language and
+with the **`#localise("key")`** tag, which resolves against the current language and
 falls back to the default language:
 
 ```leaf
-<p class="tagline">#t("tagline")</p>
+<p class="tagline">#localise("tagline")</p>
 ```
 
 See [Content & Localisation](content-and-localisation.md) for how to define both
