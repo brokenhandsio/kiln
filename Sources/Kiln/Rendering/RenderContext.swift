@@ -284,11 +284,19 @@ struct RenderContext {
             frontMatterData[key] = .string(value)
         }
         let toc = tableOfContents.map(Self.tocData)
+        // Opt-in front-matter flags to hide the chrome rails on a per-page basis
+        // (`sidebar: false` / `toc: false`). Front-matter values are stringified,
+        // so an absent key leaves the rail showing — keeping every existing page
+        // (and the docs site) unchanged.
+        let showSidebar = frontMatter.values["sidebar"] != "false"
+        let showTOC = frontMatter.values["toc"] != "false"
         return .dictionary([
             "title": .string(pageTitle),
             "content": .string(contentHTML),
             "toc": .array(toc),
             "hasTOC": .bool(!toc.isEmpty),
+            "showSidebar": .bool(showSidebar),
+            "showTOC": .bool(showTOC),
             "frontMatter": .dictionary(frontMatterData),
             "url": .string(pageURL),
             "canonicalURL": .string(canonicalURL),

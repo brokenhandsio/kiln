@@ -28,6 +28,7 @@ struct BuildTests {
             ]
         ) {
             Page("Home", "index.md")
+            Page("Landing", "landing.md")
             Section("Section") {
                 Page("Page", "section/page.md")
             }
@@ -89,6 +90,27 @@ struct BuildTests {
         #expect(germanPage.contains("This page has no German translation"))
         // …and the reader is told it's a fallback.
         #expect(germanPage.contains("kiln-fallback"))
+    }
+
+    @Test("Per-page front matter can hide the sidebar and TOC rails")
+    func chromeFlags() async throws {
+        let output = try await buildFixture()
+        defer { try? FileManager.default.removeItem(at: output) }
+
+        // A normal page shows both chrome rails (default-on ⇒ docs unchanged).
+        let home = try read(output.appendingPathComponent("index.html"))
+        #expect(home.contains("class=\"kiln-sidebar\""))
+        #expect(home.contains("<aside class=\"kiln-toc\">"))
+        #expect(!home.contains("kiln-no-sidebar"))
+        #expect(!home.contains("kiln-no-toc"))
+
+        // The landing page sets `sidebar: false` / `toc: false`: both asides are
+        // gone and the layout reflows to full width.
+        let landing = try read(output.appendingPathComponent("landing/index.html"))
+        #expect(!landing.contains("class=\"kiln-sidebar\""))
+        #expect(!landing.contains("<aside class=\"kiln-toc\">"))
+        #expect(landing.contains("kiln-no-sidebar"))
+        #expect(landing.contains("kiln-no-toc"))
     }
 
     @Test("Pages include SEO and social-card meta tags")
@@ -231,7 +253,8 @@ struct BuildTests {
 
         let data = try Data(contentsOf: output.appendingPathComponent("search/search_index.json"))
         let index = try JSONDecoder().decode(SearchIndex.self, from: data)
-        #expect(index.docs.count == 2)
+        // The fixture nav has three pages: Home, Landing, and Section › Page.
+        #expect(index.docs.count == 3)
         #expect(index.docs.contains { $0.title == "Home" })
     }
 }

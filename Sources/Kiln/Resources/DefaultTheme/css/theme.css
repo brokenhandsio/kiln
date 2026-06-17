@@ -133,6 +133,12 @@ a:hover { text-decoration: underline; }
     padding: 0 24px;
 }
 
+/* Per-page chrome hidden via `sidebar: false` / `toc: false` front matter:
+   drop the empty track(s) so the main column reflows to full width. */
+.kiln-layout.kiln-no-sidebar { grid-template-columns: minmax(0, 1fr) var(--kiln-toc-width); }
+.kiln-layout.kiln-no-toc { grid-template-columns: var(--kiln-sidebar-width) minmax(0, 1fr); }
+.kiln-layout.kiln-no-sidebar.kiln-no-toc { grid-template-columns: minmax(0, 1fr); }
+
 .kiln-sidebar {
     position: sticky;
     top: var(--kiln-header-height);

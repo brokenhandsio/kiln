@@ -62,7 +62,8 @@
 
     <div class="kiln-backdrop" id="kiln-backdrop"></div>
 
-    <div class="kiln-layout">
+    <div class="kiln-layout#if(!page.showSidebar): kiln-no-sidebar#endif#if(!page.showTOC): kiln-no-toc#endif">
+        #if(page.showSidebar):
         <aside class="kiln-sidebar" id="kiln-sidebar">
             <div class="kiln-controls kiln-controls-drawer">
                 #extend("partials/controls")
@@ -71,6 +72,7 @@
                 #extend("partials/nav-tree", nav)
             </nav>
         </aside>
+        #endif
 
         <main class="kiln-main">
             #if(isVersioned):#if(!isLatest):
@@ -102,6 +104,7 @@
             #if(page.editURL):<a class="kiln-edit-link" href="#(page.editURL)">#(strings.editPage)</a>#endif
         </main>
 
+        #if(page.showTOC):
         <aside class="kiln-toc">
             #if(page.hasTOC):
             <div class="kiln-toc-inner">
@@ -113,6 +116,7 @@
             <div class="kiln-carbon" id="kiln-carbon" data-serve="#(site.carbonAds.serve)" data-placement="#(site.carbonAds.placement)"></div>
             #endif
         </aside>
+        #endif
     </div>
 
     #extend("partials/footer")
