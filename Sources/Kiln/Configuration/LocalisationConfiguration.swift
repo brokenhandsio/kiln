@@ -50,6 +50,43 @@ public struct LocalisationConfiguration: Sendable {
     /// Link text on the pre-release banner. Default: `"View the latest stable version"`.
     public var preReleaseLink: String?
 
+    // MARK: Navigation & footer chrome
+    //
+    // Common labels a custom theme can use for marketing-style navigation and
+    // footers. Kiln's bundled theme doesn't render these, so they're optional;
+    // each defaults to its English text when unset.
+
+    /// "Home" navigation link. Default: `"Home"`.
+    public var home: String?
+    /// "Store" navigation link. Default: `"Store"`.
+    public var store: String?
+    /// "Blog" navigation link. Default: `"Blog"`.
+    public var blog: String?
+    /// "Showcase" navigation link. Default: `"Showcase"`.
+    public var showcase: String?
+    /// "Team" navigation link. Default: `"Team"`.
+    public var team: String?
+    /// "Help" navigation/footer link. Default: `"Help"`.
+    public var help: String?
+    /// "Press Kit" footer link. Default: `"Press Kit"`.
+    public var pressKit: String?
+    /// "Community" footer-section heading. Default: `"Community"`.
+    public var community: String?
+    /// "Resources" footer-section heading. Default: `"Resources"`.
+    public var resources: String?
+    /// Accessible label for the language picker. Default: `"Language"`.
+    public var language: String?
+    /// Accessible label for the version picker. Default: `"Version"`.
+    public var version: String?
+    /// Accessible label for the theme picker. Default: `"Theme"`.
+    public var theme: String?
+    /// Light colour-scheme option. Default: `"Light"`.
+    public var lightTheme: String?
+    /// Dark colour-scheme option. Default: `"Dark"`.
+    public var darkTheme: String?
+    /// System colour-scheme option. Default: `"System"`.
+    public var systemTheme: String?
+
     public init(
         searchPlaceholder: String? = nil,
         searchNoResults: String? = nil,
@@ -67,7 +104,22 @@ public struct LocalisationConfiguration: Sendable {
         oldVersionMessage: String? = nil,
         oldVersionLink: String? = nil,
         preReleaseMessage: String? = nil,
-        preReleaseLink: String? = nil
+        preReleaseLink: String? = nil,
+        home: String? = nil,
+        store: String? = nil,
+        blog: String? = nil,
+        showcase: String? = nil,
+        team: String? = nil,
+        help: String? = nil,
+        pressKit: String? = nil,
+        community: String? = nil,
+        resources: String? = nil,
+        language: String? = nil,
+        version: String? = nil,
+        theme: String? = nil,
+        lightTheme: String? = nil,
+        darkTheme: String? = nil,
+        systemTheme: String? = nil
     ) {
         self.searchPlaceholder = searchPlaceholder
         self.searchNoResults = searchNoResults
@@ -86,6 +138,21 @@ public struct LocalisationConfiguration: Sendable {
         self.oldVersionLink = oldVersionLink
         self.preReleaseMessage = preReleaseMessage
         self.preReleaseLink = preReleaseLink
+        self.home = home
+        self.store = store
+        self.blog = blog
+        self.showcase = showcase
+        self.team = team
+        self.help = help
+        self.pressKit = pressKit
+        self.community = community
+        self.resources = resources
+        self.language = language
+        self.version = version
+        self.theme = theme
+        self.lightTheme = lightTheme
+        self.darkTheme = darkTheme
+        self.systemTheme = systemTheme
     }
 }
 
@@ -110,6 +177,21 @@ extension LocalisationConfiguration {
         var oldVersionLink: String
         var preReleaseMessage: String
         var preReleaseLink: String
+        var home: String
+        var store: String
+        var blog: String
+        var showcase: String
+        var team: String
+        var help: String
+        var pressKit: String
+        var community: String
+        var resources: String
+        var language: String
+        var version: String
+        var theme: String
+        var lightTheme: String
+        var darkTheme: String
+        var systemTheme: String
     }
 
     var resolved: Resolved {
@@ -130,7 +212,22 @@ extension LocalisationConfiguration {
             oldVersionMessage: oldVersionMessage ?? "You're viewing documentation for an older version.",
             oldVersionLink: oldVersionLink ?? "View the latest version",
             preReleaseMessage: preReleaseMessage ?? "You're viewing documentation for a pre-release version.",
-            preReleaseLink: preReleaseLink ?? "View the latest stable version"
+            preReleaseLink: preReleaseLink ?? "View the latest stable version",
+            home: home ?? "Home",
+            store: store ?? "Store",
+            blog: blog ?? "Blog",
+            showcase: showcase ?? "Showcase",
+            team: team ?? "Team",
+            help: help ?? "Help",
+            pressKit: pressKit ?? "Press Kit",
+            community: community ?? "Community",
+            resources: resources ?? "Resources",
+            language: language ?? "Language",
+            version: version ?? "Version",
+            theme: theme ?? "Theme",
+            lightTheme: lightTheme ?? "Light",
+            darkTheme: darkTheme ?? "Dark",
+            systemTheme: systemTheme ?? "System"
         )
     }
 }

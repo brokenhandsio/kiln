@@ -45,6 +45,9 @@ final class TemplateRenderer {
         self.threadPool = pool
         self.renderer = LeafRenderer(
             configuration: LeafConfiguration(rootDirectory: rootDirectory),
+            // Kiln's custom tags layered on top of Leaf's built-ins: `#t("key")`
+            // resolves theme-defined localised strings (see ``TranslateTag``).
+            tags: defaultTags.merging(["t": TranslateTag()]) { _, new in new },
             cache: DefaultLeafCache(),
             sources: .singleSource(layered),
             eventLoop: group.next()
