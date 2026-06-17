@@ -65,6 +65,12 @@ falls back to Kiln's built-in English default:
 ))
 ```
 
+The same configuration also carries optional labels for marketing-style
+navigation and footers — `home`, `store`, `blog`, `community`, `resources`, the
+theme/language/version picker labels, and more — for custom themes that render
+them with `#(strings.home)`. Kiln's bundled theme doesn't use these, so they're
+purely opt-in; each falls back to its English default when unset.
+
 ## Navigation labels & site name
 
 Section and page titles are translated per language via each `Language`'s
@@ -78,6 +84,33 @@ override the whole `siteName`:
     navTranslations: ["Guides": "Anleitungen", "Welcome": "Willkommen"]
 )
 ```
+
+## Theme-defined strings
+
+`LocalisationConfiguration` covers Kiln's built-in chrome, but a custom theme
+often needs strings of its own — a tagline, a "Join our chat" link, a call to
+action. Define those per language in `customStrings` and look them up in a
+template with the `#t("key")` tag:
+
+```swift
+.init(.english, isDefault: true, customStrings: [
+    "tagline": "Type-safe documentation sites, built in Swift.",
+])
+
+.init(.german, customStrings: [
+    "tagline": "Typsichere Dokumentations-Websites, gebaut in Swift.",
+])
+```
+
+```leaf
+<p class="tagline">#t("tagline")</p>
+```
+
+A key missing from a language falls back to the **default language's** value, so
+you can translate incrementally; a key that's unknown everywhere renders as the
+key itself, making missing translations easy to spot. This site's own footer
+(`Theme/templates/partials/footer.leaf`) uses `#t("tagline")` — switch the
+language and watch the tagline change with it.
 
 ## hreflang & the language switcher
 

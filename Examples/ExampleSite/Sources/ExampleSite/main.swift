@@ -18,7 +18,15 @@ let latest = DocVersion(
     isDefault: true,
     contentDirectory: "latest",
     languages: [
-        .init(.english, isDefault: true),
+        .init(
+            .english,
+            isDefault: true,
+            // Theme-defined strings, looked up in templates with `#t("key")`
+            // (see Theme/templates/partials/footer.leaf). English is the default
+            // language, so these also act as the fallback for any locale that
+            // doesn't translate a given key.
+            customStrings: ["tagline": "Type-safe documentation sites, built in Swift."]
+        ),
         .init(
             .german,
             siteName: "Kiln",
@@ -40,6 +48,7 @@ let latest = DocVersion(
                 "AI-Friendly Output": "KI-freundliche Ausgabe",
                 "Deployment": "Bereitstellung",
             ],
+            customStrings: ["tagline": "Typsichere Dokumentations-Websites, gebaut in Swift."],
             localisation: .init(
                 searchPlaceholder: "Suchen",
                 searchNoResults: "Keine Ergebnisse gefunden",
@@ -122,7 +131,11 @@ let site = KilnSite(
         editURI: "https://github.com/brokenhandsio/kiln/edit/main/Examples/ExampleSite/Content/latest/"
     ),
     copyright: "© 2026 Broken Hands. Licensed under MIT.",
-    theme: .default(
+    // A custom theme that overrides a single partial (the footer, to show off a
+    // localised `#t("tagline")`) and inherits everything else — templates *and*
+    // CSS/JS — from the bundled default theme. See guides/theming.
+    theme: .custom(
+        directory: "Theme",
         palette: .autoLightDark(primary: .black, accent: .blue),
         logo: "assets/logo.svg",
         favicon: "assets/logo.svg"

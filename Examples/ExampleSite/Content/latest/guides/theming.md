@@ -65,8 +65,22 @@ Theme/
 ## Template context
 
 Templates receive a context with `site`, `page`, `nav`, `language`, `languages`,
-and `searchIndexURL`. The rendered page body is injected with
-`#unsafeHTML(page.content)`.
+`strings`, `customStrings`, and `searchIndexURL`. The rendered page body is
+injected with `#unsafeHTML(page.content)`.
+
+`strings` holds Kiln's localised UI strings for the current language — the search
+box, navigation/footer labels, error-page text, and so on — e.g.
+`#(strings.previousPage)` or `#(strings.home)`. `customStrings` holds your own
+theme-defined strings; rather than reaching into it directly, look strings up
+with the **`#t("key")`** tag, which resolves against the current language and
+falls back to the default language:
+
+```leaf
+<p class="tagline">#t("tagline")</p>
+```
+
+See [Content & Localisation](content-and-localisation.md) for how to define both
+sets of strings per language.
 
 !!! tip "Per-page templates"
     A page can opt into a different template via the `template` front-matter key
