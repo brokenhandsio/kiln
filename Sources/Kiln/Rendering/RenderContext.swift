@@ -264,6 +264,12 @@ struct RenderContext {
             "locale": .string(language.locale),
             "name": .string(language.name),
             "isDefault": .bool(language.isDefault),
+            // Path prefix for the current language: "" for the default language
+            // (pages live at the site root) and "/<locale>" otherwise (pages live
+            // under `/<locale>/`). Prepend it to hand-authored internal links so a
+            // template like `#(language.pathPrefix)/showcase` resolves to the
+            // current locale's page instead of jumping back to the default.
+            "pathPrefix": .string(language.isDefault ? "" : "/" + language.locale),
         ])
     }
 
