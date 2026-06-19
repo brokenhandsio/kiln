@@ -4,14 +4,21 @@ import LeafKit
 public struct LanguageAlternate: Sendable {
     public var locale: String
     public var name: String
+    /// Absolute URL of this page in the alternate language (e.g.
+    /// `https://vapor.codes/de/`). Absolute so it's valid in `hreflang` links,
+    /// which Google requires to be fully-qualified.
     public var url: String
     public var isCurrent: Bool
+    /// Whether this alternate is the site's default language — used to also emit
+    /// an `hreflang="x-default"` link pointing at it.
+    public var isDefault: Bool
 
-    public init(locale: String, name: String, url: String, isCurrent: Bool) {
+    public init(locale: String, name: String, url: String, isCurrent: Bool, isDefault: Bool = false) {
         self.locale = locale
         self.name = name
         self.url = url
         self.isCurrent = isCurrent
+        self.isDefault = isDefault
     }
 }
 
@@ -283,6 +290,7 @@ struct RenderContext {
             "name": .string(alternate.name),
             "url": .string(alternate.url),
             "isCurrent": .bool(alternate.isCurrent),
+            "isDefault": .bool(alternate.isDefault),
         ])
     }
 

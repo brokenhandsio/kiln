@@ -507,11 +507,15 @@ public struct SiteGenerator {
 
     private func alternates(forLogicalPath logicalPath: String, current: Language, urls: SiteURLs, languages: [Language]) -> [LanguageAlternate] {
         languages.map { language in
-            LanguageAlternate(
+            let path = urls.urlPath(forLogicalPath: logicalPath, locale: language.locale)
+            return LanguageAlternate(
+                // Absolute so the `hreflang` links are fully-qualified (a Google
+                // requirement — relative hreflang URLs are ignored).
                 locale: language.locale,
                 name: language.name,
-                url: urls.urlPath(forLogicalPath: logicalPath, locale: language.locale),
-                isCurrent: language.locale == current.locale
+                url: absoluteURL(forLocation: String(path.drop(while: { $0 == "/" }))),
+                isCurrent: language.locale == current.locale,
+                isDefault: language.isDefault
             )
         }
     }
