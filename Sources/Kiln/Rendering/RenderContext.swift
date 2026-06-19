@@ -270,6 +270,10 @@ struct RenderContext {
             // template like `#(language.pathPrefix)/showcase` resolves to the
             // current locale's page instead of jumping back to the default.
             "pathPrefix": .string(language.isDefault ? "" : "/" + language.locale),
+            // OpenGraph locale form of the code: `language_TERRITORY` with an
+            // underscore (e.g. `pt-BR` → `pt_BR`), for `<meta property="og:locale">`.
+            // A bare language code (`en`) is left as-is.
+            "ogLocale": .string(String(language.locale.map { $0 == "-" ? "_" : $0 })),
         ])
     }
 

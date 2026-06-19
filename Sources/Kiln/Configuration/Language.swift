@@ -21,6 +21,12 @@ public struct Language: Sendable {
     /// Optional localised default meta description (overrides
     /// ``KilnSite/description`` for pages in this language without their own).
     public var description: String?
+    /// Optional per-language social/OpenGraph preview image, overriding
+    /// ``KilnSite/image`` for pages in this language that don't set their own
+    /// `image:` front matter. Same form as ``KilnSite/image`` — a content-relative
+    /// path (e.g. `"assets/social-card.de.png"`) or an absolute URL — so the
+    /// social-image precedence is page front matter → this → ``KilnSite/image``.
+    public var image: String?
     /// Translations for navigation titles, keyed by the default-language title,
     /// e.g. `["Advanced": "Erweitert"]`.
     public var navTranslations: [String: String]
@@ -48,6 +54,9 @@ public struct Language: Sendable {
         description: String? = nil,
         navTranslations: [String: String] = [:],
         customStrings: [String: String] = [:],
+        // Grouped next to `localisation` so callers that pass `customStrings`
+        // can append `image:`/`localisation:` in source order.
+        image: String? = nil,
         localisation: LocalisationConfiguration = LocalisationConfiguration()
     ) {
         self.locale = code.code
@@ -56,6 +65,7 @@ public struct Language: Sendable {
         self.build = build
         self.siteName = siteName
         self.description = description
+        self.image = image
         self.navTranslations = navTranslations
         self.customStrings = customStrings
         self.localisation = localisation
