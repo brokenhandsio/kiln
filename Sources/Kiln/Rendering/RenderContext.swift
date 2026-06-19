@@ -264,6 +264,16 @@ struct RenderContext {
             "locale": .string(language.locale),
             "name": .string(language.name),
             "isDefault": .bool(language.isDefault),
+            // Path prefix for the current language: "" for the default language
+            // (pages live at the site root) and "/<locale>" otherwise (pages live
+            // under `/<locale>/`). Prepend it to hand-authored internal links so a
+            // template like `#(language.pathPrefix)/showcase` resolves to the
+            // current locale's page instead of jumping back to the default.
+            "pathPrefix": .string(language.isDefault ? "" : "/" + language.locale),
+            // OpenGraph locale form of the code: `language_TERRITORY` with an
+            // underscore (e.g. `pt-BR` → `pt_BR`), for `<meta property="og:locale">`.
+            // A bare language code (`en`) is left as-is.
+            "ogLocale": .string(String(language.locale.map { $0 == "-" ? "_" : $0 })),
         ])
     }
 
@@ -284,11 +294,19 @@ struct RenderContext {
             frontMatterData[key] = .string(value)
         }
         let toc = tableOfContents.map(Self.tocData)
+        // Opt-in front-matter flags to hide the chrome rails on a per-page basis
+        // (`sidebar: false` / `toc: false`). Front-matter values are stringified,
+        // so an absent key leaves the rail showing — keeping every existing page
+        // (and the docs site) unchanged.
+        let showSidebar = frontMatter.values["sidebar"] != "false"
+        let showTOC = frontMatter.values["toc"] != "false"
         return .dictionary([
             "title": .string(pageTitle),
             "content": .string(contentHTML),
             "toc": .array(toc),
             "hasTOC": .bool(!toc.isEmpty),
+            "showSidebar": .bool(showSidebar),
+            "showTOC": .bool(showTOC),
             "frontMatter": .dictionary(frontMatterData),
             "url": .string(pageURL),
             "canonicalURL": .string(canonicalURL),

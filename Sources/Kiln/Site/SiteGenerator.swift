@@ -324,7 +324,7 @@ public struct SiteGenerator {
         let pageNavigation = build.navigationBuilder.contextualise(resolvedNav, currentLogicalPath: logicalPath)
         let urlPath = urls.urlPath(forLogicalPath: logicalPath, locale: language.locale)
         let sourceRelative = ContentLoader.relativePath(of: page.sourceURL, from: build.contentURL)
-        let imagePath = page.frontMatter.image ?? site.image
+        let imagePath = page.frontMatter.image ?? language.image ?? site.image
 
         if linkChecking != .off {
             linkData.add(logicalPath: logicalPath, locale: language.locale, sourcePath: sourceRelative, isFallback: isFallback, rendered: rendered)
@@ -436,7 +436,7 @@ public struct SiteGenerator {
             pageURL: rootBase + "404.html",
             canonicalURL: absoluteURL(forLocation: String(rootBase.drop(while: { $0 == "/" })) + "404.html"),
             pageDescription: language.description ?? site.description,
-            socialImageURL: site.image.map { absoluteURL(forPath: $0) },
+            socialImageURL: (language.image ?? site.image).map { absoluteURL(forPath: $0) },
             editURL: nil,
             sourcePath: "",
             isHome: false,
