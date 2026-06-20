@@ -365,8 +365,10 @@ public struct SiteGenerator {
             pageURL: urlPath,
             canonicalURL: canonical,
             // Prefer the page's own first-paragraph excerpt over the generic
-            // site/language description so each page gets a unique snippet.
-            pageDescription: page.frontMatter.description ?? rendered.metaDescription ?? language.description ?? site.description,
+            // site/language description so each page gets a unique snippet — but
+            // not on the home page, where the curated site description is the
+            // intended meta description.
+            pageDescription: page.frontMatter.description ?? (page.isHome ? nil : rendered.metaDescription) ?? language.description ?? site.description,
             socialImageURL: imagePath.map { absoluteURL(forPath: $0) },
             // "Edit this page" only on the default (latest) version — the
             // repository's editURI maps to the latest content directory.
