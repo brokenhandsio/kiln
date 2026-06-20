@@ -4,19 +4,24 @@ import LeafKit
 public struct LanguageAlternate: Sendable {
     public var locale: String
     public var name: String
-    /// Absolute URL of this page in the alternate language (e.g.
-    /// `https://vapor.codes/de/`). Absolute so it's valid in `hreflang` links,
-    /// which Google requires to be fully-qualified.
+    /// Relative URL of this page in the alternate language (e.g. `/de/`). Relative
+    /// so the on-page language switcher stays portable across deploy domains
+    /// (PR previews, staging) rather than hard-linking the production host.
     public var url: String
+    /// Absolute URL of this page in the alternate language (e.g.
+    /// `https://www.vapor.codes/de/`). Absolute so it's valid in `hreflang` links,
+    /// which Google requires to be fully-qualified.
+    public var absoluteURL: String
     public var isCurrent: Bool
     /// Whether this alternate is the site's default language — used to also emit
     /// an `hreflang="x-default"` link pointing at it.
     public var isDefault: Bool
 
-    public init(locale: String, name: String, url: String, isCurrent: Bool, isDefault: Bool = false) {
+    public init(locale: String, name: String, url: String, absoluteURL: String, isCurrent: Bool, isDefault: Bool = false) {
         self.locale = locale
         self.name = name
         self.url = url
+        self.absoluteURL = absoluteURL
         self.isCurrent = isCurrent
         self.isDefault = isDefault
     }
@@ -289,6 +294,7 @@ struct RenderContext {
             "locale": .string(alternate.locale),
             "name": .string(alternate.name),
             "url": .string(alternate.url),
+            "absoluteURL": .string(alternate.absoluteURL),
             "isCurrent": .bool(alternate.isCurrent),
             "isDefault": .bool(alternate.isDefault),
         ])
@@ -319,6 +325,16 @@ struct RenderContext {
             "url": .string(pageURL),
             "canonicalURL": .string(canonicalURL),
             "description": .string(pageDescription),
+            // JSON-LD structured data (Organization + WebSite); "" when no
+            // organization is configured. Emit raw via `#unsafeHTML(...)`.
+            "structuredData": .string(
+                StructuredData.jsonLD(
+                    siteName: siteName,
+                    siteURL: site.url,
+                    locale: language.locale,
+                    organization: site.organization
+                ) ?? ""
+            ),
             "imageURL": .string(socialImageURL),
             "editURL": .string(editURL),
             "sourcePath": .string(sourcePath),

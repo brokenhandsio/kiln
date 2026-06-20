@@ -35,6 +35,10 @@ public struct KilnSite: Sendable {
     public var image: String?
     /// Twitter/X handle for the `twitter:site` card tag, e.g. `"@codevapor"`.
     public var twitterSite: String?
+    /// Publisher identity for JSON-LD structured data. When set, Kiln emits an
+    /// `Organization` + `WebSite` graph in `<script type="application/ld+json">`
+    /// (exposed to templates as `page.structuredData`).
+    public var organization: Organization?
     /// Source repository information.
     public var repository: Repository?
     /// Copyright notice shown in the footer.
@@ -73,6 +77,7 @@ public struct KilnSite: Sendable {
         description: String? = nil,
         image: String? = nil,
         twitterSite: String? = nil,
+        organization: Organization? = nil,
         repository: Repository? = nil,
         copyright: String? = nil,
         theme: Theme = .default(),
@@ -92,6 +97,7 @@ public struct KilnSite: Sendable {
         self.description = description
         self.image = image
         self.twitterSite = twitterSite
+        self.organization = organization
         self.repository = repository
         self.copyright = copyright
         self.theme = theme

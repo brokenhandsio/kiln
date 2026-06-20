@@ -509,11 +509,12 @@ public struct SiteGenerator {
         languages.map { language in
             let path = urls.urlPath(forLogicalPath: logicalPath, locale: language.locale)
             return LanguageAlternate(
-                // Absolute so the `hreflang` links are fully-qualified (a Google
-                // requirement — relative hreflang URLs are ignored).
                 locale: language.locale,
                 name: language.name,
-                url: absoluteURL(forLocation: String(path.drop(while: { $0 == "/" }))),
+                // Relative for the switcher; absolute (fully-qualified, as Google
+                // requires) for the `hreflang` links.
+                url: path,
+                absoluteURL: absoluteURL(forLocation: String(path.drop(while: { $0 == "/" }))),
                 isCurrent: language.locale == current.locale,
                 isDefault: language.isDefault
             )
