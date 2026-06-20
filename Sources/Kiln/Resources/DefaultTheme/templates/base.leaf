@@ -62,6 +62,7 @@
     #if(page.structuredData):<script type="application/ld+json">#unsafeHTML(page.structuredData)</script>#endif
 </head>
 <body>
+    <a class="kiln-skip-link" href="#kiln-main">#(strings.skipToContent)</a>
     #extend("partials/header")
 
     <div class="kiln-backdrop" id="kiln-backdrop"></div>
@@ -78,7 +79,7 @@
         </aside>
         #endif
 
-        <main class="kiln-main">
+        <main class="kiln-main" id="kiln-main" tabindex="-1">
             #if(isVersioned):#if(!isLatest):
             #if(currentVersion.isPrerelease):
             <div class="admonition note kiln-version-notice">

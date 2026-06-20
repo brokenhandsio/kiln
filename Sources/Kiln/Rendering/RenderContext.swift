@@ -242,6 +242,7 @@ struct RenderContext {
             "notFoundLink": .string(s.notFoundLink),
             "toggleNavigation": .string(s.toggleNavigation),
             "toggleColourScheme": .string(s.toggleColourScheme),
+            "skipToContent": .string(s.skipToContent),
             "oldVersionMessage": .string(s.oldVersionMessage),
             "oldVersionLink": .string(s.oldVersionLink),
             "preReleaseMessage": .string(s.preReleaseMessage),
