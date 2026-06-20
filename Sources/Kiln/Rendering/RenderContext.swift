@@ -127,7 +127,11 @@ struct RenderContext {
             "isLatest": .bool(version.isLatest),
             "latestURL": .string(version.latestURL),
             "versionBasePath": .string(version.basePath),
-            "noindex": .bool(version.noindex),
+            // noindex non-default versions AND untranslated fallback pages (a
+            // fallback serves the default language's content at a localised URL,
+            // so indexing it would be duplicate/thin content — hreflang + the
+            // canonical already point search engines at the real page).
+            "noindex": .bool(version.noindex || isFallback),
         ]
     }
 
@@ -297,10 +301,27 @@ struct RenderContext {
             "absoluteURL": .string(alternate.absoluteURL),
             "isCurrent": .bool(alternate.isCurrent),
             "isDefault": .bool(alternate.isDefault),
+            // OpenGraph form (`pt-BR` → `pt_BR`) for `og:locale:alternate`.
+            "ogLocale": .string(String(alternate.locale.map { $0 == "-" ? "_" : $0 })),
         ])
     }
 
     // MARK: Page
+
+    /// The breadcrumb trail for the current page: the active nav nodes from the
+    /// top-level section down to (and including) the current page. Empty on the
+    /// home page or when there's no navigation tree (e.g. a flat marketing site).
+    private var breadcrumbItems: [BreadcrumbItem] {
+        guard !isHome else { return [] }
+        var items: [BreadcrumbItem] = []
+        var level = navigation.nodes
+        while let active = level.first(where: { $0.isActive }) {
+            items.append(BreadcrumbItem(name: active.title, url: active.url))
+            if active.isCurrent { break }
+            level = active.items
+        }
+        return items
+    }
 
     private var pageData: LeafData {
         var frontMatterData: [String: LeafData] = [:]
@@ -325,16 +346,17 @@ struct RenderContext {
             "url": .string(pageURL),
             "canonicalURL": .string(canonicalURL),
             "description": .string(pageDescription),
-            // JSON-LD structured data (Organization + WebSite); "" when no
-            // organization is configured. Emit raw via `#unsafeHTML(...)`.
-            "structuredData": .string(
-                StructuredData.jsonLD(
-                    siteName: siteName,
-                    siteURL: site.url,
-                    locale: language.locale,
-                    organization: site.organization
-                ) ?? ""
-            ),
+            // JSON-LD structured data (Organization / WebSite / BreadcrumbList).
+            // Nil (not "") when there's nothing to emit, so `#if(page.structuredData)`
+            // is false — LeafKit treats an empty string as truthy. Emit raw via
+            // `#unsafeHTML(...)`.
+            "structuredData": StructuredData.jsonLD(
+                siteName: siteName,
+                siteURL: site.url,
+                locale: language.locale,
+                organization: site.organization,
+                breadcrumb: breadcrumbItems
+            ).map(LeafData.string) ?? .trueNil,
             "imageURL": .string(socialImageURL),
             "editURL": .string(editURL),
             "sourcePath": .string(sourcePath),

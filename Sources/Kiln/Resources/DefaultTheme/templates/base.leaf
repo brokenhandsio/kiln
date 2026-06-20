@@ -18,7 +18,9 @@
     #if(page.description):<meta property="og:description" content="#(page.description)">#endif
     <meta property="og:url" content="#(page.canonicalURL)">
     <meta property="og:site_name" content="#(site.name)">
-    <meta property="og:locale" content="#(language.locale)">
+    <meta property="og:locale" content="#(language.ogLocale)">
+    #for(alt in languages):#if(!alt.isCurrent):<meta property="og:locale:alternate" content="#(alt.ogLocale)">
+    #endif#endfor
     #if(page.imageURL):<meta property="og:image" content="#(page.imageURL)">#endif
 
     <!-- Twitter -->
@@ -30,8 +32,9 @@
 
     #if(site.favicon):<link rel="icon" href="/#(site.favicon)">#endif
 
-    #for(alt in languages):<link rel="alternate" hreflang="#(alt.locale)" href="#(alt.url)">
-    #endfor
+    #for(alt in languages):<link rel="alternate" hreflang="#(alt.locale)" href="#(alt.absoluteURL)">
+    #if(alt.isDefault):<link rel="alternate" hreflang="x-default" href="#(alt.absoluteURL)">
+    #endif#endfor
 
     <link rel="stylesheet" href="/_kiln/css/theme.css">
     #for(href in site.extraCSS):<link rel="stylesheet" href="/#(href)">
@@ -56,6 +59,7 @@
             document.documentElement.setAttribute("data-palette", mode);
         })();
     </script>
+    #if(page.structuredData):<script type="application/ld+json">#unsafeHTML(page.structuredData)</script>#endif
 </head>
 <body>
     #extend("partials/header")

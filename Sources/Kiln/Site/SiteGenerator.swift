@@ -83,7 +83,7 @@ public struct SiteGenerator {
         }
 
         let defaultBuild = builds.first(where: { $0.version.isDefault }) ?? builds[0]
-        var sitemapEntries: [String] = []
+        var sitemapEntries: [SitemapEntry] = []
 
         for build in builds {
             let version = build.version
@@ -110,7 +110,9 @@ public struct SiteGenerator {
                         linkData: linkData
                     )
                     if version.isDefault {
-                        sitemapEntries.append(absoluteURL(forLocation: location))
+                        let alts = alternates(forLogicalPath: pageRef.logicalPath, current: language,
+                                              urls: build.urls, languages: version.buildableLanguages)
+                        sitemapEntries.append(SitemapEntry(loc: absoluteURL(forLocation: location), alternates: alts))
                     }
                 }
 
@@ -362,7 +364,9 @@ public struct SiteGenerator {
             frontMatter: page.frontMatter,
             pageURL: urlPath,
             canonicalURL: canonical,
-            pageDescription: page.frontMatter.description ?? language.description ?? site.description,
+            // Prefer the page's own first-paragraph excerpt over the generic
+            // site/language description so each page gets a unique snippet.
+            pageDescription: page.frontMatter.description ?? rendered.metaDescription ?? language.description ?? site.description,
             socialImageURL: imagePath.map { absoluteURL(forPath: $0) },
             // "Edit this page" only on the default (latest) version — the
             // repository's editURI maps to the latest content directory.
@@ -544,11 +548,34 @@ public struct SiteGenerator {
         """
     }
 
-    private func sitemap(for locations: [String]) -> String {
+    /// One sitemap `<url>`: its absolute location plus the localised alternates
+    /// (one per buildable language) for emitting `xhtml:link` hreflang.
+    private struct SitemapEntry {
+        let loc: String
+        let alternates: [LanguageAlternate]
+    }
+
+    private func sitemap(for entries: [SitemapEntry]) -> String {
+        // Only declare the xhtml namespace (and emit hreflang) when the site is
+        // multilingual; single-language sitemaps stay plain `<loc>`-only.
+        let multilingual = entries.contains { $0.alternates.count > 1 }
         var xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
-        xml += "<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n"
-        for location in locations {
-            xml += "  <url><loc>\(location)</loc></url>\n"
+        xml += "<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\""
+        if multilingual { xml += " xmlns:xhtml=\"http://www.w3.org/1999/xhtml\"" }
+        xml += ">\n"
+        for entry in entries {
+            if entry.alternates.count > 1 {
+                xml += "  <url>\n    <loc>\(entry.loc)</loc>\n"
+                for alt in entry.alternates {
+                    xml += "    <xhtml:link rel=\"alternate\" hreflang=\"\(alt.locale)\" href=\"\(alt.absoluteURL)\"/>\n"
+                    if alt.isDefault {
+                        xml += "    <xhtml:link rel=\"alternate\" hreflang=\"x-default\" href=\"\(alt.absoluteURL)\"/>\n"
+                    }
+                }
+                xml += "  </url>\n"
+            } else {
+                xml += "  <url><loc>\(entry.loc)</loc></url>\n"
+            }
         }
         xml += "</urlset>\n"
         return xml
