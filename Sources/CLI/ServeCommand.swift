@@ -1,5 +1,6 @@
 import ArgumentParser
 import Foundation
+import Kiln
 
 /// Write a line to standard output immediately (unbuffered), so status lines
 /// appear promptly even when stdout is piped (logs/CI). Going through
@@ -23,6 +24,9 @@ struct Serve: AsyncParsableCommand {
 
     @Option(name: [.customShort("p"), .long], help: "Port to listen on.")
     var port: Int = 8080
+
+    @Option(name: .long, help: "Serve under this path prefix, matching the site's basePath (e.g. /docs).")
+    var basePath: String = ""
 
     @Argument(help: "The executable target to run when building (defaults to the package's only executable).")
     var target: String?
@@ -68,8 +72,9 @@ struct Serve: AsyncParsableCommand {
             emit("Watching for changes (skipping .build, .git, .swiftpm, \(directory)/)…")
         }
 
-        let server = StaticFileServer(directory: servedDirectory, host: host, port: port)
-        emit("Serving \(directory)/ at http://\(host):\(port) — press Ctrl-C to stop.")
+        let mountPath = SiteURLs.normaliseBasePath(basePath)
+        let server = StaticFileServer(directory: servedDirectory, host: host, port: port, basePath: mountPath)
+        emit("Serving \(directory)/ at http://\(host):\(port)\(mountPath)/ — press Ctrl-C to stop.")
         defer {
             watcher?.stop()
             server.shutdown()

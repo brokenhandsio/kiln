@@ -182,6 +182,7 @@ kiln serve --port 3000           # change the port
 kiln serve --directory public    # serve a different output directory
 kiln serve --no-watch            # build + serve once, no rebuild-on-change
 kiln serve --no-build            # serve the existing output without building first
+kiln serve --base-path /docs     # preview a site whose basePath is "/docs" (visit http://127.0.0.1:8080/docs/)
 ```
 
 The watcher polls for changes (skipping `.build`, `.git`, `.swiftpm`, and the
@@ -316,6 +317,40 @@ Supported out of the box:
 | `languages`       | `[Language]`          | Each `Language(_ code: LanguageCode, …)` — a built-in case like `.english`/`.german` or `.custom(code:name:)` — with `isDefault`, `build`, `siteName`, `description`, `navTranslations`, `localisation`. |
 | `markdown`        | `MarkdownExtensions`  | Feature toggles + `TableOfContentsOptions`. |
 | `navigation`      | `@NavBuilder`         | The nav tree (see above). |
+
+### Serving from a subdirectory (`basePath`)
+
+By default Kiln assumes the site is served from the **domain root**, so every
+generated link is root-absolute (`/_kiln/css/theme.css`, `/guides/routing/`, …).
+If you deploy under a subdirectory instead (e.g. `https://example.com/docs/`),
+set `basePath` so those links resolve in the subpath:
+
+```swift
+let site = KilnSite(
+    name: "My Docs",
+    url: "https://example.com",   // scheme + host only — NOT "https://example.com/docs"
+    basePath: "/docs",            // the subdirectory; "docs", "/docs", "/docs/" all work
+    // …
+)
+```
+
+> [!IMPORTANT]
+> When `basePath` is set, `url` must be the **scheme + host only**
+> (`"https://example.com"`), *not* including the subpath. Kiln builds absolute
+> URLs (canonical, `og:url`, sitemap, `llms.txt`) by joining `url` with the
+> base-path-prefixed page path — so putting the subpath in **both** `url` and
+> `basePath` double-prefixes them (`https://example.com/docs/docs/page/`).
+
+A few more things to know:
+
+- **Output layout is unchanged.** `basePath` is a *serving* prefix, not an output
+  directory — the build still writes `index.html`, `_kiln/…`, etc. at the root of
+  the output folder. Deploy that folder *into* your server's subdirectory.
+- **Hand-written absolute links are left alone.** A Markdown link to `/foo` is
+  emitted verbatim (matching MkDocs). Use relative links (`../foo.md`) — which
+  Kiln rewrites with the base path — if you need them to follow the subpath.
+- **Local preview:** `kiln serve --base-path /docs` strips the prefix so the
+  preview at `http://127.0.0.1:8080/docs/` mirrors production.
 
 **Theme** options: `palette` (`Palette` with `primary`/`accent` `Color`s and a
 `.auto`/`.light`/`.dark` default mode), `logo`, `favicon`, `fonts`

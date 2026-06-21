@@ -11,24 +11,28 @@ final class StaticFileServer {
     let directory: URL
     let host: String
     let port: Int
+    /// Mount prefix to strip from request URIs (e.g. `/docs`), or `""`.
+    let basePath: String
     private let group: MultiThreadedEventLoopGroup
 
-    init(directory: URL, host: String, port: Int) {
+    init(directory: URL, host: String, port: Int, basePath: String = "") {
         self.directory = directory
         self.host = host
         self.port = port
+        self.basePath = basePath
         self.group = MultiThreadedEventLoopGroup(numberOfThreads: 2)
     }
 
     /// Bind and serve until the channel closes (i.e. until the process is interrupted).
     func run() throws {
         let directory = self.directory
+        let basePath = self.basePath
         let bootstrap = ServerBootstrap(group: group)
             .serverChannelOption(ChannelOptions.backlog, value: 256)
             .serverChannelOption(ChannelOptions.socketOption(.so_reuseaddr), value: 1)
             .childChannelInitializer { channel in
                 channel.pipeline.configureHTTPServerPipeline(withErrorHandling: true).flatMap {
-                    channel.pipeline.addHandler(StaticFileHandler(directory: directory))
+                    channel.pipeline.addHandler(StaticFileHandler(directory: directory, basePath: basePath))
                 }
             }
             .childChannelOption(ChannelOptions.socketOption(.so_reuseaddr), value: 1)
@@ -51,7 +55,12 @@ final class StaticFileServer {
     /// - A path with a file extension (e.g. `/llms.txt`) is used as-is.
     ///
     /// Returns `nil` if the path attempts to escape the root via `..`.
-    static func relativePath(forURI uri: String) -> String? {
+    ///
+    /// When `basePath` is set (e.g. `/docs`), a matching leading prefix is
+    /// stripped: in production the site is mounted under that subdirectory, but
+    /// locally its contents are served from the root of `directory`, so visiting
+    /// `/docs/foo/` resolves to `foo/index.html`.
+    static func relativePath(forURI uri: String, basePath: String = "") -> String? {
         // Strip query and fragment.
         var path = uri
         if let separator = path.firstIndex(where: { $0 == "?" || $0 == "#" }) {
@@ -71,6 +80,12 @@ final class StaticFileServer {
             default:
                 components.append(String(component))
             }
+        }
+
+        // Drop a leading base-path prefix when present.
+        let baseComponents = basePath.split(separator: "/").map(String.init)
+        if !baseComponents.isEmpty, components.starts(with: baseComponents) {
+            components.removeFirst(baseComponents.count)
         }
 
         guard let last = components.last else {
@@ -119,10 +134,12 @@ private final class StaticFileHandler: ChannelInboundHandler, @unchecked Sendabl
     typealias OutboundOut = HTTPServerResponsePart
 
     private let directory: URL
+    private let basePath: String
     private var requestHead: HTTPRequestHead?
 
-    init(directory: URL) {
+    init(directory: URL, basePath: String = "") {
         self.directory = directory
+        self.basePath = basePath
     }
 
     func channelRead(context: ChannelHandlerContext, data: NIOAny) {
@@ -140,7 +157,7 @@ private final class StaticFileHandler: ChannelInboundHandler, @unchecked Sendabl
     }
 
     private func respond(to head: HTTPRequestHead, context: ChannelHandlerContext) {
-        guard let relative = StaticFileServer.relativePath(forURI: head.uri) else {
+        guard let relative = StaticFileServer.relativePath(forURI: head.uri, basePath: basePath) else {
             writeResponse(context: context, status: .forbidden,
                           contentType: "text/plain; charset=utf-8",
                           body: Array("403 Forbidden".utf8))

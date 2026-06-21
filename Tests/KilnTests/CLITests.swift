@@ -39,6 +39,16 @@ struct StaticFileServerTests {
         #expect(StaticFileServer.relativePath(forURI: "/a%20b/") == "a b/index.html")
     }
 
+    @Test("A base path prefix is stripped before resolving")
+    func basePathStripping() {
+        #expect(StaticFileServer.relativePath(forURI: "/docs/", basePath: "/docs") == "index.html")
+        #expect(StaticFileServer.relativePath(forURI: "/docs", basePath: "/docs") == "index.html")
+        #expect(StaticFileServer.relativePath(forURI: "/docs/basics/routing/", basePath: "/docs") == "basics/routing/index.html")
+        #expect(StaticFileServer.relativePath(forURI: "/docs/_kiln/css/theme.css", basePath: "/docs") == "_kiln/css/theme.css")
+        // Paths outside the prefix are served as-is (lenient local preview).
+        #expect(StaticFileServer.relativePath(forURI: "/other/", basePath: "/docs") == "other/index.html")
+    }
+
     @Test("Content types map from extensions")
     func contentTypes() {
         #expect(StaticFileServer.contentType(forExtension: "html") == "text/html; charset=utf-8")
