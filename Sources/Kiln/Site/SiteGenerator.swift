@@ -56,8 +56,20 @@ public struct SiteGenerator {
 
         let theme = try resolveTheme()
         let renderer = TemplateRenderer(templateDirectories: theme.templates)
-        defer { renderer.shutdown() }
+        // `shutdown()` is async (it must not block — see TemplateRenderer), so we
+        // can't use `defer`; await it on both the success and error paths instead.
+        do {
+            try await build(into: renderer, theme: theme)
+        } catch {
+            await renderer.shutdown()
+            throw error
+        }
+        await renderer.shutdown()
+    }
 
+    /// The body of ``build()``, with the template renderer injected so its
+    /// lifetime (and async shutdown) is managed by the caller.
+    private func build(into renderer: TemplateRenderer, theme: (templates: [URL], assets: [URL])) async throws {
         let writer = OutputWriter(outputDirectory: outputDirectory)
         try writer.reset()
 
