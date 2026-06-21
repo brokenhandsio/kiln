@@ -1,6 +1,6 @@
 ---
 description: SEO and social cards — canonical URLs, OpenGraph and Twitter tags, sitemap, and robots.txt.
-image: assets/social-card.svg
+image: assets/social-card.png
 ---
 # SEO & Social Cards
 
@@ -26,7 +26,7 @@ OpenGraph and Twitter Card tags are generated for rich link previews:
 <meta property="og:type" content="article">
 <meta property="og:title" content="SEO &amp; Social Cards">
 <meta property="og:url" content="https://kiln.brokenhands.io/guides/seo/">
-<meta property="og:image" content="https://kiln.brokenhands.io/assets/social-card.svg">
+<meta property="og:image" content="https://kiln.brokenhands.io/assets/social-card.png">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:site" content="@brokenhandsio">
 ```
@@ -39,8 +39,9 @@ The preview image resolves in this order:
 
 !!! tip "Use a real raster image"
     Social scrapers (Slack, X, iMessage, …) handle PNG/JPG far more reliably
-    than SVG. This site uses an SVG only to keep the example dependency-free —
-    for production, set `image` to a `1200×630` PNG.
+    than SVG, so set `image` to a `1200×630` PNG. This site's card
+    (`assets/social-card.png`) is exactly that — rasterised from the editable
+    `assets/social-card.svg` source.
 
 ## Sitemap & robots
 

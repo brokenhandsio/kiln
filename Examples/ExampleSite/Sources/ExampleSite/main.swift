@@ -120,10 +120,23 @@ let site = KilnSite(
     url: "https://kiln.brokenhands.io",
     author: "Broken Hands",
     description: "Kiln is a documentation-site generator written in Swift — type-safe config, localisation, theming, and client-side search.",
-    // Default social/OpenGraph preview image. Real sites should prefer a PNG/JPG
-    // for best social-scraper support; an SVG is used here just to demo wiring.
-    image: "assets/social-card.svg",
+    // Default social/OpenGraph preview image — a 1200×630 PNG, since social
+    // scrapers (Slack, X, iMessage, …) handle raster far more reliably than SVG.
+    // Rasterised from the editable assets/social-card.svg source.
+    image: "assets/social-card.png",
     twitterSite: "@brokenhandsio",
+    // JSON-LD publisher entity — emits Organization + WebSite structured data so
+    // search engines can build a richer knowledge-graph node. `logo` must be an
+    // absolute URL to a raster image (≥112×112).
+    organization: .init(
+        name: "Kiln",
+        url: "https://kiln.brokenhands.io",
+        logo: "https://kiln.brokenhands.io/assets/logo.png",
+        sameAs: [
+            "https://github.com/brokenhandsio/kiln",
+            "https://hachyderm.io/@brokenhandsio",
+        ]
+    ),
     repository: .init(
         name: "GitHub",
         url: "https://github.com/brokenhandsio/kiln",
