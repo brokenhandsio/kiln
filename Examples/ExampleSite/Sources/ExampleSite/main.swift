@@ -122,7 +122,6 @@ let site = KilnSite(
     description: "Kiln is a documentation-site generator written in Swift — type-safe config, localisation, theming, and client-side search.",
     // Default social/OpenGraph preview image — a 1200×630 PNG, since social
     // scrapers (Slack, X, iMessage, …) handle raster far more reliably than SVG.
-    // Rasterised from the editable assets/social-card.svg source.
     image: "assets/social-card.png",
     twitterSite: "@brokenhandsio",
     // JSON-LD publisher entity — emits Organization + WebSite structured data so

@@ -39,9 +39,8 @@ The preview image resolves in this order:
 
 !!! tip "Use a real raster image"
     Social scrapers (Slack, X, iMessage, …) handle PNG/JPG far more reliably
-    than SVG, so set `image` to a `1200×630` PNG. This site's card
-    (`assets/social-card.png`) is exactly that — rasterised from the editable
-    `assets/social-card.svg` source.
+    than SVG, so set `image` to a `1200×630` PNG — like this site's
+    `assets/social-card.png`.
 
 ## Sitemap & robots
 
