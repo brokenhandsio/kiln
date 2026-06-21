@@ -8,6 +8,10 @@ public struct RenderedMarkdown: Sendable {
     public var tableOfContents: [TOCEntry]
     /// The first level-1 heading's text, if any (used as a fallback page title).
     public var firstHeading: String?
+    /// A plain-text excerpt of the first prose paragraph, truncated for use as a
+    /// `<meta name="description">` when the page has no explicit description — so
+    /// each page gets a unique snippet instead of the site-wide default.
+    public var metaDescription: String?
     /// Raw link destinations (`<a href>`) found in the document, for link checking.
     public var links: [String]
     /// Raw image sources (`<img src>`) found in the document, for link checking.
@@ -37,10 +41,31 @@ public struct MarkdownRenderer: Sendable {
             html: html,
             tableOfContents: toc,
             firstHeading: firstHeading,
+            metaDescription: Self.metaDescription(from: source),
             links: links,
             images: images,
             headingIDs: headings.map(\.id)
         )
+    }
+
+    /// First prose paragraph as a single line of plain text, truncated to ~155
+    /// characters on a word boundary (with an ellipsis) for use as a meta
+    /// description. Skips headings and Kiln admonition markers.
+    static func metaDescription(from source: String, maxLength: Int = 155) -> String? {
+        for child in Document(parsing: source).children {
+            guard let paragraph = child as? Paragraph else { continue }
+            let collapsed = paragraph.plainText
+                .split(whereSeparator: { $0 == " " || $0 == "\n" || $0 == "\t" })
+                .joined(separator: " ")
+            if collapsed.isEmpty || collapsed.hasPrefix("!!!") { continue }
+            guard collapsed.count > maxLength else { return collapsed }
+            let clipped = collapsed.prefix(maxLength)
+            if let lastSpace = clipped.lastIndex(of: " ") {
+                return clipped[..<lastSpace] + "…"
+            }
+            return clipped + "…"
+        }
+        return nil
     }
 
     /// Render a (possibly nested) markdown body, sharing the slugger so anchor

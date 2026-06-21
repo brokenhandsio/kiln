@@ -1,7 +1,7 @@
 ---
 title: Configuration Reference
 description: Every option you can set on a KilnSite.
-image: assets/social-card.svg
+image: assets/social-card.png
 ---
 
 # Configuration
@@ -20,6 +20,7 @@ uses a custom front-matter `title` (see the browser tab) to demonstrate the
 | `description`     | `String?`             | Default meta/OpenGraph description. |
 | `image`           | `String?`             | Default social preview image (content-relative path). |
 | `twitterSite`     | `String?`             | Handle for the `twitter:site` tag (e.g. `"@brokenhandsio"`). |
+| `organization`    | `Organization?`       | Publisher entity → emits Organization + WebSite JSON-LD. `name`, `url`, `logo` (absolute URL, raster ≥112×112), `sameAs`. |
 | `repository`      | `Repository?`         | `name`, `url`, optional `editURI` for "edit this page" links. |
 | `copyright`       | `String?`             | Footer notice. |
 | `theme`           | `Theme`               | `.default(…)` or `.custom(directory:…)` — see [Theming](theming.md). |

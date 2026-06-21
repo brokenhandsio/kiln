@@ -4,14 +4,26 @@ import LeafKit
 public struct LanguageAlternate: Sendable {
     public var locale: String
     public var name: String
+    /// Relative URL of this page in the alternate language (e.g. `/de/`). Relative
+    /// so the on-page language switcher stays portable across deploy domains
+    /// (PR previews, staging) rather than hard-linking the production host.
     public var url: String
+    /// Absolute URL of this page in the alternate language (e.g.
+    /// `https://www.vapor.codes/de/`). Absolute so it's valid in `hreflang` links,
+    /// which Google requires to be fully-qualified.
+    public var absoluteURL: String
     public var isCurrent: Bool
+    /// Whether this alternate is the site's default language — used to also emit
+    /// an `hreflang="x-default"` link pointing at it.
+    public var isDefault: Bool
 
-    public init(locale: String, name: String, url: String, isCurrent: Bool) {
+    public init(locale: String, name: String, url: String, absoluteURL: String, isCurrent: Bool, isDefault: Bool = false) {
         self.locale = locale
         self.name = name
         self.url = url
+        self.absoluteURL = absoluteURL
         self.isCurrent = isCurrent
+        self.isDefault = isDefault
     }
 }
 
@@ -115,7 +127,11 @@ struct RenderContext {
             "isLatest": .bool(version.isLatest),
             "latestURL": .string(version.latestURL),
             "versionBasePath": .string(version.basePath),
-            "noindex": .bool(version.noindex),
+            // noindex non-default versions AND untranslated fallback pages (a
+            // fallback serves the default language's content at a localised URL,
+            // so indexing it would be duplicate/thin content — hreflang + the
+            // canonical already point search engines at the real page).
+            "noindex": .bool(version.noindex || isFallback),
         ]
     }
 
@@ -226,6 +242,7 @@ struct RenderContext {
             "notFoundLink": .string(s.notFoundLink),
             "toggleNavigation": .string(s.toggleNavigation),
             "toggleColourScheme": .string(s.toggleColourScheme),
+            "skipToContent": .string(s.skipToContent),
             "oldVersionMessage": .string(s.oldVersionMessage),
             "oldVersionLink": .string(s.oldVersionLink),
             "preReleaseMessage": .string(s.preReleaseMessage),
@@ -282,11 +299,30 @@ struct RenderContext {
             "locale": .string(alternate.locale),
             "name": .string(alternate.name),
             "url": .string(alternate.url),
+            "absoluteURL": .string(alternate.absoluteURL),
             "isCurrent": .bool(alternate.isCurrent),
+            "isDefault": .bool(alternate.isDefault),
+            // OpenGraph form (`pt-BR` → `pt_BR`) for `og:locale:alternate`.
+            "ogLocale": .string(String(alternate.locale.map { $0 == "-" ? "_" : $0 })),
         ])
     }
 
     // MARK: Page
+
+    /// The breadcrumb trail for the current page: the active nav nodes from the
+    /// top-level section down to (and including) the current page. Empty on the
+    /// home page or when there's no navigation tree (e.g. a flat marketing site).
+    private var breadcrumbItems: [BreadcrumbItem] {
+        guard !isHome else { return [] }
+        var items: [BreadcrumbItem] = []
+        var level = navigation.nodes
+        while let active = level.first(where: { $0.isActive }) {
+            items.append(BreadcrumbItem(name: active.title, url: active.url))
+            if active.isCurrent { break }
+            level = active.items
+        }
+        return items
+    }
 
     private var pageData: LeafData {
         var frontMatterData: [String: LeafData] = [:]
@@ -311,6 +347,17 @@ struct RenderContext {
             "url": .string(pageURL),
             "canonicalURL": .string(canonicalURL),
             "description": .string(pageDescription),
+            // JSON-LD structured data (Organization / WebSite / BreadcrumbList).
+            // Nil (not "") when there's nothing to emit, so `#if(page.structuredData)`
+            // is false — LeafKit treats an empty string as truthy. Emit raw via
+            // `#unsafeHTML(...)`.
+            "structuredData": StructuredData.jsonLD(
+                siteName: siteName,
+                siteURL: site.url,
+                locale: language.locale,
+                organization: site.organization,
+                breadcrumb: breadcrumbItems
+            ).map(LeafData.string) ?? .trueNil,
             "imageURL": .string(socialImageURL),
             "editURL": .string(editURL),
             "sourcePath": .string(sourcePath),

@@ -39,6 +39,8 @@ public struct LocalisationConfiguration: Sendable {
     public var toggleNavigation: String?
     /// Accessible label for the colour-scheme toggle. Default: `"Toggle colour scheme"`.
     public var toggleColourScheme: String?
+    /// "Skip to content" link for keyboard/AT users. Default: `"Skip to content"`.
+    public var skipToContent: String?
     /// Banner shown on pages that aren't the latest version. Default:
     /// `"You're viewing documentation for an older version."`.
     public var oldVersionMessage: String?
@@ -101,6 +103,7 @@ public struct LocalisationConfiguration: Sendable {
         notFoundLink: String? = nil,
         toggleNavigation: String? = nil,
         toggleColourScheme: String? = nil,
+        skipToContent: String? = nil,
         oldVersionMessage: String? = nil,
         oldVersionLink: String? = nil,
         preReleaseMessage: String? = nil,
@@ -134,6 +137,7 @@ public struct LocalisationConfiguration: Sendable {
         self.notFoundLink = notFoundLink
         self.toggleNavigation = toggleNavigation
         self.toggleColourScheme = toggleColourScheme
+        self.skipToContent = skipToContent
         self.oldVersionMessage = oldVersionMessage
         self.oldVersionLink = oldVersionLink
         self.preReleaseMessage = preReleaseMessage
@@ -173,6 +177,7 @@ extension LocalisationConfiguration {
         var notFoundLink: String
         var toggleNavigation: String
         var toggleColourScheme: String
+        var skipToContent: String
         var oldVersionMessage: String
         var oldVersionLink: String
         var preReleaseMessage: String
@@ -209,6 +214,7 @@ extension LocalisationConfiguration {
             notFoundLink: notFoundLink ?? "Return to the home page",
             toggleNavigation: toggleNavigation ?? "Toggle navigation",
             toggleColourScheme: toggleColourScheme ?? "Toggle colour scheme",
+            skipToContent: skipToContent ?? "Skip to content",
             oldVersionMessage: oldVersionMessage ?? "You're viewing documentation for an older version.",
             oldVersionLink: oldVersionLink ?? "View the latest version",
             preReleaseMessage: preReleaseMessage ?? "You're viewing documentation for a pre-release version.",
