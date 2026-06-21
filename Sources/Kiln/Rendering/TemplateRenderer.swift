@@ -18,6 +18,11 @@ final class TemplateRenderer {
     private let eventLoopGroup: MultiThreadedEventLoopGroup
     private let threadPool: NIOThreadPool
     private let renderer: LeafRenderer
+    /// Set once `shutdown()` has released the NIO resources, so `deinit` knows
+    /// not to shut them down a second time (a double `syncShutdownGracefully()`
+    /// blocks forever — the worker threads have already exited and never
+    /// re-signal the condition lock).
+    private var didShutdown = false
 
     /// - Parameter templateDirectories: ordered highest-priority first.
     init(templateDirectories: [URL]) {
@@ -68,14 +73,18 @@ final class TemplateRenderer {
     /// build blocks one at once, the pool starves, and the whole run deadlocks.
     /// The async variants suspend instead of blocking, so the pool stays live.
     func shutdown() async {
+        guard !didShutdown else { return }
+        didShutdown = true
         try? await threadPool.shutdownGracefully()
         try? await eventLoopGroup.shutdownGracefully()
     }
 
     deinit {
-        // Safety net only — callers are expected to `await shutdown()` first, so
-        // by here the resources are already down and these calls return at once
-        // (NIO requires an event-loop group be shut down before it deinits).
+        // Safety net for misuse only: callers are expected to `await shutdown()`,
+        // which is the non-blocking path. If they didn't, fall back to the
+        // blocking shutdown so NIO's "must shut down before deinit" requirement
+        // is met — but never when already shut down (a second shutdown hangs).
+        guard !didShutdown else { return }
         try? threadPool.syncShutdownGracefully()
         try? eventLoopGroup.syncShutdownGracefully()
     }
