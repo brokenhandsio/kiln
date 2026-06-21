@@ -53,6 +53,17 @@ struct LinkResolverTests {
         #expect(r.resolve("images/local.png") == "/fluent/images/local.png")
     }
 
+    @Test("A base path prefixes rewritten .md and asset links")
+    func basePath() {
+        let urls = SiteURLs(defaultLocale: "en", basePath: "/docs")
+        let r = LinkResolver(currentLogicalPath: "fluent/overview.md", locale: "en", urls: urls,
+                             knownLocales: ["en", "de"])
+        #expect(r.resolve("crud.md") == "/docs/fluent/crud/")
+        #expect(r.resolve("../images/diagram.png") == "/docs/images/diagram.png")
+        // Author-written absolute links are still left untouched (documented limitation).
+        #expect(r.resolve("/already/absolute/") == "/already/absolute/")
+    }
+
     @Test("Absolute, external, anchor and mailto links are left untouched")
     func untouched() {
         let r = resolver(page: "basics/routing.md")

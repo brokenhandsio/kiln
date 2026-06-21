@@ -23,8 +23,26 @@ public struct Repository: Sendable {
 public struct KilnSite: Sendable {
     /// The site name / title.
     public var name: String
-    /// The canonical site URL, e.g. `"https://docs.vapor.codes/"`.
+    /// The canonical site URL. When ``basePath`` is empty this is the full public
+    /// URL, e.g. `"https://docs.vapor.codes/"`.
+    ///
+    /// - Important: When ``basePath`` is set, this must be the **scheme + host
+    ///   only** (e.g. `"https://example.com"`), *not* including the subpath.
+    ///   Absolute URLs (canonical, `og:url`, sitemap, `llms.txt`) are built by
+    ///   joining this with the base-path-prefixed page path, so including the
+    ///   subpath here too double-prefixes them
+    ///   (`https://example.com/docs/docs/page/`).
     public var url: String
+    /// The path the site is served under, for deployments that don't sit at the
+    /// domain root (e.g. `"/docs"` for `https://example.com/docs/`). Empty by
+    /// default (served from the root). Accepts `"docs"`, `"/docs"`, or `"/docs/"`
+    /// — all normalised to `"/docs"`. Prefixed onto every generated root-relative
+    /// link (pages, assets, theme CSS/JS, search) so they resolve in the subpath.
+    ///
+    /// `basePath` is a *serving* prefix, not an output directory — the build is
+    /// still written at the root of the output folder and deployed *into* the
+    /// subdirectory. When set, keep ``url`` to the scheme + host (see its note).
+    public var basePath: String
     /// The site author.
     public var author: String?
     /// A short description used for `<meta>` tags.
@@ -73,6 +91,7 @@ public struct KilnSite: Sendable {
     public init(
         name: String,
         url: String,
+        basePath: String = "",
         author: String? = nil,
         description: String? = nil,
         image: String? = nil,
@@ -93,6 +112,7 @@ public struct KilnSite: Sendable {
     ) {
         self.name = name
         self.url = url
+        self.basePath = basePath
         self.author = author
         self.description = description
         self.image = image

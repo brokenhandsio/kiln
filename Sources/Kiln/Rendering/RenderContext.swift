@@ -82,6 +82,10 @@ struct RenderContext {
     /// URL of this page's raw-markdown copy, if generated (`<page>/index.md`).
     var markdownURL: String?
     var baseURL: String
+    /// The site's mount path (e.g. `/docs`), or `""` when served from the domain
+    /// root. Prefixed onto hard-coded root-relative links in templates (theme
+    /// assets, logo, favicon, home links).
+    var basePath: String = ""
 
     var pageTitle: String
     var contentHTML: String
@@ -119,6 +123,7 @@ struct RenderContext {
             "strings": stringsData,
             "customStrings": customStringsData,
             "baseURL": .string(baseURL),
+            "basePath": .string(basePath),
             "searchIndexURL": .string(searchIndexURL),
             "markdownURL": .string(markdownURL),
             "versions": .array(version.alternates.map(Self.versionAlternateData)),

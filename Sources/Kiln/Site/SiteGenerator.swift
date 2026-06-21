@@ -31,6 +31,13 @@ public struct SiteGenerator {
         self.linkChecking = linkChecking
     }
 
+    /// The site's mount path, normalised (e.g. `"/docs"` or `""`).
+    private var basePath: String { SiteURLs.normaliseBasePath(site.basePath) }
+
+    /// The base path as a trailing-slash location prefix (e.g. `"docs/"` or `""`),
+    /// for prepending to root-relative asset locations.
+    private var basePathLocationPrefix: String { basePath.isEmpty ? "" : String(basePath.dropFirst()) + "/" }
+
     /// Per-version resolved data, prepared once before rendering.
     private struct VersionBuild {
         let version: DocVersion
@@ -67,7 +74,7 @@ public struct SiteGenerator {
             let locales = Set(version.languages.map(\.locale))
             let defaultLocale = version.defaultLanguage.locale
             let store = try ContentLoader().load(contentDirectory: contentURL, locales: locales, defaultLocale: defaultLocale)
-            let urls = SiteURLs(defaultLocale: defaultLocale, versionPrefix: version.urlPrefix)
+            let urls = SiteURLs(defaultLocale: defaultLocale, versionPrefix: version.urlPrefix, basePath: basePath)
             let navigationBuilder = NavigationBuilder(urls: urls)
 
             var navByLocale: [String: ResolvedNavigation] = [:]
@@ -358,6 +365,7 @@ public struct SiteGenerator {
             searchIndexURL: urls.searchIndexURLPath(forLocale: language.locale),
             markdownURL: site.llmsText ? urlPath + "index.md" : nil,
             baseURL: urls.baseURL(forLogicalPath: logicalPath, locale: language.locale),
+            basePath: basePath,
             pageTitle: title,
             contentHTML: rendered.html,
             tableOfContents: rendered.tableOfContents,
@@ -435,6 +443,7 @@ public struct SiteGenerator {
             searchIndexURL: urls.searchIndexURLPath(forLocale: language.locale),
             markdownURL: nil,
             baseURL: rootBase,
+            basePath: basePath,
             pageTitle: language.localisation.resolved.notFoundTitle,
             contentHTML: "",
             tableOfContents: [],
@@ -533,12 +542,14 @@ public struct SiteGenerator {
     }
 
     /// Absolute URL for a content-relative asset path (e.g. `assets/social-card.png`),
-    /// passed through unchanged if it's already an absolute URL.
+    /// passed through unchanged if it's already an absolute URL. Content assets are
+    /// copied under the base path, so it's injected here (page locations already
+    /// carry it via ``SiteURLs``).
     private func absoluteURL(forPath path: String) -> String {
         if path.hasPrefix("http://") || path.hasPrefix("https://") {
             return path
         }
-        return absoluteURL(forLocation: path.drop(while: { $0 == "/" }).description)
+        return absoluteURL(forLocation: basePathLocationPrefix + path.drop(while: { $0 == "/" }).description)
     }
 
     private func robotsTxt() -> String {
@@ -546,7 +557,7 @@ public struct SiteGenerator {
         User-agent: *
         Allow: /
 
-        Sitemap: \(absoluteURL(forLocation: "sitemap.xml"))
+        Sitemap: \(absoluteURL(forLocation: basePathLocationPrefix + "sitemap.xml"))
         """
     }
 

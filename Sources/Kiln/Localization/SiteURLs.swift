@@ -14,10 +14,26 @@ public struct SiteURLs: Sendable {
     /// The version URL prefix, including a trailing slash when set (e.g.
     /// `"4.0/"`), or `""` for the default version (served at the root).
     public let versionPrefix: String
+    /// The path the whole site is mounted at, normalised to a leading slash and
+    /// no trailing slash (e.g. `"/docs"`), or `""` when served from the domain
+    /// root. Prefixed onto every root-relative URL so links resolve when the
+    /// site lives in a subdirectory.
+    public let basePath: String
 
-    public init(defaultLocale: String, versionPrefix: String = "") {
+    public init(defaultLocale: String, versionPrefix: String = "", basePath: String = "") {
         self.defaultLocale = defaultLocale
         self.versionPrefix = versionPrefix
+        self.basePath = SiteURLs.normaliseBasePath(basePath)
+    }
+
+    /// Normalise a configured base path to a leading slash with no trailing
+    /// slash: `"docs"`, `"/docs"`, and `"/docs/"` all become `"/docs"`; an empty
+    /// path (or `"/"`) becomes `""` (served from the domain root).
+    public static func normaliseBasePath(_ raw: String) -> String {
+        var path = raw
+        while path.hasPrefix("/") { path.removeFirst() }
+        while path.hasSuffix("/") { path.removeLast() }
+        return path.isEmpty ? "" : "/" + path
     }
 
     /// The pretty, locale-independent path for a logical path:
@@ -41,9 +57,10 @@ public struct SiteURLs: Sendable {
         locale == defaultLocale ? "" : locale + "/"
     }
 
-    /// The absolute, site-relative URL for a page, e.g. `/4.0/de/install/macos/`.
+    /// The absolute, site-relative URL for a page, e.g. `/4.0/de/install/macos/`
+    /// (prefixed with ``basePath`` when the site is mounted in a subdirectory).
     public func urlPath(forLogicalPath logicalPath: String, locale: String) -> String {
-        "/" + versionPrefix + localePrefix(locale) + prettyPath(forLogicalPath: logicalPath)
+        basePath + "/" + versionPrefix + localePrefix(locale) + prettyPath(forLogicalPath: logicalPath)
     }
 
     /// The on-disk output file for a page (`…/install/macos/index.html`).
@@ -79,16 +96,16 @@ public struct SiteURLs: Sendable {
     /// The root-relative URL of a locale's search index within this version,
     /// e.g. `/4.0/de/search/search_index.json`.
     public func searchIndexURLPath(forLocale locale: String) -> String {
-        "/" + versionPrefix + localePrefix(locale) + "search/search_index.json"
+        basePath + "/" + versionPrefix + localePrefix(locale) + "search/search_index.json"
     }
 
     /// The relative path from a page back to the site root, e.g. `../../`,
     /// used to make asset links work regardless of how deep the page is.
     public func baseURL(forLogicalPath logicalPath: String, locale: String) -> String {
-        let url = urlPath(forLogicalPath: logicalPath, locale: locale)
-        // Count path segments (excluding the leading slash). Each becomes one
-        // "../" to climb back to the root.
-        let depth = url.split(separator: "/").count
+        // Count path segments *within the mounted site* (excluding basePath, since
+        // the relative path climbs back to the mount root, wherever it's served).
+        let path = versionPrefix + localePrefix(locale) + prettyPath(forLogicalPath: logicalPath)
+        let depth = path.split(separator: "/").count
         return depth == 0 ? "./" : String(repeating: "../", count: depth)
     }
 }

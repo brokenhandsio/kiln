@@ -58,8 +58,9 @@ public struct LinkResolver: Sendable {
         } else {
             // A content asset (image, download). Project assets are copied under
             // the current version's prefix, so root-absolute references must
-            // include it (empty for the default version).
-            return "/" + urls.versionPrefix + resolved + fragment
+            // include it (empty for the default version), plus the site's base
+            // path when mounted in a subdirectory.
+            return urls.basePath + "/" + urls.versionPrefix + resolved + fragment
         }
     }
 

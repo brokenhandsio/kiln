@@ -3,7 +3,7 @@
 <article class="kiln-article kiln-error">
     <h1>404</h1>
     <p>#(strings.notFoundMessage)</p>
-    <p><a href="/">#(strings.notFoundLink)</a></p>
+    <p><a href="#(basePath)/">#(strings.notFoundLink)</a></p>
 </article>
 #endexport
 #endextend
