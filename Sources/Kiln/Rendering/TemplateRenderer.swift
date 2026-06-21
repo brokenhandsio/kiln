@@ -61,12 +61,22 @@ final class TemplateRenderer {
         return String(buffer: buffer)
     }
 
-    func shutdown() {
-        try? threadPool.syncShutdownGracefully()
-        try? eventLoopGroup.syncShutdownGracefully()
+    /// Release the NIO resources. Async on purpose: the blocking
+    /// `syncShutdownGracefully()` parks the calling thread on a `ConditionLock`,
+    /// and when called from Swift Concurrency (e.g. `SiteGenerator.build()`) it
+    /// blocks a cooperative-pool thread. Under parallel test execution every
+    /// build blocks one at once, the pool starves, and the whole run deadlocks.
+    /// The async variants suspend instead of blocking, so the pool stays live.
+    func shutdown() async {
+        try? await threadPool.shutdownGracefully()
+        try? await eventLoopGroup.shutdownGracefully()
     }
 
     deinit {
-        shutdown()
+        // Safety net only — callers are expected to `await shutdown()` first, so
+        // by here the resources are already down and these calls return at once
+        // (NIO requires an event-loop group be shut down before it deinits).
+        try? threadPool.syncShutdownGracefully()
+        try? eventLoopGroup.syncShutdownGracefully()
     }
 }
