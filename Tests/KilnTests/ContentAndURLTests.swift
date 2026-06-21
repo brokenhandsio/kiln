@@ -46,6 +46,43 @@ struct SiteURLTests {
         #expect(urls.urlPath(forLogicalPath: "index.md", locale: "de") == "/de/")
         #expect(urls.urlPath(forLogicalPath: "install/macos.md", locale: "de") == "/de/install/macos/")
     }
+
+    @Test("Base path is normalised to a leading slash with no trailing slash")
+    func normaliseBasePath() {
+        #expect(SiteURLs.normaliseBasePath("") == "")
+        #expect(SiteURLs.normaliseBasePath("/") == "")
+        #expect(SiteURLs.normaliseBasePath("docs") == "/docs")
+        #expect(SiteURLs.normaliseBasePath("/docs") == "/docs")
+        #expect(SiteURLs.normaliseBasePath("/docs/") == "/docs")
+        #expect(SiteURLs.normaliseBasePath("docs/guide/") == "/docs/guide")
+    }
+
+    @Test("A base path prefixes page, search, and asset URLs")
+    func basePathPrefix() {
+        let urls = SiteURLs(defaultLocale: "en", basePath: "/docs")
+        #expect(urls.basePath == "/docs")
+        #expect(urls.urlPath(forLogicalPath: "index.md", locale: "en") == "/docs/")
+        #expect(urls.urlPath(forLogicalPath: "install/macos.md", locale: "en") == "/docs/install/macos/")
+        #expect(urls.urlPath(forLogicalPath: "index.md", locale: "de") == "/docs/de/")
+        #expect(urls.searchIndexURLPath(forLocale: "en") == "/docs/search/search_index.json")
+    }
+
+    @Test("A version prefix composes with the base path")
+    func basePathWithVersion() {
+        let urls = SiteURLs(defaultLocale: "en", versionPrefix: "4.0/", basePath: "docs")
+        #expect(urls.urlPath(forLogicalPath: "install/macos.md", locale: "en") == "/docs/4.0/install/macos/")
+    }
+
+    @Test("The relative baseURL depth ignores the base path")
+    func basePathRelativeDepthUnchanged() {
+        let root = SiteURLs(defaultLocale: "en")
+        let mounted = SiteURLs(defaultLocale: "en", basePath: "/docs")
+        // Same depth within the mounted site regardless of where it's served.
+        #expect(root.baseURL(forLogicalPath: "index.md", locale: "en")
+            == mounted.baseURL(forLogicalPath: "index.md", locale: "en"))
+        #expect(root.baseURL(forLogicalPath: "install/macos.md", locale: "en")
+            == mounted.baseURL(forLogicalPath: "install/macos.md", locale: "en"))
+    }
 }
 
 @Suite("Front matter")

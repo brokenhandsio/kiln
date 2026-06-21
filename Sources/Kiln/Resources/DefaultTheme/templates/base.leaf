@@ -30,14 +30,14 @@
     #if(page.description):<meta name="twitter:description" content="#(page.description)">#endif
     #if(page.imageURL):<meta name="twitter:image" content="#(page.imageURL)">#endif
 
-    #if(site.favicon):<link rel="icon" href="/#(site.favicon)">#endif
+    #if(site.favicon):<link rel="icon" href="#(basePath)/#(site.favicon)">#endif
 
     #for(alt in languages):<link rel="alternate" hreflang="#(alt.locale)" href="#(alt.absoluteURL)">
     #if(alt.isDefault):<link rel="alternate" hreflang="x-default" href="#(alt.absoluteURL)">
     #endif#endfor
 
-    <link rel="stylesheet" href="/_kiln/css/theme.css">
-    #for(href in site.extraCSS):<link rel="stylesheet" href="/#(href)">
+    <link rel="stylesheet" href="#(basePath)/_kiln/css/theme.css">
+    #for(href in site.extraCSS):<link rel="stylesheet" href="#(basePath)/#(href)">
     #endfor
 
     <style>
@@ -126,11 +126,11 @@
 
     #extend("partials/footer")
 
-    <script>window.kilnSearchIndex = "#(searchIndexURL)"; window.kilnVersionBase = "#(versionBasePath)";</script>
-    <script src="/_kiln/js/vendor/highlight.min.js"></script>
-    <script src="/_kiln/js/theme.js"></script>
-    #if(site.searchEnabled):<script src="/_kiln/js/search.js"></script>#endif
-    #for(src in site.extraJS):<script src="/#(src)"></script>
+    <script>window.kilnSearchIndex = "#(searchIndexURL)"; window.kilnVersionBase = "#(basePath)#(versionBasePath)";</script>
+    <script src="#(basePath)/_kiln/js/vendor/highlight.min.js"></script>
+    <script src="#(basePath)/_kiln/js/theme.js"></script>
+    #if(site.searchEnabled):<script src="#(basePath)/_kiln/js/search.js"></script>#endif
+    #for(src in site.extraJS):<script src="#(basePath)/#(src)"></script>
     #endfor
 </body>
 </html>

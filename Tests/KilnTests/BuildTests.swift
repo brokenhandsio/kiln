@@ -5,7 +5,7 @@ import Foundation
 @Suite("End-to-end build")
 struct BuildTests {
     /// Build the bundled fixture docs into a fresh temporary directory.
-    func buildFixture(linkChecking: LinkChecking = .warn) async throws -> URL {
+    func buildFixture(linkChecking: LinkChecking = .warn, basePath: String = "") async throws -> URL {
         guard let fixtures = Bundle.module.url(forResource: "Fixtures", withExtension: nil) else {
             Issue.record("Could not locate the Fixtures resource")
             throw ContentError.contentDirectoryNotFound("Fixtures")
@@ -17,6 +17,7 @@ struct BuildTests {
         let site = KilnSite(
             name: "Fixture Docs",
             url: "https://fixture.example.com",
+            basePath: basePath,
             description: "Fixture site description.",
             image: "assets/card.png",
             twitterSite: "@fixture",
@@ -244,6 +245,41 @@ struct BuildTests {
         #expect(!home.contains("kiln-version-switcher"))
         #expect(!home.contains("kiln-version-notice"))
         #expect(!home.contains("noindex"))
+    }
+
+    @Test("A configured base path prefixes every root-relative link")
+    func basePath() async throws {
+        let output = try await buildFixture(basePath: "/docs")
+        defer { try? FileManager.default.removeItem(at: output) }
+
+        // On-disk layout is unchanged — the base path is a serving prefix, so the
+        // output is deployed into the subdirectory, not nested under one.
+        #expect(FileManager.default.fileExists(atPath: output.appendingPathComponent("index.html").path))
+        #expect(FileManager.default.fileExists(atPath: output.appendingPathComponent("_kiln/css/theme.css").path))
+
+        let home = try read(output.appendingPathComponent("index.html"))
+        // Theme assets, search index, and version base all carry the prefix.
+        #expect(home.contains("href=\"/docs/_kiln/css/theme.css\""))
+        #expect(home.contains("src=\"/docs/_kiln/js/theme.js\""))
+        #expect(home.contains("window.kilnSearchIndex = \"/docs/search/search_index.json\""))
+        #expect(home.contains("window.kilnVersionBase = \"/docs\""))
+        // The logo home link and a nav link into a page.
+        #expect(home.contains("href=\"/docs/\""))
+        #expect(home.contains("href=\"/docs/section/page/\""))
+        // No stray root-absolute theme/asset links leaked through.
+        #expect(!home.contains("href=\"/_kiln/"))
+        #expect(!home.contains("src=\"/_kiln/"))
+
+        // Canonical/sitemap absolute URLs combine the host with the base path.
+        #expect(home.contains("<link rel=\"canonical\" href=\"https://fixture.example.com/docs/\">"))
+        let sitemap = try read(output.appendingPathComponent("sitemap.xml"))
+        #expect(sitemap.contains("<loc>https://fixture.example.com/docs/</loc>"))
+        #expect(sitemap.contains("<loc>https://fixture.example.com/docs/section/page/</loc>"))
+
+        // The 404 page (served from any depth) also points back into the subpath.
+        let notFound = try read(output.appendingPathComponent("404.html"))
+        #expect(notFound.contains("href=\"/docs/_kiln/css/theme.css\""))
+        #expect(notFound.contains("href=\"/docs/\""))
     }
 
     @Test("Search index lists pages")

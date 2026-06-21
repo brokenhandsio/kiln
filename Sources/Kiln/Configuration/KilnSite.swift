@@ -23,8 +23,17 @@ public struct Repository: Sendable {
 public struct KilnSite: Sendable {
     /// The site name / title.
     public var name: String
-    /// The canonical site URL, e.g. `"https://docs.vapor.codes/"`.
+    /// The canonical site URL. When ``basePath`` is empty this is the full public
+    /// URL, e.g. `"https://docs.vapor.codes/"`; when serving from a subdirectory,
+    /// set this to the scheme + host (e.g. `"https://example.com"`) and let
+    /// ``basePath`` supply the path.
     public var url: String
+    /// The path the site is served under, for deployments that don't sit at the
+    /// domain root (e.g. `"/docs"` for `https://example.com/docs/`). Empty by
+    /// default (served from the root). Accepts `"docs"`, `"/docs"`, or `"/docs/"`
+    /// — all normalised to `"/docs"`. Prefixed onto every generated root-relative
+    /// link (pages, assets, theme CSS/JS, search) so they resolve in the subpath.
+    public var basePath: String
     /// The site author.
     public var author: String?
     /// A short description used for `<meta>` tags.
@@ -73,6 +82,7 @@ public struct KilnSite: Sendable {
     public init(
         name: String,
         url: String,
+        basePath: String = "",
         author: String? = nil,
         description: String? = nil,
         image: String? = nil,
@@ -93,6 +103,7 @@ public struct KilnSite: Sendable {
     ) {
         self.name = name
         self.url = url
+        self.basePath = basePath
         self.author = author
         self.description = description
         self.image = image

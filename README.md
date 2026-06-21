@@ -300,7 +300,8 @@ Supported out of the box:
 | Field             | Type                  | Notes |
 | ----------------- | --------------------- | ----- |
 | `name`            | `String`              | Site title. |
-| `url`             | `String`              | Canonical site URL. |
+| `url`             | `String`              | Canonical site URL. With `basePath` set, this is the scheme + host (e.g. `"https://example.com"`). |
+| `basePath`        | `String`              | Subdirectory the site is served under (e.g. `"/docs"`). Empty by default (served from the domain root). Prefixed onto every generated root-relative link so they resolve in the subpath. |
 | `author`          | `String?`             | Used for meta tags. |
 | `description`     | `String?`             | Default meta/OpenGraph description. |
 | `image`           | `String?`             | Default social/OpenGraph preview image (content-relative path). |
@@ -355,8 +356,9 @@ Theme/
 ```
 
 Templates receive a context with `site`, `page`, `nav`, `language`, `languages`,
-and `searchIndexURL`. The rendered page body is injected with
-`#unsafeHTML(page.content)`.
+`searchIndexURL`, and `basePath` (prefix every hard-coded root-relative link —
+e.g. `#(basePath)/_kiln/css/theme.css` — so custom themes work under a subpath).
+The rendered page body is injected with `#unsafeHTML(page.content)`.
 
 ## Search
 
