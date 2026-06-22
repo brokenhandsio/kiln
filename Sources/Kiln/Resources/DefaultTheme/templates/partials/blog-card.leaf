@@ -1,0 +1,22 @@
+<div class="card blog-card">
+    <div class="card-body">
+        <a class="blog-post-link" href="#(url)"><h2 class="card-title">#(title)</h2></a>
+        <p class="card-text">#(excerpt)</p>
+        <div class="row">
+            <div class="blog-post-author col-lg d-flex">
+                #for(author in authors):#if(author.hasImage):<img class="blog-post-author-image me-2" src="#(author.imageURL)" alt="#(author.name)">#endif#endfor
+                <div class="blog-post-author-date-container">
+                    <div class="blog-post-author-name">#(authorNames)</div>
+                    <div class="blog-post-publish-date"><time datetime="#(isoDate)">#(formattedDate)</time> · #(readingTimeText)</div>
+                </div>
+            </div>
+            #if(hasTags):
+            <div class="col-lg blog-tags pt-4 pt-lg-0 d-flex align-items-center">
+                <ul class="mx-auto mx-lg-0 flex-wrap">
+                    #for(tag in tags):<li class="my-1"><a href="#(tag.url)">#(tag.name)</a></li>#endfor
+                </ul>
+            </div>
+            #endif
+        </div>
+    </div>
+</div>

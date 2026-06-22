@@ -80,6 +80,10 @@ public struct KilnSite: Sendable {
     /// files and a raw-markdown copy of every page (`…/index.md`) alongside its
     /// HTML, with a `<link rel="alternate" type="text/markdown">` for discovery.
     public var llmsText: Bool
+    /// An optional blog: a directory of dated markdown posts rendered as post
+    /// pages plus generated listing pages (paginated index, per-tag pages) and
+    /// an RSS feed. A site with a blog must be single-language and unversioned.
+    public var blog: Blog?
     /// The navigation tree (used when the site is not versioned; otherwise each
     /// ``DocVersion`` carries its own navigation).
     public var navigation: [NavItem]
@@ -107,6 +111,7 @@ public struct KilnSite: Sendable {
         languages: [Language] = [Language(.english, isDefault: true)],
         markdown: MarkdownExtensions = MarkdownExtensions(),
         llmsText: Bool = true,
+        blog: Blog? = nil,
         versions: [DocVersion] = [],
         @NavBuilder navigation: () -> [NavItem] = { [] }
     ) {
@@ -128,6 +133,7 @@ public struct KilnSite: Sendable {
         self.languages = languages
         self.markdown = markdown
         self.llmsText = llmsText
+        self.blog = blog
         self.versions = versions
         self.navigation = navigation()
     }
@@ -181,6 +187,7 @@ public enum ConfigurationError: Error, CustomStringConvertible {
     case emptyVersionID
     case invalidVersionID(String)
     case duplicateVersionID(String)
+    case blogRequiresSingleUnversioned
 
     public var description: String {
         switch self {
@@ -202,6 +209,8 @@ public enum ConfigurationError: Error, CustomStringConvertible {
             return "Version id '\(id)' is invalid: ids must not contain '/' or whitespace."
         case .duplicateVersionID(let id):
             return "Duplicate version id '\(id)'. Version ids must be unique."
+        case .blogRequiresSingleUnversioned:
+            return "A KilnSite with a blog must be single-language and unversioned (one language, no versions)."
         }
     }
 }
@@ -209,6 +218,11 @@ public enum ConfigurationError: Error, CustomStringConvertible {
 extension KilnSite {
     /// Validate invariants that can't be expressed in the type system.
     public func validate() throws {
+        // A blog keeps the generated-page pipeline free of version/locale
+        // prefixes, so it requires a single-language, unversioned site.
+        if blog != nil, !versions.isEmpty || buildableLanguages.count != 1 {
+            throw ConfigurationError.blogRequiresSingleUnversioned
+        }
         if versions.isEmpty {
             try Self.validateLanguages(languages)
         } else {

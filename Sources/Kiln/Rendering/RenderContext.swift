@@ -108,6 +108,14 @@ struct RenderContext {
     /// Versioning data (neutral by default ⇒ no version markup for unversioned sites).
     var version: VersionContext = VersionContext()
 
+    /// Pre-built `blogPost.*` template data for a single post page, or `nil` for
+    /// non-blog pages (see ``BlogLeafData``). Emitted as `.trueNil` when absent so
+    /// `#if(blogPost)` is false on every existing page.
+    var blogPost: LeafData? = nil
+    /// Pre-built `blogListing.*` template data for a blog index / tag page, or
+    /// `nil` otherwise.
+    var blogListing: LeafData? = nil
+
     /// The localised site name (falls back to the global site name).
     private var siteName: String {
         language.siteName ?? site.name
@@ -137,6 +145,10 @@ struct RenderContext {
             // so indexing it would be duplicate/thin content — hreflang + the
             // canonical already point search engines at the real page).
             "noindex": .bool(version.noindex || isFallback),
+            // Blog data (post page / listing page); `.trueNil` ⇒ `#if(blogPost)`
+            // and `#if(blogListing)` are false on every non-blog page.
+            "blogPost": blogPost ?? .trueNil,
+            "blogListing": blogListing ?? .trueNil,
         ]
     }
 
