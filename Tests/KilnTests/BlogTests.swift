@@ -96,8 +96,40 @@ struct BlogTests {
         #expect(post.contains("<link rel=\"canonical\" href=\"https://blog.example.com/posts/third-post/\">"))
         #expect(post.contains("<meta property=\"og:type\" content=\"article\">"))
         #expect(post.contains("<meta property=\"og:image\" content=\"https://blog.example.com/static/images/posts/third.png\">"))
+        #expect(post.contains("<meta property=\"og:image:type\" content=\"image/png\">"))
+        #expect(post.contains("<meta property=\"og:image:alt\" content=\"Third Post\">"))
         // The excerpt becomes the meta description.
         #expect(post.contains("<meta name=\"description\" content=\"The newest post, which ships with its own social preview image.\">"))
+        // Article metadata for posts: published time (ISO-8601 UTC), author, tags.
+        #expect(post.contains("<meta property=\"article:published_time\" content=\"2024-03-01T18:00:00Z\">"))
+        #expect(post.contains("<meta property=\"article:author\" content=\"Paul\">"))
+        #expect(post.contains("<meta property=\"article:tag\" content=\"framework\">"))
+
+        // JSON-LD BlogPosting node with headline, date, author, image, keywords.
+        #expect(post.contains("\"@type\":\"BlogPosting\""))
+        #expect(post.contains("\"headline\":\"Third Post\""))
+        #expect(post.contains("\"datePublished\":\"2024-03-01T18:00:00Z\""))
+        #expect(post.contains("\"image\":\"https:\\/\\/blog.example.com\\/static\\/images\\/posts\\/third.png\"") || post.contains("\"image\":\"https://blog.example.com/static/images/posts/third.png\""))
+        #expect(post.contains("\"keywords\":\"framework\""))
+        // Listing pages get no BlogPosting node.
+        #expect(!(try read(output, "index.html")).contains("BlogPosting"))
+    }
+
+    @Test("Listing/tag pages are og:type website; posts carry article metadata")
+    func ogType() async throws {
+        let output = try await buildFixture()
+        defer { try? FileManager.default.removeItem(at: output) }
+
+        // Index, paginated index and tag pages are websites, not articles.
+        #expect(try read(output, "index.html").contains("<meta property=\"og:type\" content=\"website\">"))
+        #expect(try read(output, "2/index.html").contains("<meta property=\"og:type\" content=\"website\">"))
+        #expect(try read(output, "tags/framework/index.html").contains("<meta property=\"og:type\" content=\"website\">"))
+        // Posts stay articles.
+        #expect(try read(output, "posts/first-post/index.html").contains("<meta property=\"og:type\" content=\"article\">"))
+        // Multi-author posts emit one article:author per author.
+        let second = try read(output, "posts/second-post/index.html")
+        #expect(second.contains("<meta property=\"article:author\" content=\"Tim\">"))
+        #expect(second.contains("<meta property=\"article:author\" content=\"Gwynne\">"))
     }
 
     @Test("Index is paginated newest-first with working prev/next states")

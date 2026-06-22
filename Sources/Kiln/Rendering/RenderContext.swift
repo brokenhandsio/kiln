@@ -115,6 +115,9 @@ struct RenderContext {
     /// Pre-built `blogListing.*` template data for a blog index / tag page, or
     /// `nil` otherwise.
     var blogListing: LeafData? = nil
+    /// Article entity for the page's JSON-LD (a blog post), or `nil` for non-post
+    /// pages — adds a `BlogPosting` node to the structured-data graph.
+    var articleStructuredData: ArticleStructuredData? = nil
 
     /// The localised site name (falls back to the global site name).
     private var siteName: String {
@@ -373,15 +376,37 @@ struct RenderContext {
                 siteURL: site.url,
                 locale: language.locale,
                 organization: site.organization,
-                breadcrumb: breadcrumbItems
+                breadcrumb: breadcrumbItems,
+                article: articleStructuredData
             ).map(LeafData.string) ?? .trueNil,
             "imageURL": .string(socialImageURL),
+            // MIME type of the social image (from its extension), for
+            // `<meta property="og:image:type">`. Nil when unknown/imageless.
+            "imageType": .string(Self.imageMIMEType(socialImageURL)),
             "editURL": .string(editURL),
             "sourcePath": .string(sourcePath),
             "isHome": .bool(isHome),
             "isFallback": .bool(isFallback),
             "locale": .string(language.locale),
         ])
+    }
+
+    /// The OpenGraph image MIME type inferred from a URL's file extension, or
+    /// `nil` if there's no image or the extension isn't a known image type.
+    private static func imageMIMEType(_ url: String?) -> String? {
+        guard let url else { return nil }
+        // Strip any query/fragment before reading the extension.
+        let path = url.split(separator: "?", maxSplits: 1).first.map(String.init) ?? url
+        let ext = (path.split(separator: ".").last.map(String.init) ?? "").lowercased()
+        switch ext {
+        case "png": return "image/png"
+        case "jpg", "jpeg": return "image/jpeg"
+        case "gif": return "image/gif"
+        case "webp": return "image/webp"
+        case "svg": return "image/svg+xml"
+        case "avif": return "image/avif"
+        default: return nil
+        }
     }
 
     private static func tocData(_ entry: TOCEntry) -> LeafData {

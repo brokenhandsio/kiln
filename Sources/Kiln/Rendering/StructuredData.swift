@@ -13,23 +13,47 @@ struct BreadcrumbItem: Sendable {
     let url: String?
 }
 
+/// A single article/post entity (e.g. a blog post) for an `Article`-family
+/// JSON-LD node. Built per post and linked to the site's `Organization`/`WebSite`.
+struct ArticleStructuredData: Sendable {
+    /// The schema.org type, e.g. `"BlogPosting"`.
+    var type: String
+    var headline: String
+    /// The article's canonical absolute URL.
+    var url: String
+    /// ISO-8601 publication timestamp.
+    var datePublished: String
+    /// ISO-8601 last-modified timestamp (defaults to `datePublished` when nil).
+    var dateModified: String?
+    var authors: [String]
+    /// Absolute image URL (the social/OpenGraph image), if any.
+    var image: String?
+    var description: String?
+    /// Tag names, emitted as schema.org `keywords`.
+    var keywords: [String]
+}
+
 enum StructuredData {
     static func jsonLD(
         siteName: String,
         siteURL: String,
         locale: String,
         organization: Organization?,
-        breadcrumb: [BreadcrumbItem] = []
+        breadcrumb: [BreadcrumbItem] = [],
+        article: ArticleStructuredData? = nil
     ) -> String? {
-        // Emit if we have either an organization (Org+WebSite) or a breadcrumb.
-        guard organization != nil || !breadcrumb.isEmpty else { return nil }
+        // Emit if we have an organization (Org+WebSite), a breadcrumb, or an article.
+        guard organization != nil || !breadcrumb.isEmpty || article != nil else { return nil }
 
         let siteBase = trimmingTrailingSlash(siteURL)
+        let websiteID = siteBase + "/#website"
+        // The publisher `@id` (also referenced by the article), present only when
+        // an organization is configured.
+        let orgID: String? = organization.map { trimmingTrailingSlash($0.url ?? siteURL) + "/#organization" }
         var graph: [[String: Any]] = []
 
-        if let organization {
+        if let organization, let orgID {
             let orgBase = trimmingTrailingSlash(organization.url ?? siteURL)
-            let orgID = orgBase + "/#organization"
             var org: [String: Any] = [
                 "@type": "Organization",
                 "@id": orgID,
@@ -45,12 +69,37 @@ enum StructuredData {
             graph.append(org)
             graph.append([
                 "@type": "WebSite",
-                "@id": siteBase + "/#website",
+                "@id": websiteID,
                 "name": siteName,
                 "url": siteBase + "/",
                 "inLanguage": locale,
                 "publisher": ["@id": orgID],
             ])
+        }
+
+        if let article {
+            var node: [String: Any] = [
+                "@type": article.type,
+                "@id": article.url + "#article",
+                "headline": article.headline,
+                "url": article.url,
+                "mainEntityOfPage": ["@type": "WebPage", "@id": article.url],
+                "datePublished": article.datePublished,
+                "dateModified": article.dateModified ?? article.datePublished,
+                "inLanguage": locale,
+            ]
+            if !article.authors.isEmpty {
+                node["author"] = article.authors.map { ["@type": "Person", "name": $0] }
+            }
+            if let image = article.image { node["image"] = image }
+            if let description = article.description { node["description"] = description }
+            if !article.keywords.isEmpty { node["keywords"] = article.keywords.joined(separator: ", ") }
+            // Tie the article to the publisher + website when they exist.
+            if let orgID {
+                node["publisher"] = ["@id": orgID]
+                node["isPartOf"] = ["@id": websiteID]
+            }
+            graph.append(node)
         }
 
         if !breadcrumb.isEmpty {

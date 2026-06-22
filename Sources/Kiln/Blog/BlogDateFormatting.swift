@@ -23,6 +23,12 @@ enum BlogDateFormatting {
         BlogLoader.formatter(format: "yyyy-MM-dd").string(from: date)
     }
 
+    /// Full ISO-8601 timestamp in UTC (`"2024-06-21T18:00:00Z"`) for
+    /// `<meta property="article:published_time">`.
+    static func iso8601(_ date: Date) -> String {
+        BlogLoader.formatter(format: "yyyy-MM-dd'T'HH:mm:ss'Z'").string(from: date)
+    }
+
     /// RFC-822 date for RSS `<pubDate>` (e.g. `"Fri, 21 Jun 2024 18:00:00 +0000"`).
     static func rfc822(_ date: Date) -> String {
         BlogLoader.formatter(format: "EEE, dd MMM yyyy HH:mm:ss Z").string(from: date)

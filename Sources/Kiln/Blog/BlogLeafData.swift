@@ -16,6 +16,7 @@ enum BlogLeafData {
             "formattedDate": .string(BlogDateFormatting.long(post.date)),
             "formattedDateShort": .string(BlogDateFormatting.short(post.date, format: blog.displayDateFormat)),
             "isoDate": .string(BlogDateFormatting.iso(post.date)),
+            "isoDateTime": .string(BlogDateFormatting.iso8601(post.date)),
             "readingTime": .int(post.readingTimeMinutes),
             "readingTimeText": .string(readingTimeText(post.readingTimeMinutes)),
             "content": .string(post.contentHTML),

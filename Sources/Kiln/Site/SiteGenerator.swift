@@ -472,7 +472,8 @@ public struct SiteGenerator {
             isHome: Bool,
             contentHTML: String = "",
             blogPost: LeafData? = nil,
-            blogListing: LeafData? = nil
+            blogListing: LeafData? = nil,
+            article: ArticleStructuredData? = nil
         ) async throws -> SitemapEntry {
             let location = String(urlPath.drop(while: { $0 == "/" }))
             let context = RenderContext(
@@ -501,7 +502,8 @@ public struct SiteGenerator {
                 navigation: emptyNav,
                 version: VersionContext(),
                 blogPost: blogPost,
-                blogListing: blogListing
+                blogListing: blogListing,
+                articleStructuredData: article
             )
             let html = try await renderer.render(template, context: context.leafData)
             try writer.write(html, to: outputFile)
@@ -511,6 +513,19 @@ public struct SiteGenerator {
         // 1. Post pages.
         for post in collection.posts {
             let urlPath = urls.urlPath(forLogicalPath: post.logicalPath, locale: locale)
+            let location = String(urlPath.drop(while: { $0 == "/" }))
+            let socialImage = post.socialImage ?? fallbackImage
+            let article = ArticleStructuredData(
+                type: "BlogPosting",
+                headline: post.title,
+                url: absoluteURL(forLocation: location),
+                datePublished: BlogDateFormatting.iso8601(post.date),
+                dateModified: nil,
+                authors: post.authors.map(\.name),
+                image: socialImage.map { absoluteURL(forPath: $0) },
+                description: post.excerpt.isEmpty ? nil : post.excerpt,
+                keywords: post.tags
+            )
             let entry = try await emit(
                 template: "blog-post",
                 urlPath: urlPath,
@@ -518,13 +533,14 @@ public struct SiteGenerator {
                 depth: 2,
                 title: post.title,
                 description: post.excerpt.isEmpty ? (language.description ?? site.description) : post.excerpt,
-                socialImage: post.socialImage ?? fallbackImage,
+                socialImage: socialImage,
                 isHome: false,
                 contentHTML: post.contentHTML,
-                blogPost: BlogLeafData.post(post, urls: urls, blog: blog)
+                blogPost: BlogLeafData.post(post, urls: urls, blog: blog),
+                article: article
             )
             sitemapEntries.append(entry)
-            searchIndex.add(location: String(urlPath.drop(while: { $0 == "/" })), title: post.title, html: post.contentHTML)
+            searchIndex.add(location: location, title: post.title, html: post.contentHTML)
         }
 
         let indexTitle = blog.indexTitle ?? (language.siteName ?? site.name)
