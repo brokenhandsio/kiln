@@ -41,6 +41,9 @@ public struct Blog: Sendable {
     public var displayDateFormat: String
     /// Words-per-minute divisor for the estimated reading time.
     public var readingWordsPerMinute: Int
+    /// The author registry. Posts reference an author by ``Author/username`` in
+    /// front matter; unmatched authors fall back to a literal display name.
+    public var authors: [Author]
 
     public init(
         postsDirectory: String = "posts",
@@ -51,7 +54,8 @@ public struct Blog: Sendable {
         tagsTitle: String? = nil,
         dateFormat: String = "yyyy-MM-dd HH:mm",
         displayDateFormat: String = "d MMMM yyyy",
-        readingWordsPerMinute: Int = 200
+        readingWordsPerMinute: Int = 200,
+        authors: [Author] = []
     ) {
         self.postsDirectory = postsDirectory
         self.postsPerPage = postsPerPage
@@ -62,5 +66,12 @@ public struct Blog: Sendable {
         self.dateFormat = dateFormat
         self.displayDateFormat = displayDateFormat
         self.readingWordsPerMinute = readingWordsPerMinute
+        self.authors = authors
+    }
+
+    /// The author registry indexed by lower-cased username, for case-insensitive
+    /// front-matter lookup (last entry wins on duplicate usernames).
+    var authorsByUsername: [String: Author] {
+        Dictionary(authors.map { ($0.username.lowercased(), $0) }, uniquingKeysWith: { _, latest in latest })
     }
 }

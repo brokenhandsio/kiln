@@ -4,16 +4,23 @@ public import FoundationEssentials
 public import Foundation
 #endif
 
-/// One author of a blog post: a display name and an optional avatar image URL.
+/// One author of a blog post, resolved from the registry (or a literal
+/// front-matter name): a display name, optional avatar, optional profile URL,
+/// and any social profiles for structured-data authorship.
 public struct BlogAuthor: Sendable, Equatable {
     public var name: String
-    /// Avatar image URL (as authored in front matter, typically root-relative
-    /// like `/author-images/tim.jpg`). `nil` when the post gives no image.
+    /// Avatar image URL (typically root-relative like `/author-images/tim.jpg`).
     public var imageURL: String?
+    /// Profile URL — the byline links here, and it's the JSON-LD `Person.url`.
+    public var url: String?
+    /// Social/profile URLs for the JSON-LD `Person.sameAs`.
+    public var sameAs: [String]
 
-    public init(name: String, imageURL: String? = nil) {
+    public init(name: String, imageURL: String? = nil, url: String? = nil, sameAs: [String] = []) {
         self.name = name
         self.imageURL = imageURL
+        self.url = url
+        self.sameAs = sameAs
     }
 }
 

@@ -68,7 +68,7 @@ struct BlogLoader {
             let title = frontMatter.title ?? h1Title ?? rendered.firstHeading ?? slug
             let excerpt = frontMatter.description ?? rendered.metaDescription ?? ""
             let readingTime = Self.readingTime(html: rendered.html, wordsPerMinute: blog.readingWordsPerMinute)
-            let authors = Self.authors(from: frontMatter)
+            let authors = Self.authors(from: frontMatter, registry: blog.authorsByUsername)
 
             posts.append(BlogPost(
                 slug: slug,
@@ -106,13 +106,19 @@ struct BlogLoader {
         return (title.isEmpty ? nil : title, remaining)
     }
 
-    /// Positionally zip author names with their image URLs (names without a
-    /// matching image get `nil`).
-    static func authors(from frontMatter: FrontMatter) -> [BlogAuthor] {
-        let names = frontMatter.authors
+    /// Resolve a post's authors. Each front-matter token is looked up in the
+    /// registry by username (case-insensitively); a match supplies the display
+    /// name, avatar, profile URL and social profiles. An unmatched token falls
+    /// back to a literal display name with its positional `authorImageURL`.
+    static func authors(from frontMatter: FrontMatter, registry: [String: Author]) -> [BlogAuthor] {
+        let tokens = frontMatter.authors
         let images = frontMatter.authorImageURLs
-        return names.enumerated().map { index, name in
-            BlogAuthor(name: name, imageURL: index < images.count ? images[index] : nil)
+        return tokens.enumerated().map { index, token in
+            if let author = registry[token.lowercased()] {
+                return BlogAuthor(name: author.name, imageURL: author.imageURL, url: author.url, sameAs: author.sameAs)
+            }
+            let image = index < images.count ? images[index] : nil
+            return BlogAuthor(name: token, imageURL: image)
         }
     }
 

@@ -13,6 +13,15 @@ struct BreadcrumbItem: Sendable {
     let url: String?
 }
 
+/// One author of an article, rendered as a JSON-LD `Person`.
+struct ArticleAuthor: Sendable {
+    var name: String
+    /// Profile URL (`Person.url`), if known.
+    var url: String?
+    /// Social/profile URLs (`Person.sameAs`).
+    var sameAs: [String]
+}
+
 /// A single article/post entity (e.g. a blog post) for an `Article`-family
 /// JSON-LD node. Built per post and linked to the site's `Organization`/`WebSite`.
 struct ArticleStructuredData: Sendable {
@@ -25,7 +34,7 @@ struct ArticleStructuredData: Sendable {
     var datePublished: String
     /// ISO-8601 last-modified timestamp (defaults to `datePublished` when nil).
     var dateModified: String?
-    var authors: [String]
+    var authors: [ArticleAuthor]
     /// Absolute image URL (the social/OpenGraph image), if any.
     var image: String?
     var description: String?
@@ -89,7 +98,12 @@ enum StructuredData {
                 "inLanguage": locale,
             ]
             if !article.authors.isEmpty {
-                node["author"] = article.authors.map { ["@type": "Person", "name": $0] }
+                node["author"] = article.authors.map { author -> [String: Any] in
+                    var person: [String: Any] = ["@type": "Person", "name": author.name]
+                    if let url = author.url { person["url"] = url }
+                    if !author.sameAs.isEmpty { person["sameAs"] = author.sameAs }
+                    return person
+                }
             }
             if let image = article.image { node["image"] = image }
             if let description = article.description { node["description"] = description }

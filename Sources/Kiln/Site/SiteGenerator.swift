@@ -524,7 +524,7 @@ public struct SiteGenerator {
                 url: absoluteURL(forLocation: location),
                 datePublished: BlogDateFormatting.iso8601(post.date),
                 dateModified: nil,
-                authors: post.authors.map(\.name),
+                authors: post.authors.map { ArticleAuthor(name: $0.name, url: $0.url, sameAs: $0.sameAs) },
                 image: socialImage.map { absoluteURL(forPath: $0) },
                 description: post.excerpt.isEmpty ? nil : post.excerpt,
                 keywords: post.tags

@@ -20,7 +20,18 @@ struct BlogTests {
             description: "A test blog.",
             image: "static/og.png",
             llmsText: false,
-            blog: Blog(postsPerPage: 2, indexTitle: "Articles", tagsTitle: "Tags")
+            blog: Blog(
+                postsPerPage: 2, indexTitle: "Articles", tagsTitle: "Tags",
+                // Registry images/urls differ from the posts' front matter, so a
+                // resolved author proves the username lookup (not the fallback).
+                authors: [
+                    .init(username: "tim", name: "Tim", imageURL: "/registry/tim.png",
+                          url: "https://example.com/tim", sameAs: ["https://github.com/tim-example"]),
+                    .init(username: "gwynne", name: "Gwynne", imageURL: "/registry/gwynne.png"),
+                    .init(username: "paul", name: "Paul", imageURL: "/registry/paul.png",
+                          url: "https://example.com/paul"),
+                ]
+            )
         )
 
         try await Kiln.build(site, contentDirectory: contentDirectory, outputDirectory: output, linkChecking: linkChecking)
@@ -82,8 +93,30 @@ struct BlogTests {
         let post = try read(output, "posts/second-post/index.html")
         #expect(post.contains("Tim"))
         #expect(post.contains("Gwynne"))
-        #expect(post.contains("src=\"/author-images/tim.jpg\""))
-        #expect(post.contains("src=\"/author-images/gwynne.jpg\""))
+        // Avatars resolve from the registry (proving the username lookup), not the
+        // posts' own `authorImageURLs`.
+        #expect(post.contains("src=\"/registry/tim.png\""))
+        #expect(post.contains("src=\"/registry/gwynne.png\""))
+    }
+
+    @Test("Authors resolve from the registry: linked byline + Person url/sameAs")
+    func authorRegistry() async throws {
+        let output = try await buildFixture()
+        defer { try? FileManager.default.removeItem(at: output) }
+
+        // third-post's front matter says `author: Paul` with its own image; the
+        // registry supplies the avatar, a linked byline, and JSON-LD authorship.
+        let post = try read(output, "posts/third-post/index.html")
+        #expect(post.contains("src=\"/registry/paul.png\""))
+        #expect(post.contains("<a href=\"https://example.com/paul\" rel=\"author\">Paul</a>"))
+        // JSON-LD Person carries the profile URL.
+        #expect(post.contains("\"@type\":\"Person\""))
+        #expect(post.contains("\"url\":\"https://example.com/paul\""))
+
+        // A multi-author post emits Person url + sameAs for the registered author.
+        let second = try read(output, "posts/second-post/index.html")
+        #expect(second.contains("\"sameAs\":[\"https://github.com/tim-example\"]"))
+        #expect(second.contains("\"url\":\"https://example.com/tim\""))
     }
 
     @Test("Posts carry SEO/social meta, including a per-post image")

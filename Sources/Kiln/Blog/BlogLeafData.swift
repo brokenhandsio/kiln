@@ -112,6 +112,8 @@ enum BlogLeafData {
                 "name": .string(author.name),
                 "imageURL": .string(author.imageURL),
                 "hasImage": .bool(author.imageURL != nil),
+                "url": .string(author.url),
+                "hasURL": .bool(author.url != nil),
             ])
         })
     }
