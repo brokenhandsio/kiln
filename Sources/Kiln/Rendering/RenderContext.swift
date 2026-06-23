@@ -118,6 +118,10 @@ struct RenderContext {
     /// Article entity for the page's JSON-LD (a blog post), or `nil` for non-post
     /// pages — adds a `BlogPosting` node to the structured-data graph.
     var articleStructuredData: ArticleStructuredData? = nil
+    /// An explicit breadcrumb trail (used by blog posts, which aren't in the
+    /// navigation tree so have no nav-derived breadcrumb). When set, it supplies
+    /// the `BreadcrumbList` structured data.
+    var breadcrumbOverride: [BreadcrumbItem]? = nil
 
     /// The localised site name (falls back to the global site name).
     private var siteName: String {
@@ -376,7 +380,7 @@ struct RenderContext {
                 siteURL: site.url,
                 locale: language.locale,
                 organization: site.organization,
-                breadcrumb: breadcrumbItems,
+                breadcrumb: breadcrumbOverride ?? breadcrumbItems,
                 article: articleStructuredData
             ).map(LeafData.string) ?? .trueNil,
             "imageURL": .string(socialImageURL),

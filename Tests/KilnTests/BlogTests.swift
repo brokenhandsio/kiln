@@ -109,10 +109,26 @@ struct BlogTests {
         #expect(post.contains("\"@type\":\"BlogPosting\""))
         #expect(post.contains("\"headline\":\"Third Post\""))
         #expect(post.contains("\"datePublished\":\"2024-03-01T18:00:00Z\""))
-        #expect(post.contains("\"image\":\"https:\\/\\/blog.example.com\\/static\\/images\\/posts\\/third.png\"") || post.contains("\"image\":\"https://blog.example.com/static/images/posts/third.png\""))
+        #expect(post.contains("\"image\":\"https://blog.example.com/static/images/posts/third.png\""))
         #expect(post.contains("\"keywords\":\"framework\""))
+        // A BreadcrumbList trail (Home › post) for breadcrumb rich results.
+        #expect(post.contains("\"@type\":\"BreadcrumbList\""))
+        #expect(post.contains("\"name\":\"Third Post\""))
         // Listing pages get no BlogPosting node.
         #expect(!(try read(output, "index.html")).contains("BlogPosting"))
+    }
+
+    @Test("Sitemap carries <lastmod> from post dates")
+    func sitemapLastmod() async throws {
+        let output = try await buildFixture()
+        defer { try? FileManager.default.removeItem(at: output) }
+
+        let sitemap = try read(output, "sitemap.xml")
+        // Each post's <loc> carries its publication date as <lastmod>.
+        #expect(sitemap.contains("<loc>https://blog.example.com/posts/third-post/</loc><lastmod>2024-03-01</lastmod>"))
+        #expect(sitemap.contains("<loc>https://blog.example.com/posts/first-post/</loc><lastmod>2024-01-01</lastmod>"))
+        // Listing pages are dated to the newest post.
+        #expect(sitemap.contains("<loc>https://blog.example.com/</loc><lastmod>2024-03-01</lastmod>"))
     }
 
     @Test("Listing/tag pages are og:type website; posts carry article metadata")

@@ -204,7 +204,9 @@ struct HTMLRenderer: MarkupWalker {
         if let title = image.title, !title.isEmpty {
             result += " title=\"\(HTMLEscaping.attribute(title))\""
         }
-        result += " />"
+        // Defer off-screen images and decode off the main thread, improving LCP
+        // and not blocking rendering (a Core Web Vitals win).
+        result += " loading=\"lazy\" decoding=\"async\" />"
     }
 
     mutating func visitInlineHTML(_ inlineHTML: InlineHTML) { result += inlineHTML.rawHTML }

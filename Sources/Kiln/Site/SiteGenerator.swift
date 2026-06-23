@@ -473,7 +473,9 @@ public struct SiteGenerator {
             contentHTML: String = "",
             blogPost: LeafData? = nil,
             blogListing: LeafData? = nil,
-            article: ArticleStructuredData? = nil
+            article: ArticleStructuredData? = nil,
+            breadcrumb: [BreadcrumbItem]? = nil,
+            lastmod: String? = nil
         ) async throws -> SitemapEntry {
             let location = String(urlPath.drop(while: { $0 == "/" }))
             let context = RenderContext(
@@ -503,11 +505,12 @@ public struct SiteGenerator {
                 version: VersionContext(),
                 blogPost: blogPost,
                 blogListing: blogListing,
-                articleStructuredData: article
+                articleStructuredData: article,
+                breadcrumbOverride: breadcrumb
             )
             let html = try await renderer.render(template, context: context.leafData)
             try writer.write(html, to: outputFile)
-            return SitemapEntry(loc: absoluteURL(forLocation: location), alternates: [])
+            return SitemapEntry(loc: absoluteURL(forLocation: location), alternates: [], lastmod: lastmod)
         }
 
         // 1. Post pages.
@@ -537,12 +540,17 @@ public struct SiteGenerator {
                 isHome: false,
                 contentHTML: post.contentHTML,
                 blogPost: BlogLeafData.post(post, urls: urls, blog: blog),
-                article: article
+                article: article,
+                // Home (the blog index) › this post — for a BreadcrumbList.
+                breadcrumb: [BreadcrumbItem(name: post.title, url: nil)],
+                lastmod: BlogDateFormatting.iso(post.date)
             )
             sitemapEntries.append(entry)
             searchIndex.add(location: location, title: post.title, html: post.contentHTML)
         }
 
+        // Listing pages are as fresh as their newest post (for sitemap <lastmod>).
+        let newestLastmod = collection.posts.first.map { BlogDateFormatting.iso($0.date) }
         let indexTitle = blog.indexTitle ?? (language.siteName ?? site.name)
         let tagsTitle = blog.tagsTitle ?? "Tags"
 
@@ -566,7 +574,8 @@ public struct SiteGenerator {
                 description: language.description ?? site.description,
                 socialImage: fallbackImage,
                 isHome: page == 1,
-                blogListing: listing
+                blogListing: listing,
+                lastmod: newestLastmod
             ))
         }
 
@@ -589,7 +598,8 @@ public struct SiteGenerator {
                 description: language.description ?? site.description,
                 socialImage: fallbackImage,
                 isHome: false,
-                blogListing: listing
+                blogListing: listing,
+                lastmod: newestLastmod
             ))
         }
 
@@ -615,7 +625,8 @@ public struct SiteGenerator {
                     description: "Posts tagged \(tag.name).",
                     socialImage: fallbackImage,
                     isHome: false,
-                    blogListing: listing
+                    blogListing: listing,
+                    lastmod: tagged.first.map { BlogDateFormatting.iso($0.date) }
                 ))
             }
         }
@@ -827,6 +838,8 @@ public struct SiteGenerator {
     private struct SitemapEntry {
         let loc: String
         let alternates: [LanguageAlternate]
+        /// W3C date (`YYYY-MM-DD`) for `<lastmod>`, when known (e.g. a post's date).
+        var lastmod: String? = nil
     }
 
     private func sitemap(for entries: [SitemapEntry]) -> String {
@@ -840,6 +853,7 @@ public struct SiteGenerator {
         for entry in entries {
             if entry.alternates.count > 1 {
                 xml += "  <url>\n    <loc>\(entry.loc)</loc>\n"
+                if let lastmod = entry.lastmod { xml += "    <lastmod>\(lastmod)</lastmod>\n" }
                 for alt in entry.alternates {
                     xml += "    <xhtml:link rel=\"alternate\" hreflang=\"\(alt.locale)\" href=\"\(alt.absoluteURL)\"/>\n"
                     if alt.isDefault {
@@ -847,6 +861,8 @@ public struct SiteGenerator {
                     }
                 }
                 xml += "  </url>\n"
+            } else if let lastmod = entry.lastmod {
+                xml += "  <url><loc>\(entry.loc)</loc><lastmod>\(lastmod)</lastmod></url>\n"
             } else {
                 xml += "  <url><loc>\(entry.loc)</loc></url>\n"
             }
