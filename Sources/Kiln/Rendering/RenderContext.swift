@@ -362,6 +362,9 @@ struct RenderContext {
         let showTOC = frontMatter.values["toc"] != "false"
         return .dictionary([
             "title": .string(pageTitle),
+            // Character count of the title, so templates can SERP-aware trim a
+            // brand suffix on already-long titles (e.g. `#if(page.titleLength > 50)`).
+            "titleLength": .int(pageTitle.count),
             "content": .string(contentHTML),
             "toc": .array(toc),
             "hasTOC": .bool(!toc.isEmpty),
