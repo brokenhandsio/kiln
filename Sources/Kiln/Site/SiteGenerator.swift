@@ -524,7 +524,13 @@ public struct SiteGenerator {
                 url: absoluteURL(forLocation: location),
                 datePublished: BlogDateFormatting.iso8601(post.date),
                 dateModified: nil,
-                authors: post.authors.map { ArticleAuthor(name: $0.name, url: $0.url, sameAs: $0.sameAs) },
+                authors: post.authors.map { author in
+                    // Person.url → the on-site author page; sameAs → every external profile.
+                    let pageURL = author.username.map {
+                        self.absoluteURL(forLocation: String(urls.blogAuthorURLPath(slug: Slugger.normalise($0), page: 1).drop(while: { $0 == "/" })))
+                    }
+                    return ArticleAuthor(name: author.name, url: pageURL, sameAs: author.sameAs)
+                },
                 image: socialImage.map { absoluteURL(forPath: $0) },
                 description: post.excerpt.isEmpty ? nil : post.excerpt,
                 keywords: post.tags
@@ -553,6 +559,7 @@ public struct SiteGenerator {
         let newestLastmod = collection.posts.first.map { BlogDateFormatting.iso($0.date) }
         let indexTitle = blog.indexTitle ?? (language.siteName ?? site.name)
         let tagsTitle = blog.tagsTitle ?? "Tags"
+        let authorsTitle = blog.authorsTitle ?? "Authors"
 
         // 2. Paginated index (`/`, `/2/`, …) over all posts.
         let indexPages = pageCount(collection.posts.count, perPage: perPage)
@@ -627,7 +634,50 @@ public struct SiteGenerator {
             }
         }
 
-        // 5. RSS feed (written at the output root, served at `basePath/feed.rss`).
+        // 5. Authors index (`/authors/`) + per-author paginated pages.
+        if !blog.authors.isEmpty {
+            sitemapEntries.append(try await emit(
+                template: "blog-authors-index",
+                urlPath: urls.blogAuthorsURLPath(),
+                outputFile: urls.blogAuthorsOutputFile(in: outputDirectory),
+                depth: 1,
+                title: authorsTitle,
+                description: language.description ?? site.description,
+                socialImage: fallbackImage,
+                isHome: false,
+                blogListing: BlogLeafData.authorsIndex(heading: authorsTitle, authors: blog.authors, urls: urls),
+                lastmod: newestLastmod
+            ))
+
+            for author in blog.authors {
+                let slug = Slugger.normalise(author.username)
+                let authored = collection.posts(byAuthorUsername: author.username)
+                let authorPages = pageCount(authored.count, perPage: perPage)
+                for page in 1...authorPages {
+                    let listing = BlogLeafData.authorPage(
+                        author: author,
+                        cards: slice(authored, page: page, perPage: perPage),
+                        currentPage: page, totalPages: authorPages,
+                        urlForPage: { urls.blogAuthorURLPath(slug: slug, page: $0) },
+                        urls: urls, blog: blog
+                    )
+                    sitemapEntries.append(try await emit(
+                        template: "blog-author",
+                        urlPath: urls.blogAuthorURLPath(slug: slug, page: page),
+                        outputFile: urls.blogAuthorOutputFile(slug: slug, page: page, in: outputDirectory),
+                        depth: page == 1 ? 2 : 3,
+                        title: page == 1 ? author.name : "\(author.name) — Page \(page)",
+                        description: author.description ?? "Posts by \(author.name).",
+                        socialImage: author.imageURL ?? fallbackImage,
+                        isHome: false,
+                        blogListing: listing,
+                        lastmod: authored.first.map { BlogDateFormatting.iso($0.date) }
+                    ))
+                }
+            }
+        }
+
+        // 6. RSS feed (written at the output root, served at `basePath/feed.rss`).
         let homeLocation = String(urls.blogIndexURLPath(page: 1).drop(while: { $0 == "/" }))
         let rss = RSSFeed.render(
             title: blog.feedTitle ?? site.name,

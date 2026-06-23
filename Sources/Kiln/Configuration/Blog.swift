@@ -32,6 +32,8 @@ public struct Blog: Sendable {
     public var indexTitle: String?
     /// Heading/title for the tags pages (defaults to `"Tags"` when `nil`).
     public var tagsTitle: String?
+    /// Heading/title for the authors index (defaults to `"Authors"` when `nil`).
+    public var authorsTitle: String?
     /// `DateFormatter` format string used to parse each post's `date:`
     /// front-matter value. Parsing uses a fixed `en_US_POSIX` locale and UTC
     /// time zone so builds are reproducible across machines.
@@ -52,6 +54,7 @@ public struct Blog: Sendable {
         feedDescription: String? = nil,
         indexTitle: String? = nil,
         tagsTitle: String? = nil,
+        authorsTitle: String? = nil,
         dateFormat: String = "yyyy-MM-dd HH:mm",
         displayDateFormat: String = "d MMMM yyyy",
         readingWordsPerMinute: Int = 200,
@@ -63,6 +66,7 @@ public struct Blog: Sendable {
         self.feedDescription = feedDescription
         self.indexTitle = indexTitle
         self.tagsTitle = tagsTitle
+        self.authorsTitle = authorsTitle
         self.dateFormat = dateFormat
         self.displayDateFormat = displayDateFormat
         self.readingWordsPerMinute = readingWordsPerMinute

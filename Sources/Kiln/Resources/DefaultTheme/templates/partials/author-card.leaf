@@ -1,0 +1,7 @@
+<div class="team-card">
+    #if(hasImage):<a href="#(pageURL)" class="team-avatar-link" aria-label="#(name)"><img class="team-avatar" src="#(imageURL)" alt="#(name)"></a>#endif
+    <p class="team-name"><a href="#(pageURL)">#(name)</a></p>
+    <p class="team-handle">#(handle)</p>
+    #if(hasDescription):<p class="team-bio">#(description)</p>#endif
+    #if(hasSocials):<div class="team-socials">#for(s in socials):<a href="#(s.url)" target="_blank" rel="noopener me" aria-label="#(s.label)"><span class="vapor-icon #(s.icon)"><span class="visually-hidden">#(s.label)</span></span></a>#endfor</div>#endif
+</div>

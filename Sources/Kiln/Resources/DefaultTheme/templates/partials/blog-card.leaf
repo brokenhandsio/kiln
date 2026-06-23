@@ -4,9 +4,9 @@
         <p class="card-text">#(excerpt)</p>
         <div class="row">
             <div class="blog-post-author col-lg d-flex">
-                #for(author in authors):#if(author.hasImage):<img class="blog-post-author-image me-2" src="#(author.imageURL)" alt="#(author.name)">#endif#endfor
+                #for(author in authors):#if(author.hasImage):#if(author.hasPage):<a href="#(author.pageURL)"><img class="blog-post-author-image me-2" src="#(author.imageURL)" alt="#(author.name)"></a>#else:<img class="blog-post-author-image me-2" src="#(author.imageURL)" alt="#(author.name)">#endif#endif#endfor
                 <div class="blog-post-author-date-container">
-                    <div class="blog-post-author-name">#(authorNames)</div>
+                    <div class="blog-post-author-name">#for(author in authors):#if(!isFirst):, #endif#if(author.hasPage):<a href="#(author.pageURL)" rel="author">#(author.name)</a>#else:#(author.name)#endif#endfor</div>
                     <div class="blog-post-publish-date"><time datetime="#(isoDate)">#(formattedDate)</time> · #(readingTimeText)</div>
                 </div>
             </div>

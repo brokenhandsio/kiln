@@ -16,9 +16,9 @@
         </div>
         <h1 class="mb-4 mt-4">#(blogPost.title)</h1>
         <div class="blog-post-author d-flex">
-            #for(author in blogPost.authors):#if(author.hasImage):<img class="blog-post-author-image me-2" src="#(author.imageURL)" alt="#(author.name)">#endif#endfor
+            #for(author in blogPost.authors):#if(author.hasImage):#if(author.hasPage):<a href="#(author.pageURL)"><img class="blog-post-author-image me-2" src="#(author.imageURL)" alt="#(author.name)"></a>#else:<img class="blog-post-author-image me-2" src="#(author.imageURL)" alt="#(author.name)">#endif#endif#endfor
             <div class="blog-post-author-date-container">
-                <div class="blog-post-author-name">#for(author in blogPost.authors):<span>#if(author.hasURL):<a href="#(author.url)" rel="author">#(author.name)</a>#else:#(author.name)#endif</span>#endfor</div>
+                <div class="blog-post-author-name">#for(author in blogPost.authors):<span>#if(author.hasPage):<a href="#(author.pageURL)" rel="author">#(author.name)</a>#else:#(author.name)#endif</span>#endfor</div>
                 <div class="blog-post-publish-date">Published <time datetime="#(blogPost.isoDate)">#(blogPost.formattedDate)</time></div>
             </div>
         </div>

@@ -22,6 +22,15 @@ public struct BlogCollection: Sendable {
         }
     }
 
+    /// Posts written by the registry author with the given username (matched
+    /// case-insensitively), preserving the newest-first order.
+    public func posts(byAuthorUsername username: String) -> [BlogPost] {
+        let target = username.lowercased()
+        return posts.filter { post in
+            post.authors.contains { $0.username?.lowercased() == target }
+        }
+    }
+
     /// Group the posts' tags by slug (case-insensitively), counting posts and
     /// keeping the first-seen display name for each slug.
     private static func aggregateTags(from posts: [BlogPost]) -> [BlogTag] {

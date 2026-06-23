@@ -20,7 +20,7 @@ enum BlogLeafData {
             "readingTime": .int(post.readingTimeMinutes),
             "readingTimeText": .string(readingTimeText(post.readingTimeMinutes)),
             "content": .string(post.contentHTML),
-            "authors": authorsData(post.authors),
+            "authors": authorsData(post.authors, urls: urls),
             "hasAuthors": .bool(!post.authors.isEmpty),
             "tags": tagRefsData(post.tags, urls: urls),
             "hasTags": .bool(!post.tags.isEmpty),
@@ -84,6 +84,64 @@ enum BlogLeafData {
         ])
     }
 
+    // MARK: Author pages
+
+    /// `blogListing.*` data for the authors index (`/authors/`): a card per author.
+    static func authorsIndex(heading: String, authors: [Author], urls: SiteURLs) -> LeafData {
+        .dictionary([
+            "heading": .string(heading),
+            "isAuthorsIndex": .bool(true),
+            "authors": .array(authors.map { authorHeader($0, urls: urls) }),
+            "hasAuthors": .bool(!authors.isEmpty),
+        ])
+    }
+
+    /// `blogListing.*` data for a single author page: the author header plus that
+    /// author's paginated posts.
+    static func authorPage(
+        author: Author,
+        cards: [BlogPost],
+        currentPage: Int,
+        totalPages: Int,
+        urlForPage: (Int) -> String,
+        urls: SiteURLs,
+        blog: Blog
+    ) -> LeafData {
+        .dictionary([
+            "isAuthorPage": .bool(true),
+            "author": authorHeader(author, urls: urls),
+            "posts": .array(cards.map { card($0, urls: urls, blog: blog) }),
+            "hasPosts": .bool(!cards.isEmpty),
+            "pagination": pagination(current: currentPage, total: totalPages, urlForPage: urlForPage),
+            "authorsIndexURL": .string(urls.blogAuthorsURLPath()),
+            "feedURL": .string(urls.feedURLPath()),
+        ])
+    }
+
+    /// The author "card"/header: avatar, name, `@handle`, bio, link to the author
+    /// page, and social links (each with its icon class + label).
+    private static func authorHeader(_ author: Author, urls: SiteURLs) -> LeafData {
+        let slug = Slugger.normalise(author.username)
+        return .dictionary([
+            "name": .string(author.name),
+            "handle": .string("@" + author.username),
+            "slug": .string(slug),
+            "pageURL": .string(urls.blogAuthorURLPath(slug: slug, page: 1)),
+            "imageURL": .string(author.imageURL),
+            "hasImage": .bool(author.imageURL != nil),
+            "description": .string(author.description),
+            "hasDescription": .bool(author.description?.isBlank == false),
+            "socials": .array(author.socialLinks.map { link in
+                .dictionary([
+                    "url": .string(link.url),
+                    "icon": .string(link.icon),
+                    "label": .string(link.label),
+                ])
+            }),
+            "hasSocials": .bool(!author.socialLinks.isEmpty),
+        ])
+    }
+
     // MARK: Components
 
     private static func card(_ post: BlogPost, urls: SiteURLs, blog: Blog) -> LeafData {
@@ -96,7 +154,7 @@ enum BlogLeafData {
             "excerpt": .string(post.excerpt),
             "readingTime": .int(post.readingTimeMinutes),
             "readingTimeText": .string(readingTimeText(post.readingTimeMinutes)),
-            "authors": authorsData(post.authors),
+            "authors": authorsData(post.authors, urls: urls),
             "authorNames": .string(post.authors.map(\.name).joined(separator: ", ")),
             "hasAuthors": .bool(!post.authors.isEmpty),
             "tags": tagRefsData(post.tags, urls: urls),
@@ -106,14 +164,17 @@ enum BlogLeafData {
         ])
     }
 
-    private static func authorsData(_ authors: [BlogAuthor]) -> LeafData {
+    /// Byline author data. `pageURL`/`hasPage` link the name + avatar to the
+    /// author page (registry authors only; literal/guest authors have no page).
+    private static func authorsData(_ authors: [BlogAuthor], urls: SiteURLs) -> LeafData {
         .array(authors.map { author in
-            .dictionary([
+            let pageURL = author.username.map { urls.blogAuthorURLPath(slug: Slugger.normalise($0), page: 1) }
+            return .dictionary([
                 "name": .string(author.name),
                 "imageURL": .string(author.imageURL),
                 "hasImage": .bool(author.imageURL != nil),
-                "url": .string(author.url),
-                "hasURL": .bool(author.url != nil),
+                "pageURL": .string(pageURL),
+                "hasPage": .bool(pageURL != nil),
             ])
         })
     }

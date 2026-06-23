@@ -46,6 +46,49 @@ struct BlogUnitTests {
         #expect(fm.rawDate == nil)
     }
 
+    // MARK: Author registry resolution
+
+    @Test("Registered authors resolve from the registry; unknown ones fall back")
+    func authorRegistryResolution() {
+        let registry: [String: Author] = [
+            "tim": Author(username: "tim", name: "Tim Condon", imageURL: "/r/tim.png",
+                          github: "https://github.com/tim", website: "https://example.com/tim"),
+        ]
+        // Lookup is case-insensitive; a second, unknown author is positionally
+        // paired with its front-matter image and kept as a literal name.
+        let (fm, _) = FrontMatter.parse(from: """
+        ---
+        authors: Tim; Jane Doe
+        authorImageURLs: /ignored.jpg; /jane.jpg
+        ---
+        Body.
+        """)
+        let authors = BlogLoader.authors(from: fm, registry: registry)
+        #expect(authors.count == 2)
+        // Registered: name/image/username from the registry; sameAs = all socials
+        // (in socialLinks order: github, then website).
+        #expect(authors[0] == BlogAuthor(name: "Tim Condon", imageURL: "/r/tim.png", username: "tim",
+                                         sameAs: ["https://github.com/tim", "https://example.com/tim"]))
+        // Unknown: literal name + positional image, no username/sameAs.
+        #expect(authors[1] == BlogAuthor(name: "Jane Doe", imageURL: "/jane.jpg"))
+    }
+
+    @Test("Author.socialLinks orders typed fields and maps each to its icon")
+    func authorSocialLinks() {
+        let author = Author(
+            username: "x", name: "X",
+            github: "https://github.com/x", bluesky: "https://bsky.app/x",
+            website: "https://x.dev",
+            links: [AuthorLink(label: "Talks", url: "https://x.dev/talks")]
+        )
+        let links = author.socialLinks
+        #expect(links.map(\.icon) == [
+            "icon-github-fill", "icon-bsky-fill", "icon-link-01", "icon-link-01",
+        ])
+        #expect(links.map(\.label) == ["GitHub", "Bluesky", "Website", "Talks"])
+        #expect(links.last?.url == "https://x.dev/talks")
+    }
+
     // MARK: H1 extraction
 
     @Test("Leading H1 is extracted as the title and removed from the body")

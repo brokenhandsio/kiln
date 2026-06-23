@@ -1,0 +1,19 @@
+#extend("base"):
+#export("content"):
+<div class="container team-page">
+    <div class="team-page-header author-page-header">
+        #if(blogListing.author.hasImage):<img class="team-avatar" src="#(blogListing.author.imageURL)" alt="#(blogListing.author.name)">#endif
+        <h1 class="main-title">#(blogListing.author.name)</h1>
+        <p class="team-handle">#(blogListing.author.handle)</p>
+        #if(blogListing.author.hasDescription):<p class="main-page-caption d-flex mx-auto">#(blogListing.author.description)</p>#endif
+        #if(blogListing.author.hasSocials):<div class="team-socials">#for(s in blogListing.author.socials):<a href="#(s.url)" target="_blank" rel="noopener me" aria-label="#(s.label)"><span class="vapor-icon #(s.icon)"><span class="visually-hidden">#(s.label)</span></span></a>#endfor</div>#endif
+    </div>
+    <div class="blog-container">
+        #if(blogListing.hasPosts):
+        <div class="row row-cols-1 g-4 mb-5">#for(card in blogListing.posts):<div class="col">#extend("partials/blog-card", card)</div>#endfor</div>
+        #endif
+        #extend("partials/blog-pagination", blogListing.pagination)
+    </div>
+</div>
+#endexport
+#endextend

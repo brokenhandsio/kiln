@@ -43,6 +43,26 @@ extension SiteURLs {
         outputFile(forSegments: ["tags", slug] + pageComponents(page), in: outputDirectory)
     }
 
+    /// Site-relative URL of the authors index: `/authors/`.
+    public func blogAuthorsURLPath() -> String {
+        basePath + "/authors/"
+    }
+
+    /// On-disk file for the authors index (`authors/index.html`).
+    public func blogAuthorsOutputFile(in outputDirectory: URL) -> URL {
+        outputFile(forSegments: ["authors"], in: outputDirectory)
+    }
+
+    /// Site-relative URL of an author page: `/authors/<slug>/`, then `/authors/<slug>/2/`…
+    public func blogAuthorURLPath(slug: String, page: Int) -> String {
+        basePath + "/authors/" + slug + "/" + pageSegment(page)
+    }
+
+    /// On-disk file for an author page (`authors/<slug>/index.html`, or `…/N/index.html`).
+    public func blogAuthorOutputFile(slug: String, page: Int, in outputDirectory: URL) -> URL {
+        outputFile(forSegments: ["authors", slug] + pageComponents(page), in: outputDirectory)
+    }
+
     /// Site-relative URL of the RSS feed: `/feed.rss`.
     public func feedURLPath() -> String {
         basePath + "/feed.rss"

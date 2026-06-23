@@ -32,6 +32,7 @@ struct BlogLoader {
             options: [.skipsHiddenFiles]
         )) ?? []
 
+        let registry = blog.authorsByUsername
         var posts: [BlogPost] = []
         for file in files where file.pathExtension.lowercased() == "md" {
             let slug = file.deletingPathExtension().lastPathComponent
@@ -68,7 +69,16 @@ struct BlogLoader {
             let title = frontMatter.title ?? h1Title ?? rendered.firstHeading ?? slug
             let excerpt = frontMatter.description ?? rendered.metaDescription ?? ""
             let readingTime = Self.readingTime(html: rendered.html, wordsPerMinute: blog.readingWordsPerMinute)
-            let authors = Self.authors(from: frontMatter, registry: blog.authorsByUsername)
+            let authors = Self.authors(from: frontMatter, registry: registry)
+
+            // Flag likely typos: an author front-matter token with no registry
+            // match (only when a registry is configured — it still falls back to a
+            // literal name, so the build continues).
+            if !registry.isEmpty {
+                for token in frontMatter.authors where registry[token.lowercased()] == nil {
+                    warn("post '\(slug)' references unknown author '\(token)' — falling back to a literal name")
+                }
+            }
 
             posts.append(BlogPost(
                 slug: slug,
@@ -115,7 +125,8 @@ struct BlogLoader {
         let images = frontMatter.authorImageURLs
         return tokens.enumerated().map { index, token in
             if let author = registry[token.lowercased()] {
-                return BlogAuthor(name: author.name, imageURL: author.imageURL, url: author.url, sameAs: author.sameAs)
+                return BlogAuthor(name: author.name, imageURL: author.imageURL,
+                                  username: author.username, sameAs: author.socialLinks.map(\.url))
             }
             let image = index < images.count ? images[index] : nil
             return BlogAuthor(name: token, imageURL: image)

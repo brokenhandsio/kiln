@@ -26,10 +26,13 @@ struct BlogTests {
                 // resolved author proves the username lookup (not the fallback).
                 authors: [
                     .init(username: "tim", name: "Tim", imageURL: "/registry/tim.png",
-                          url: "https://example.com/tim", sameAs: ["https://github.com/tim-example"]),
+                          description: "Core team member.",
+                          github: "https://github.com/tim-example", website: "https://example.com/tim"),
                     .init(username: "gwynne", name: "Gwynne", imageURL: "/registry/gwynne.png"),
                     .init(username: "paul", name: "Paul", imageURL: "/registry/paul.png",
-                          url: "https://example.com/paul"),
+                          website: "https://example.com/paul"),
+                    // A registry author with no posts still gets an (empty) page.
+                    .init(username: "ghost", name: "Ghost"),
                 ]
             )
         )
@@ -58,6 +61,11 @@ struct BlogTests {
             "tags/framework/2/index.html",  // framework has 3 posts → 2 pages
             "tags/security/index.html",
             "tags/growth/index.html",
+            "authors/index.html",          // authors index
+            "authors/tim/index.html",      // per-author page
+            "authors/gwynne/index.html",
+            "authors/paul/index.html",
+            "authors/ghost/index.html",    // author with no posts
             "feed.rss",
             "sitemap.xml",
             "search/search_index.json",
@@ -99,24 +107,56 @@ struct BlogTests {
         #expect(post.contains("src=\"/registry/gwynne.png\""))
     }
 
-    @Test("Authors resolve from the registry: linked byline + Person url/sameAs")
+    @Test("Authors resolve from the registry: byline links to the author page + Person JSON-LD")
     func authorRegistry() async throws {
         let output = try await buildFixture()
         defer { try? FileManager.default.removeItem(at: output) }
 
-        // third-post's front matter says `author: Paul` with its own image; the
-        // registry supplies the avatar, a linked byline, and JSON-LD authorship.
+        // third-post `author: Paul` — avatar from the registry; the byline name
+        // links to the author PAGE (not the external website).
         let post = try read(output, "posts/third-post/index.html")
         #expect(post.contains("src=\"/registry/paul.png\""))
-        #expect(post.contains("<a href=\"https://example.com/paul\" rel=\"author\">Paul</a>"))
-        // JSON-LD Person carries the profile URL.
+        #expect(post.contains("<a href=\"/authors/paul/\" rel=\"author\">Paul</a>"))
+        // JSON-LD Person.url = the on-site author page; sameAs = external profiles.
         #expect(post.contains("\"@type\":\"Person\""))
-        #expect(post.contains("\"url\":\"https://example.com/paul\""))
+        #expect(post.contains("\"url\":\"https://blog.example.com/authors/paul/\""))
+        #expect(post.contains("\"sameAs\":[\"https://example.com/paul\"]"))
 
-        // A multi-author post emits Person url + sameAs for the registered author.
+        // Multi-author post: Tim's Person carries both github + website in sameAs.
         let second = try read(output, "posts/second-post/index.html")
-        #expect(second.contains("\"sameAs\":[\"https://github.com/tim-example\"]"))
-        #expect(second.contains("\"url\":\"https://example.com/tim\""))
+        #expect(second.contains("\"url\":\"https://blog.example.com/authors/tim/\""))
+        #expect(second.contains("\"sameAs\":[\"https://github.com/tim-example\",\"https://example.com/tim\"]"))
+    }
+
+    @Test("Authors index lists all authors; author pages paginate their posts")
+    func authorPages() async throws {
+        let output = try await buildFixture()
+        defer { try? FileManager.default.removeItem(at: output) }
+
+        // Authors index: a card per registry author, linking to the author page.
+        let index = try read(output, "authors/index.html")
+        #expect(index.contains("<h1 class=\"main-title\">Authors</h1>"))
+        #expect(index.contains("href=\"/authors/tim/\""))
+        #expect(index.contains("href=\"/authors/gwynne/\""))
+        #expect(index.contains("href=\"/authors/paul/\""))
+        // Tim's card shows his bio + social icons (github + website).
+        #expect(index.contains("Core team member."))
+        #expect(index.contains("vapor-icon icon-github-fill"))
+        #expect(index.contains("vapor-icon icon-link-01"))   // website → generic link
+
+        // Tim's author page: header + his posts. Tim wrote second-post (only).
+        let tim = try read(output, "authors/tim/index.html")
+        #expect(tim.contains("<h1 class=\"main-title\">Tim</h1>"))
+        #expect(tim.contains("@tim"))
+        #expect(tim.contains(">Second Post</h2>"))
+        #expect(!tim.contains(">Third Post</h2>"))   // Third Post is Paul's
+
+        // A registry author with no posts still gets an (empty) page and an index card.
+        #expect(index.contains("href=\"/authors/ghost/\""))
+        #expect(FileManager.default.fileExists(atPath: output.appendingPathComponent("authors/ghost/index.html").path))
+        let ghost = try read(output, "authors/ghost/index.html")
+        #expect(ghost.contains("<h1 class=\"main-title\">Ghost</h1>"))
+        #expect(!ghost.contains("class=\"card blog-card\""))   // no posts
     }
 
     @Test("Posts carry SEO/social meta, including a per-post image")
