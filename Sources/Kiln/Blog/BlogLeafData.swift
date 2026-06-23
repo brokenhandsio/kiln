@@ -65,8 +65,23 @@ enum BlogLeafData {
         if let activeTagSlug, let active = tags.first(where: { $0.slug == activeTagSlug }) {
             dict["activeTagName"] = .string(active.name)
             dict["activeTagSlug"] = .string(active.slug)
+            dict["activeTagCount"] = .int(active.count)
         }
         return .dictionary(dict)
+    }
+
+    /// `blogListing.*` data for the tag directory page (`/tags/`): every tag with
+    /// its post count, but no post feed (the index already lists the posts).
+    static func tagsIndex(heading: String, tags: [BlogTag], totalPostCount: Int, urls: SiteURLs) -> LeafData {
+        .dictionary([
+            "heading": .string(heading),
+            "isTagsIndex": .bool(true),
+            "tags": tagListData(tags, activeTagSlug: nil, urls: urls),
+            "hasTags": .bool(!tags.isEmpty),
+            "totalPostCount": .int(totalPostCount),
+            "tagsIndexURL": .string(urls.blogTagsURLPath(page: 1)),
+            "feedURL": .string(urls.feedURLPath()),
+        ])
     }
 
     // MARK: Components

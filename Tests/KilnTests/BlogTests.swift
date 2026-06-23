@@ -42,8 +42,7 @@ struct BlogTests {
             "posts/third-post/index.html",
             "index.html",              // index page 1
             "2/index.html",            // index page 2 (3 posts, 2 per page)
-            "tags/index.html",         // tags landing page 1
-            "tags/2/index.html",       // tags landing page 2 (paginates all posts)
+            "tags/index.html",         // tag directory
             "tags/framework/index.html",
             "tags/framework/2/index.html",  // framework has 3 posts → 2 pages
             "tags/security/index.html",
@@ -169,25 +168,29 @@ struct BlogTests {
         #expect(page2.contains("href=\"/\""))
     }
 
-    @Test("Tag pages list the right posts and mark the active tag")
+    @Test("Tag directory lists tags with counts; per-tag pages hold the posts")
     func tagPages() async throws {
         let output = try await buildFixture()
         defer { try? FileManager.default.removeItem(at: output) }
 
-        // Tags landing: sidebar with View All + per-tag counts.
-        let landing = try read(output, "tags/index.html")
-        #expect(landing.contains("View All<span class=\"badge ms-2 d-none d-lg-block\">3</span>"))
-        #expect(landing.contains(">framework<span class=\"badge ms-2 d-none d-lg-block\">3</span>"))
+        // The tag directory: each tag linked with its post count, and NO post feed
+        // (so it doesn't duplicate the index). It isn't paginated.
+        let directory = try read(output, "tags/index.html")
+        #expect(directory.contains("<h1 class=\"vapor-blog-page-heading\">Tags</h1>"))
+        #expect(directory.contains("href=\"/tags/framework/\">framework (3)</a>"))
+        #expect(directory.contains("href=\"/tags/security/\">security (1)</a>"))
+        #expect(!directory.contains(">Third Post</h2>"))   // no post feed here
+        #expect(!FileManager.default.fileExists(atPath: output.appendingPathComponent("tags/2/index.html").path))
 
-        // The framework tag (all 3 posts): page 1 = two newest, marked active.
+        // The framework tag (all 3 posts): tag-specific heading; page 1 = two
+        // newest, active in the sidebar; oldest on page 2.
         let framework = try read(output, "tags/framework/index.html")
+        #expect(framework.contains("Posts tagged framework"))
         #expect(framework.contains("tag-link d-flex align-items-center active"))
         #expect(framework.contains(">Third Post</h2>"))
         #expect(framework.contains(">Second Post</h2>"))
         #expect(framework.contains("href=\"/tags/framework/2/\""))
-        // Page 2 of the framework tag holds the oldest post.
-        let frameworkPage2 = try read(output, "tags/framework/2/index.html")
-        #expect(frameworkPage2.contains(">First Post</h2>"))
+        #expect(try read(output, "tags/framework/2/index.html").contains(">First Post</h2>"))
 
         // A single-post tag has just one page.
         #expect(FileManager.default.fileExists(atPath: output.appendingPathComponent("tags/security/index.html").path))

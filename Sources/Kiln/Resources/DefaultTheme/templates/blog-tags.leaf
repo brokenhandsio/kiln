@@ -1,7 +1,7 @@
 #extend("base"):
 #export("content"):
 <div class="container blog-container">
-    <h1 class="vapor-blog-page-heading">#(blogListing.heading)</h1>
+    <h1 class="vapor-blog-page-heading">Posts tagged #(blogListing.activeTagName)</h1>
 
     <div class="row mb-5">
         <div class="col-lg-3 mb-4">

@@ -1,0 +1,10 @@
+#extend("base"):
+#export("content"):
+<div class="container blog-container">
+    <h1 class="vapor-blog-page-heading">#(blogListing.heading)</h1>
+    <ul class="blog-tags-index">
+        #for(tag in blogListing.tags):<li><a href="#(tag.url)">#(tag.name) (#(tag.count))</a></li>#endfor
+    </ul>
+</div>
+#endexport
+#endextend

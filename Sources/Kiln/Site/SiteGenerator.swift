@@ -579,29 +579,25 @@ public struct SiteGenerator {
             ))
         }
 
-        // 3. Tags landing (`/tags/`, `/tags/2/`, …): the tag list + all posts paginated.
-        for page in 1...indexPages {
-            let listing = BlogLeafData.listing(
-                heading: tagsTitle,
-                cards: slice(collection.posts, page: page, perPage: perPage),
-                currentPage: page, totalPages: indexPages,
-                urlForPage: { urls.blogTagsURLPath(page: $0) },
-                tags: collection.tags, activeTagSlug: nil, isTagsPage: true,
-                totalPostCount: collection.posts.count, urls: urls, blog: blog
-            )
-            sitemapEntries.append(try await emit(
-                template: "blog-tags",
-                urlPath: urls.blogTagsURLPath(page: page),
-                outputFile: urls.blogTagsOutputFile(page: page, in: outputDirectory),
-                depth: page == 1 ? 1 : 2,
-                title: page == 1 ? tagsTitle : "\(tagsTitle) — Page \(page)",
-                description: language.description ?? site.description,
-                socialImage: fallbackImage,
-                isHome: false,
-                blogListing: listing,
-                lastmod: newestLastmod
-            ))
-        }
+        // 3. Tag directory (`/tags/`): every tag with its post count, but no post
+        // feed — the index already lists the posts, so paginating them here too
+        // would just be duplicate content. Per-tag pages (below) hold the posts.
+        let tagsIndex = BlogLeafData.tagsIndex(
+            heading: tagsTitle, tags: collection.tags,
+            totalPostCount: collection.posts.count, urls: urls
+        )
+        sitemapEntries.append(try await emit(
+            template: "blog-tags-index",
+            urlPath: urls.blogTagsURLPath(page: 1),
+            outputFile: urls.blogTagsOutputFile(page: 1, in: outputDirectory),
+            depth: 1,
+            title: tagsTitle,
+            description: language.description ?? site.description,
+            socialImage: fallbackImage,
+            isHome: false,
+            blogListing: tagsIndex,
+            lastmod: newestLastmod
+        ))
 
         // 4. Per-tag paginated pages (`/tags/<slug>/`, `/tags/<slug>/2/`, …).
         for tag in collection.tags {
