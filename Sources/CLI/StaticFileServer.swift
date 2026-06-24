@@ -157,10 +157,15 @@ private final class StaticFileHandler: ChannelInboundHandler, @unchecked Sendabl
     }
 
     private func respond(to head: HTTPRequestHead, context: ChannelHandlerContext) {
+        // Honour HTTP keep-alive (the default for HTTP/1.1) so the browser can
+        // reuse one connection for many assets instead of opening — and racing
+        // to close — a fresh connection per request.
+        let keepAlive = head.isKeepAlive
+
         guard let relative = StaticFileServer.relativePath(forURI: head.uri, basePath: basePath) else {
             writeResponse(context: context, status: .forbidden,
                           contentType: "text/plain; charset=utf-8",
-                          body: Array("403 Forbidden".utf8))
+                          body: Array("403 Forbidden".utf8), keepAlive: keepAlive)
             return
         }
 
@@ -169,7 +174,7 @@ private final class StaticFileHandler: ChannelInboundHandler, @unchecked Sendabl
             let ext = (relative as NSString).pathExtension
             writeResponse(context: context, status: .ok,
                           contentType: StaticFileServer.contentType(forExtension: ext),
-                          body: Array(data))
+                          body: Array(data), keepAlive: keepAlive)
             return
         }
 
@@ -177,27 +182,42 @@ private final class StaticFileHandler: ChannelInboundHandler, @unchecked Sendabl
         let notFoundURL = directory.appendingPathComponent("404.html")
         if let data = try? Data(contentsOf: notFoundURL) {
             writeResponse(context: context, status: .notFound,
-                          contentType: "text/html; charset=utf-8", body: Array(data))
+                          contentType: "text/html; charset=utf-8", body: Array(data), keepAlive: keepAlive)
         } else {
             writeResponse(context: context, status: .notFound,
                           contentType: "text/plain; charset=utf-8",
-                          body: Array("404 Not Found".utf8))
+                          body: Array("404 Not Found".utf8), keepAlive: keepAlive)
         }
     }
 
     private func writeResponse(context: ChannelHandlerContext, status: HTTPResponseStatus,
-                               contentType: String, body: [UInt8]) {
+                               contentType: String, body: [UInt8], keepAlive: Bool) {
         var headers = HTTPHeaders()
         headers.add(name: "Content-Type", value: contentType)
         headers.add(name: "Content-Length", value: String(body.count))
-        headers.add(name: "Connection", value: "close")
+        headers.add(name: "Connection", value: keepAlive ? "keep-alive" : "close")
         let responseHead = HTTPResponseHead(version: .http1_1, status: status, headers: headers)
         context.write(wrapOutboundOut(.head(responseHead)), promise: nil)
 
         var buffer = context.channel.allocator.buffer(capacity: body.count)
         buffer.writeBytes(body)
         context.write(wrapOutboundOut(.body(.byteBuffer(buffer))), promise: nil)
-        context.writeAndFlush(wrapOutboundOut(.end(nil)), promise: nil)
-        context.close(promise: nil)
+
+        guard !keepAlive else {
+            // Reuse the connection for the next request — just flush this response.
+            context.writeAndFlush(wrapOutboundOut(.end(nil)), promise: nil)
+            return
+        }
+
+        // Close only once the whole response has actually been flushed to the
+        // socket. Closing immediately can truncate a large response under parallel
+        // load before its buffered bytes are written — which the browser surfaces
+        // as "The network connection was lost".
+        let promise = context.eventLoop.makePromise(of: Void.self)
+        let boundContext = NIOLoopBound(context, eventLoop: context.eventLoop)
+        promise.futureResult.whenComplete { _ in
+            boundContext.value.close(promise: nil)
+        }
+        context.writeAndFlush(wrapOutboundOut(.end(nil)), promise: promise)
     }
 }
