@@ -28,6 +28,9 @@ admonitions, and more.
 - **Versioned** — ship multiple documentation versions with a built-in version
   switcher (try it in the top bar). The latest version lives at the root; older
   and pre-release versions get their own URLs and a banner.
+- **Not just docs** — the same engine builds a plain
+  [static site](guides/static-sites.md) (a marketing or landing site) or a
+  [blog](guides/blog.md) with posts, tags, author pages, and an RSS feed.
 - **Themeable** — ships with a fresh, responsive default theme (light/dark,
   sidebar nav, on-page table of contents). Override any part with your own
   [Leaf](https://github.com/vapor/leaf-kit) templates.
@@ -63,6 +66,8 @@ try await Kiln.build(site, contentDirectory: "Content", outputDirectory: "public
 | SEO, social cards, sitemap, link checking       | ✅ Supported |
 | `kiln` CLI (`new` / `build` / `serve`)          | ✅ Supported |
 | Versioned documentation                         | ✅ Supported |
+| Static (marketing) sites                        | ✅ Supported |
+| Blog: posts, tags, authors, RSS feed            | ✅ Supported |
 
 ## This site is built with Kiln
 

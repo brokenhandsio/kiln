@@ -38,6 +38,8 @@ let latest = DocVersion(
                 "The CLI": "Die CLI",
                 "Guides": "Anleitungen",
                 "Configuration": "Konfiguration",
+                "Static Sites": "Statische Websites",
+                "Blog": "Blog",
                 "Content & Localisation": "Inhalt & Lokalisierung",
                 "Navigation": "Navigation",
                 "Markdown": "Markdown",
@@ -79,6 +81,8 @@ let latest = DocVersion(
     }
     Section("Guides") {
         Page("Configuration", "guides/configuration.md")
+        Page("Static Sites", "guides/static-sites.md")
+        Page("Blog", "guides/blog.md")
         Page("Content & Localisation", "guides/content-and-localisation.md")
         Page("Navigation", "guides/navigation.md")
         Page("Markdown", "guides/markdown.md")
