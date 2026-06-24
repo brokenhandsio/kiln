@@ -1,5 +1,5 @@
 <div class="team-card">
-    #if(hasImage):<a href="#(pageURL)" class="team-avatar-link" aria-label="#(name)"><img class="team-avatar" src="#(imageURL)" alt="#(name)"></a>#endif
+    #if(hasImage):<a href="#(pageURL)" class="team-avatar-link" aria-hidden="true" tabindex="-1"><img class="team-avatar" src="#(imageURL)" alt="#(name)"></a>#endif
     <h2 class="team-name"><a href="#(pageURL)">#(name)</a></h2>
     <p class="team-handle">#(handle)</p>
     #if(hasDescription):<p class="team-bio">#(description)</p>#endif
