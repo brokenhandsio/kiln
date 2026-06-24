@@ -122,6 +122,9 @@ struct RenderContext {
     /// navigation tree so have no nav-derived breadcrumb). When set, it supplies
     /// the `BreadcrumbList` structured data.
     var breadcrumbOverride: [BreadcrumbItem]? = nil
+    /// Author profile for an author page's JSON-LD — adds a `ProfilePage` +
+    /// `Person` to the structured-data graph.
+    var profileStructuredData: ProfileStructuredData? = nil
 
     /// The localised site name (falls back to the global site name).
     private var siteName: String {
@@ -384,7 +387,8 @@ struct RenderContext {
                 locale: language.locale,
                 organization: site.organization,
                 breadcrumb: breadcrumbOverride ?? breadcrumbItems,
-                article: articleStructuredData
+                article: articleStructuredData,
+                profile: profileStructuredData
             ).map(LeafData.string) ?? .trueNil,
             "imageURL": .string(socialImageURL),
             // MIME type of the social image (from its extension), for

@@ -151,6 +151,14 @@ struct BlogTests {
         #expect(tim.contains(">Second Post</h2>"))
         #expect(!tim.contains(">Third Post</h2>"))   // Third Post is Paul's
 
+        // Author page JSON-LD: a ProfilePage whose mainEntity is the author Person.
+        #expect(tim.contains("\"@type\":\"ProfilePage\""))
+        #expect(tim.contains("\"@type\":\"Person\""))
+        #expect(tim.contains("\"@id\":\"https://blog.example.com/authors/tim/#person\""))
+        #expect(tim.contains("\"mainEntity\":{\"@id\":\"https://blog.example.com/authors/tim/#person\"}"))
+        #expect(tim.contains("\"description\":\"Core team member.\""))
+        #expect(tim.contains("\"sameAs\":[\"https://github.com/tim-example\",\"https://example.com/tim\"]"))
+
         // A registry author with no posts still gets an (empty) page and an index card.
         #expect(index.contains("href=\"/authors/ghost/\""))
         #expect(FileManager.default.fileExists(atPath: output.appendingPathComponent("authors/ghost/index.html").path))

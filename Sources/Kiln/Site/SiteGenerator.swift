@@ -474,6 +474,7 @@ public struct SiteGenerator {
             blogPost: LeafData? = nil,
             blogListing: LeafData? = nil,
             article: ArticleStructuredData? = nil,
+            profile: ProfileStructuredData? = nil,
             breadcrumb: [BreadcrumbItem]? = nil,
             lastmod: String? = nil
         ) async throws -> SitemapEntry {
@@ -506,7 +507,8 @@ public struct SiteGenerator {
                 blogPost: blogPost,
                 blogListing: blogListing,
                 articleStructuredData: article,
-                breadcrumbOverride: breadcrumb
+                breadcrumbOverride: breadcrumb,
+                profileStructuredData: profile
             )
             let html = try await renderer.render(template, context: context.leafData)
             try writer.write(html, to: outputFile)
@@ -653,6 +655,7 @@ public struct SiteGenerator {
                 let slug = Slugger.normalise(author.username)
                 let authored = collection.posts(byAuthorUsername: author.username)
                 let authorPages = pageCount(authored.count, perPage: perPage)
+                let authorPageURL = absoluteURL(forLocation: String(urls.blogAuthorURLPath(slug: slug, page: 1).drop(while: { $0 == "/" })))
                 for page in 1...authorPages {
                     let listing = BlogLeafData.authorPage(
                         author: author,
@@ -661,6 +664,14 @@ public struct SiteGenerator {
                         urlForPage: { urls.blogAuthorURLPath(slug: slug, page: $0) },
                         urls: urls, blog: blog
                     )
+                    // The first page is the canonical author profile (ProfilePage + Person).
+                    let profile = page == 1 ? ProfileStructuredData(
+                        name: author.name,
+                        url: authorPageURL,
+                        image: author.imageURL.map { absoluteURL(forPath: $0) },
+                        description: author.description,
+                        sameAs: author.socialLinks.map(\.url)
+                    ) : nil
                     sitemapEntries.append(try await emit(
                         template: "blog-author",
                         urlPath: urls.blogAuthorURLPath(slug: slug, page: page),
@@ -671,6 +682,7 @@ public struct SiteGenerator {
                         socialImage: author.imageURL ?? fallbackImage,
                         isHome: false,
                         blogListing: listing,
+                        profile: profile,
                         lastmod: authored.first.map { BlogDateFormatting.iso($0.date) }
                     ))
                 }

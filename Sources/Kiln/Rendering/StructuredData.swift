@@ -42,6 +42,18 @@ struct ArticleStructuredData: Sendable {
     var keywords: [String]
 }
 
+/// A person an author page is about, rendered as a `ProfilePage` + `Person`.
+struct ProfileStructuredData: Sendable {
+    var name: String
+    /// The author page's absolute URL.
+    var url: String
+    /// Absolute avatar URL, if any.
+    var image: String?
+    var description: String?
+    /// Social/profile URLs (`Person.sameAs`).
+    var sameAs: [String]
+}
+
 enum StructuredData {
     static func jsonLD(
         siteName: String,
@@ -49,10 +61,12 @@ enum StructuredData {
         locale: String,
         organization: Organization?,
         breadcrumb: [BreadcrumbItem] = [],
-        article: ArticleStructuredData? = nil
+        article: ArticleStructuredData? = nil,
+        profile: ProfileStructuredData? = nil
     ) -> String? {
-        // Emit if we have an organization (Org+WebSite), a breadcrumb, or an article.
-        guard organization != nil || !breadcrumb.isEmpty || article != nil else { return nil }
+        // Emit if we have an organization (Org+WebSite), a breadcrumb, an article,
+        // or an author profile.
+        guard organization != nil || !breadcrumb.isEmpty || article != nil || profile != nil else { return nil }
 
         let siteBase = trimmingTrailingSlash(siteURL)
         let websiteID = siteBase + "/#website"
@@ -114,6 +128,29 @@ enum StructuredData {
                 node["isPartOf"] = ["@id": websiteID]
             }
             graph.append(node)
+        }
+
+        if let profile {
+            var person: [String: Any] = [
+                "@type": "Person",
+                "@id": profile.url + "#person",
+                "name": profile.name,
+                "url": profile.url,
+            ]
+            if let image = profile.image { person["image"] = image }
+            if let description = profile.description { person["description"] = description }
+            if !profile.sameAs.isEmpty { person["sameAs"] = profile.sameAs }
+            graph.append(person)
+
+            var profilePage: [String: Any] = [
+                "@type": "ProfilePage",
+                "@id": profile.url + "#profilepage",
+                "url": profile.url,
+                "name": profile.name,
+                "mainEntity": ["@id": profile.url + "#person"],
+            ]
+            if organization != nil { profilePage["isPartOf"] = ["@id": websiteID] }
+            graph.append(profilePage)
         }
 
         if !breadcrumb.isEmpty {
