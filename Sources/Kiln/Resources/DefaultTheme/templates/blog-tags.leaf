@@ -6,7 +6,7 @@
     <div class="row mb-5">
         <div class="col-lg-3 mb-4">
             <div class="blog-tag-list">
-                <h5 class="list-heading d-none d-lg-block">#(blogListing.heading)</h5>
+                <h2 class="list-heading d-none d-lg-block">#(blogListing.heading)</h2>
                 <ul class="tag-list-collapse">
                     <li class="tag-list-tag">
                         <a class="tag-link d-flex align-items-center#if(blogListing.allActive): active#endif" href="#(blogListing.tagsIndexURL)">View All<span class="badge ms-2 d-none d-lg-block">#(blogListing.totalPostCount)</span></a>
