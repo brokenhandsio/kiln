@@ -679,7 +679,10 @@ public struct SiteGenerator {
                         depth: page == 1 ? 2 : 3,
                         title: page == 1 ? author.name : "\(author.name) — Page \(page)",
                         description: author.description ?? "Posts by \(author.name).",
-                        socialImage: author.imageURL ?? fallbackImage,
+                        // The default blog OG card (a square avatar would be cropped in a
+                        // summary_large_image card). The author photo still drives the
+                        // visible page avatar and the Person/ProfilePage JSON-LD image.
+                        socialImage: fallbackImage,
                         isHome: false,
                         blogListing: listing,
                         profile: profile,
