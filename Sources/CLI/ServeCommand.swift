@@ -10,6 +10,13 @@ private func emit(_ message: String) {
     try? FileHandle.standardOutput.write(contentsOf: Data((message + "\n").utf8))
 }
 
+/// The current local time as `HH:mm:ss`, for stamping rebuild status lines.
+private func timestamp() -> String {
+    let formatter = DateFormatter()
+    formatter.dateFormat = "HH:mm:ss"
+    return formatter.string(from: Date())
+}
+
 struct Serve: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "serve",
@@ -63,9 +70,9 @@ struct Serve: AsyncParsableCommand {
                 emit("\nChange detected — rebuilding…")
                 do {
                     try ProcessRunner.runSwift(runArguments)
-                    emit("Rebuilt. Reload your browser.")
+                    emit("Rebuilt at \(timestamp()). Reload your browser.")
                 } catch {
-                    emit("Build failed: \(error)")
+                    emit("Build failed at \(timestamp()): \(error)")
                 }
             }
             watcher = w
