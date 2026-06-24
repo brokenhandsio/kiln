@@ -159,6 +159,13 @@ struct BlogTests {
         #expect(tim.contains("\"description\":\"Core team member.\""))
         #expect(tim.contains("\"sameAs\":[\"https://github.com/tim-example\",\"https://example.com/tim\"]"))
 
+        // The social card uses the default site OG image (a square avatar would be
+        // cropped in a summary_large_image card) — but the Person image stays the avatar.
+        #expect(tim.contains("<meta property=\"og:image\" content=\"https://blog.example.com/static/og.png\">"))
+        #expect(tim.contains("<meta name=\"twitter:image\" content=\"https://blog.example.com/static/og.png\">"))
+        #expect(!tim.contains("<meta property=\"og:image\" content=\"https://blog.example.com/registry/tim.png\">"))
+        #expect(tim.contains("\"image\":\"https://blog.example.com/registry/tim.png\""))
+
         // A registry author with no posts still gets an (empty) page and an index card.
         #expect(index.contains("href=\"/authors/ghost/\""))
         #expect(FileManager.default.fileExists(atPath: output.appendingPathComponent("authors/ghost/index.html").path))
