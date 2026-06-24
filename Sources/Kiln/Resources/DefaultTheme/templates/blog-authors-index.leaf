@@ -1,0 +1,12 @@
+#extend("base"):
+#export("content"):
+<div class="container team-page">
+    <div class="team-page-header">
+        <h1 class="main-title">#(blogListing.heading)</h1>
+    </div>
+    <div class="team-grid">
+        #for(author in blogListing.authors):#extend("partials/author-card", author)#endfor
+    </div>
+</div>
+#endexport
+#endextend

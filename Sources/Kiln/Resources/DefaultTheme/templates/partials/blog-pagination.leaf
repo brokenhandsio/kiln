@@ -1,0 +1,45 @@
+#if(hasMultiplePages):
+<nav aria-label="Blog pagination">
+    <ul class="pagination justify-content-center">
+        <li class="page-item me-auto#if(!hasPrevious): disabled#endif">
+            #if(hasPrevious):
+            <a class="page-link page-link-next-previous d-flex page-link-previous" href="#(prevURL)" aria-label="Previous">
+                <span class="vapor-icon icon-chevron-left" aria-hidden="true"></span>
+                <div class="d-none d-lg-block">Previous</div>
+            </a>
+            #else:
+            <span class="page-link page-link-next-previous d-flex page-link-previous" aria-hidden="true">
+                <span class="vapor-icon icon-chevron-left"></span>
+                <div class="d-none d-lg-block">Previous</div>
+            </span>
+            #endif
+        </li>
+
+        #for(link in links):
+        #if(link.isEllipsis):
+        <li class="page-item pagination-ellipsis d-none d-lg-block ms-1 me-1">…</li>
+        #elseif(link.isCurrent):
+        <li class="page-item active d-none d-lg-block" aria-current="page"><span class="page-link">#(link.page)</span></li>
+        #else:
+        <li class="page-item d-none d-lg-block"><a class="page-link" href="#(link.url)">#(link.page)</a></li>
+        #endif
+        #endfor
+
+        <li class="page-item pagination-ellipsis d-lg-none">Page #(currentPage) of #(totalPages)</li>
+
+        <li class="page-item ms-auto#if(!hasNext): disabled#endif">
+            #if(hasNext):
+            <a class="page-link page-link-next-previous d-flex page-link-next" href="#(nextURL)" aria-label="Next">
+                <div class="d-none d-lg-block">Next</div>
+                <span class="vapor-icon icon-chevron-right" aria-hidden="true"></span>
+            </a>
+            #else:
+            <span class="page-link page-link-next-previous d-flex page-link-next" aria-hidden="true">
+                <div class="d-none d-lg-block">Next</div>
+                <span class="vapor-icon icon-chevron-right"></span>
+            </span>
+            #endif
+        </li>
+    </ul>
+</nav>
+#endif

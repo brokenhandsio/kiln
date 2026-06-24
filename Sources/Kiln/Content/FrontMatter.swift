@@ -28,6 +28,50 @@ public struct FrontMatter: Sendable, Equatable {
     public static let empty = FrontMatter()
 }
 
+// MARK: - Blog fields
+
+extension FrontMatter {
+    /// The raw `date:` string (e.g. `"2022-08-16 18:00"`), parsed into a `Date`
+    /// by the blog loader (which owns the configured input format). `nil` when
+    /// the post has no date.
+    public var rawDate: String? { values["date"] }
+
+    /// The post's tags. Authored as a single comma-separated `tags:` value
+    /// (`tags: framework, growth, business`); empty when unset.
+    public var tags: [String] {
+        Self.splitList(values["tags"], separator: ",")
+    }
+
+    /// The post's author name(s). A single `author:` is one author; multiple
+    /// authors are authored as a semicolon-separated `authors:` value
+    /// (`authors: Tim; Gwynne`). `authors:` takes precedence over `author:`.
+    public var authors: [String] {
+        if let multi = values["authors"] {
+            return Self.splitList(multi, separator: ";")
+        }
+        return values["author"].map { [$0.trimmedWhitespace()] }?.filter { !$0.isEmpty } ?? []
+    }
+
+    /// Author image URLs, positionally matched to ``authors``. A single
+    /// `authorImageURL:`, or a semicolon-separated `authorImageURLs:` for
+    /// multiple authors.
+    public var authorImageURLs: [String] {
+        if let multi = values["authorImageURLs"] {
+            return Self.splitList(multi, separator: ";")
+        }
+        return values["authorImageURL"].map { [$0.trimmedWhitespace()] }?.filter { !$0.isEmpty } ?? []
+    }
+
+    /// Split a delimited front-matter list into trimmed, non-empty values.
+    private static func splitList(_ value: String?, separator: Character) -> [String] {
+        guard let value else { return [] }
+        return value
+            .split(separator: separator)
+            .map { $0.trimmedWhitespace() }
+            .filter { !$0.isEmpty }
+    }
+}
+
 extension FrontMatter {
     /// Split a markdown source into its front matter (if any) and body.
     static func parse(from source: String) -> (frontMatter: FrontMatter, body: String) {

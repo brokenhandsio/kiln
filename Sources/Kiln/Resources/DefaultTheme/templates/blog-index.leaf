@@ -1,0 +1,17 @@
+#extend("base"):
+#export("content"):
+<div class="container blog-container">
+    <h1 class="vapor-blog-page-heading">#(blogListing.heading)</h1>
+
+    #if(blogListing.hasPosts):
+    <div class="row row-cols-1 row-cols-lg-2 g-4 mb-5">
+        #for(card in blogListing.posts):
+        <div class="col">#extend("partials/blog-card", card)</div>
+        #endfor
+    </div>
+    #endif
+
+    #extend("partials/blog-pagination", blogListing.pagination)
+</div>
+#endexport
+#endextend

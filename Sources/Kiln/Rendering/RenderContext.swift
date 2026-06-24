@@ -108,6 +108,24 @@ struct RenderContext {
     /// Versioning data (neutral by default ⇒ no version markup for unversioned sites).
     var version: VersionContext = VersionContext()
 
+    /// Pre-built `blogPost.*` template data for a single post page, or `nil` for
+    /// non-blog pages (see ``BlogLeafData``). Emitted as `.trueNil` when absent so
+    /// `#if(blogPost)` is false on every existing page.
+    var blogPost: LeafData? = nil
+    /// Pre-built `blogListing.*` template data for a blog index / tag page, or
+    /// `nil` otherwise.
+    var blogListing: LeafData? = nil
+    /// Article entity for the page's JSON-LD (a blog post), or `nil` for non-post
+    /// pages — adds a `BlogPosting` node to the structured-data graph.
+    var articleStructuredData: ArticleStructuredData? = nil
+    /// An explicit breadcrumb trail (used by blog posts, which aren't in the
+    /// navigation tree so have no nav-derived breadcrumb). When set, it supplies
+    /// the `BreadcrumbList` structured data.
+    var breadcrumbOverride: [BreadcrumbItem]? = nil
+    /// Author profile for an author page's JSON-LD — adds a `ProfilePage` +
+    /// `Person` to the structured-data graph.
+    var profileStructuredData: ProfileStructuredData? = nil
+
     /// The localised site name (falls back to the global site name).
     private var siteName: String {
         language.siteName ?? site.name
@@ -137,6 +155,10 @@ struct RenderContext {
             // so indexing it would be duplicate/thin content — hreflang + the
             // canonical already point search engines at the real page).
             "noindex": .bool(version.noindex || isFallback),
+            // Blog data (post page / listing page); `.trueNil` ⇒ `#if(blogPost)`
+            // and `#if(blogListing)` are false on every non-blog page.
+            "blogPost": blogPost ?? .trueNil,
+            "blogListing": blogListing ?? .trueNil,
         ]
     }
 
@@ -343,6 +365,9 @@ struct RenderContext {
         let showTOC = frontMatter.values["toc"] != "false"
         return .dictionary([
             "title": .string(pageTitle),
+            // Character count of the title, so templates can SERP-aware trim a
+            // brand suffix on already-long titles (e.g. `#if(page.titleLength > 50)`).
+            "titleLength": .int(pageTitle.count),
             "content": .string(contentHTML),
             "toc": .array(toc),
             "hasTOC": .bool(!toc.isEmpty),
@@ -361,15 +386,38 @@ struct RenderContext {
                 siteURL: site.url,
                 locale: language.locale,
                 organization: site.organization,
-                breadcrumb: breadcrumbItems
+                breadcrumb: breadcrumbOverride ?? breadcrumbItems,
+                article: articleStructuredData,
+                profile: profileStructuredData
             ).map(LeafData.string) ?? .trueNil,
             "imageURL": .string(socialImageURL),
+            // MIME type of the social image (from its extension), for
+            // `<meta property="og:image:type">`. Nil when unknown/imageless.
+            "imageType": .string(Self.imageMIMEType(socialImageURL)),
             "editURL": .string(editURL),
             "sourcePath": .string(sourcePath),
             "isHome": .bool(isHome),
             "isFallback": .bool(isFallback),
             "locale": .string(language.locale),
         ])
+    }
+
+    /// The OpenGraph image MIME type inferred from a URL's file extension, or
+    /// `nil` if there's no image or the extension isn't a known image type.
+    private static func imageMIMEType(_ url: String?) -> String? {
+        guard let url else { return nil }
+        // Strip any query/fragment before reading the extension.
+        let path = url.split(separator: "?", maxSplits: 1).first.map(String.init) ?? url
+        let ext = (path.split(separator: ".").last.map(String.init) ?? "").lowercased()
+        switch ext {
+        case "png": return "image/png"
+        case "jpg", "jpeg": return "image/jpeg"
+        case "gif": return "image/gif"
+        case "webp": return "image/webp"
+        case "svg": return "image/svg+xml"
+        case "avif": return "image/avif"
+        default: return nil
+        }
     }
 
     private static func tocData(_ entry: TOCEntry) -> LeafData {

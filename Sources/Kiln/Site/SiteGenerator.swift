@@ -1,4 +1,5 @@
 public import Foundation
+import LeafKit
 
 /// Errors thrown while resolving the theme.
 public enum ThemeError: Error, CustomStringConvertible {
@@ -165,6 +166,13 @@ public struct SiteGenerator {
                 try checkLinks(linkData, version: version, contentURL: build.contentURL,
                                defaultLocale: build.defaultLocale, knownLocales: build.locales)
             }
+        }
+
+        // Blog: an additive phase that renders post pages plus generated listing
+        // pages (paginated index, per-tag pages) and an RSS feed. Its sitemap
+        // entries join the rest before the sitemap is written below.
+        if let blog = site.blog {
+            sitemapEntries += try await renderBlog(blog, defaultBuild: defaultBuild, renderer: renderer, writer: writer, markdown: markdown)
         }
 
         // Theme assets once (identical across versions; referenced root-absolutely).
@@ -415,6 +423,319 @@ public struct SiteGenerator {
         return location
     }
 
+    // MARK: Blog
+
+    /// Render the blog: a post page per markdown file, a paginated index, a tags
+    /// landing page, per-tag paginated pages, and an RSS feed. Returns the blog's
+    /// sitemap entries (the caller merges them into the site sitemap).
+    ///
+    /// A blog is single-language and unversioned (enforced in
+    /// ``KilnSite/validate()``), so this uses the default build's `SiteURLs` with
+    /// empty version/locale prefixes throughout.
+    private func renderBlog(
+        _ blog: Blog,
+        defaultBuild build: VersionBuild,
+        renderer: TemplateRenderer,
+        writer: OutputWriter,
+        markdown: MarkdownRenderer
+    ) async throws -> [SitemapEntry] {
+        let urls = build.urls
+        let language = build.version.defaultLanguage
+        let locale = build.defaultLocale
+        let resolvedNav = build.navByLocale[locale] ?? build.navigationBuilder.build([], for: language)
+        let emptyNav = build.navigationBuilder.contextualise(resolvedNav, currentLogicalPath: "")
+        let fallbackImage = language.image ?? site.image
+        let perPage = max(1, blog.postsPerPage)
+
+        let collection = BlogLoader(
+            contentDirectory: build.contentURL,
+            blog: blog,
+            markdown: markdown,
+            urls: urls,
+            defaultLocale: locale,
+            knownLocales: build.locales
+        ).load()
+
+        var sitemapEntries: [SitemapEntry] = []
+        var searchIndex = SearchIndexBuilder()
+
+        /// Render and write one blog page; returns its sitemap entry.
+        @discardableResult
+        func emit(
+            template: String,
+            urlPath: String,
+            outputFile: URL,
+            depth: Int,
+            title: String,
+            description: String?,
+            socialImage: String?,
+            isHome: Bool,
+            contentHTML: String = "",
+            blogPost: LeafData? = nil,
+            blogListing: LeafData? = nil,
+            article: ArticleStructuredData? = nil,
+            profile: ProfileStructuredData? = nil,
+            breadcrumb: [BreadcrumbItem]? = nil,
+            lastmod: String? = nil
+        ) async throws -> SitemapEntry {
+            let location = String(urlPath.drop(while: { $0 == "/" }))
+            let context = RenderContext(
+                site: site,
+                language: language,
+                localisation: language.localisation,
+                alternates: [],
+                searchEnabled: true,
+                searchIndexURL: urls.searchIndexURLPath(forLocale: locale),
+                markdownURL: nil,
+                baseURL: relativeBaseURL(depth: depth),
+                basePath: basePath,
+                pageTitle: title,
+                contentHTML: contentHTML,
+                tableOfContents: [],
+                // Blog pages own their full-width layout — hide the doc nav/TOC rails.
+                frontMatter: FrontMatter(values: ["sidebar": "false", "toc": "false"]),
+                pageURL: urlPath,
+                canonicalURL: absoluteURL(forLocation: location),
+                pageDescription: description,
+                socialImageURL: socialImage.map { absoluteURL(forPath: $0) },
+                editURL: nil,
+                sourcePath: "",
+                isHome: isHome,
+                isFallback: false,
+                navigation: emptyNav,
+                version: VersionContext(),
+                blogPost: blogPost,
+                blogListing: blogListing,
+                articleStructuredData: article,
+                breadcrumbOverride: breadcrumb,
+                profileStructuredData: profile
+            )
+            let html = try await renderer.render(template, context: context.leafData)
+            try writer.write(html, to: outputFile)
+            return SitemapEntry(loc: absoluteURL(forLocation: location), alternates: [], lastmod: lastmod)
+        }
+
+        // 1. Post pages.
+        for post in collection.posts {
+            let urlPath = urls.urlPath(forLogicalPath: post.logicalPath, locale: locale)
+            let location = String(urlPath.drop(while: { $0 == "/" }))
+            let socialImage = post.socialImage ?? fallbackImage
+            let article = ArticleStructuredData(
+                type: "BlogPosting",
+                headline: post.title,
+                url: absoluteURL(forLocation: location),
+                datePublished: BlogDateFormatting.iso8601(post.date),
+                dateModified: nil,
+                authors: post.authors.map { author in
+                    // Person.url → the on-site author page; sameAs → every external profile.
+                    let pageURL = author.username.map {
+                        self.absoluteURL(forLocation: String(urls.blogAuthorURLPath(slug: Slugger.normalise($0), page: 1).drop(while: { $0 == "/" })))
+                    }
+                    return ArticleAuthor(name: author.name, url: pageURL, sameAs: author.sameAs)
+                },
+                image: socialImage.map { absoluteURL(forPath: $0) },
+                description: post.excerpt.isEmpty ? nil : post.excerpt,
+                keywords: post.tags
+            )
+            let entry = try await emit(
+                template: "blog-post",
+                urlPath: urlPath,
+                outputFile: urls.outputFile(forLogicalPath: post.logicalPath, locale: locale, in: outputDirectory),
+                depth: 2,
+                title: post.title,
+                description: post.excerpt.isEmpty ? (language.description ?? site.description) : post.excerpt,
+                socialImage: socialImage,
+                isHome: false,
+                contentHTML: post.contentHTML,
+                blogPost: BlogLeafData.post(post, urls: urls, blog: blog),
+                article: article,
+                // Home (the blog index) › this post — for a BreadcrumbList.
+                breadcrumb: [BreadcrumbItem(name: post.title, url: nil)],
+                lastmod: BlogDateFormatting.iso(post.date)
+            )
+            sitemapEntries.append(entry)
+            searchIndex.add(location: location, title: post.title, html: post.contentHTML)
+        }
+
+        // Listing pages are as fresh as their newest post (for sitemap <lastmod>).
+        let newestLastmod = collection.posts.first.map { BlogDateFormatting.iso($0.date) }
+        let indexTitle = blog.indexTitle ?? (language.siteName ?? site.name)
+        let tagsTitle = blog.tagsTitle ?? "Tags"
+        let authorsTitle = blog.authorsTitle ?? "Authors"
+
+        // 2. Paginated index (`/`, `/2/`, …) over all posts.
+        let indexPages = pageCount(collection.posts.count, perPage: perPage)
+        for page in 1...indexPages {
+            let listing = BlogLeafData.listing(
+                heading: indexTitle,
+                cards: slice(collection.posts, page: page, perPage: perPage),
+                currentPage: page, totalPages: indexPages,
+                urlForPage: { urls.blogIndexURLPath(page: $0) },
+                tags: collection.tags, activeTagSlug: nil, isTagsPage: false,
+                totalPostCount: collection.posts.count, urls: urls, blog: blog
+            )
+            sitemapEntries.append(try await emit(
+                template: "blog-index",
+                urlPath: urls.blogIndexURLPath(page: page),
+                outputFile: urls.blogIndexOutputFile(page: page, in: outputDirectory),
+                depth: page == 1 ? 0 : 1,
+                title: page == 1 ? indexTitle : "Page \(page)",
+                description: language.description ?? site.description,
+                socialImage: fallbackImage,
+                isHome: page == 1,
+                blogListing: listing,
+                lastmod: newestLastmod
+            ))
+        }
+
+        // 3. Tag directory (`/tags/`): every tag with its post count, but no post
+        // feed — the index already lists the posts, so paginating them here too
+        // would just be duplicate content. Per-tag pages (below) hold the posts.
+        let tagsIndex = BlogLeafData.tagsIndex(
+            heading: tagsTitle, tags: collection.tags,
+            totalPostCount: collection.posts.count, urls: urls
+        )
+        sitemapEntries.append(try await emit(
+            template: "blog-tags-index",
+            urlPath: urls.blogTagsURLPath(page: 1),
+            outputFile: urls.blogTagsOutputFile(page: 1, in: outputDirectory),
+            depth: 1,
+            title: tagsTitle,
+            description: language.description ?? site.description,
+            socialImage: fallbackImage,
+            isHome: false,
+            blogListing: tagsIndex,
+            lastmod: newestLastmod
+        ))
+
+        // 4. Per-tag paginated pages (`/tags/<slug>/`, `/tags/<slug>/2/`, …).
+        for tag in collection.tags {
+            let tagged = collection.posts(taggedSlug: tag.slug)
+            let tagPages = pageCount(tagged.count, perPage: perPage)
+            for page in 1...tagPages {
+                let listing = BlogLeafData.listing(
+                    heading: tagsTitle,
+                    cards: slice(tagged, page: page, perPage: perPage),
+                    currentPage: page, totalPages: tagPages,
+                    urlForPage: { urls.blogTagURLPath(slug: tag.slug, page: $0) },
+                    tags: collection.tags, activeTagSlug: tag.slug, isTagsPage: true,
+                    totalPostCount: collection.posts.count, urls: urls, blog: blog
+                )
+                sitemapEntries.append(try await emit(
+                    template: "blog-tags",
+                    urlPath: urls.blogTagURLPath(slug: tag.slug, page: page),
+                    outputFile: urls.blogTagOutputFile(slug: tag.slug, page: page, in: outputDirectory),
+                    depth: page == 1 ? 2 : 3,
+                    title: page == 1 ? tag.name : "\(tag.name) — Page \(page)",
+                    description: "Posts tagged \(tag.name).",
+                    socialImage: fallbackImage,
+                    isHome: false,
+                    blogListing: listing,
+                    lastmod: tagged.first.map { BlogDateFormatting.iso($0.date) }
+                ))
+            }
+        }
+
+        // 5. Authors index (`/authors/`) + per-author paginated pages.
+        if !blog.authors.isEmpty {
+            sitemapEntries.append(try await emit(
+                template: "blog-authors-index",
+                urlPath: urls.blogAuthorsURLPath(),
+                outputFile: urls.blogAuthorsOutputFile(in: outputDirectory),
+                depth: 1,
+                title: authorsTitle,
+                description: language.description ?? site.description,
+                socialImage: fallbackImage,
+                isHome: false,
+                blogListing: BlogLeafData.authorsIndex(heading: authorsTitle, authors: blog.authors, urls: urls),
+                lastmod: newestLastmod
+            ))
+
+            for author in blog.authors {
+                let slug = Slugger.normalise(author.username)
+                let authored = collection.posts(byAuthorUsername: author.username)
+                let authorPages = pageCount(authored.count, perPage: perPage)
+                let authorPageURL = absoluteURL(forLocation: String(urls.blogAuthorURLPath(slug: slug, page: 1).drop(while: { $0 == "/" })))
+                for page in 1...authorPages {
+                    let listing = BlogLeafData.authorPage(
+                        author: author,
+                        cards: slice(authored, page: page, perPage: perPage),
+                        currentPage: page, totalPages: authorPages,
+                        urlForPage: { urls.blogAuthorURLPath(slug: slug, page: $0) },
+                        urls: urls, blog: blog
+                    )
+                    // The first page is the canonical author profile (ProfilePage + Person).
+                    let profile = page == 1 ? ProfileStructuredData(
+                        name: author.name,
+                        url: authorPageURL,
+                        image: author.imageURL.map { absoluteURL(forPath: $0) },
+                        description: author.description,
+                        sameAs: author.socialLinks.map(\.url)
+                    ) : nil
+                    sitemapEntries.append(try await emit(
+                        template: "blog-author",
+                        urlPath: urls.blogAuthorURLPath(slug: slug, page: page),
+                        outputFile: urls.blogAuthorOutputFile(slug: slug, page: page, in: outputDirectory),
+                        depth: page == 1 ? 2 : 3,
+                        title: page == 1 ? author.name : "\(author.name) — Page \(page)",
+                        description: author.description ?? "Posts by \(author.name).",
+                        // The default blog OG card (a square avatar would be cropped in a
+                        // summary_large_image card). The author photo still drives the
+                        // visible page avatar and the Person/ProfilePage JSON-LD image.
+                        socialImage: fallbackImage,
+                        isHome: false,
+                        blogListing: listing,
+                        profile: profile,
+                        lastmod: authored.first.map { BlogDateFormatting.iso($0.date) }
+                    ))
+                }
+            }
+        }
+
+        // 6. RSS feed (written at the output root, served at `basePath/feed.rss`).
+        let homeLocation = String(urls.blogIndexURLPath(page: 1).drop(while: { $0 == "/" }))
+        let rss = RSSFeed.render(
+            title: blog.feedTitle ?? site.name,
+            description: blog.feedDescription ?? site.description ?? site.name,
+            siteURL: absoluteURL(forLocation: homeLocation),
+            feedURL: absoluteURL(forLocation: basePathLocationPrefix + "feed.rss"),
+            language: locale,
+            posts: collection.posts,
+            postURL: { post in
+                self.absoluteURL(forLocation: String(urls.urlPath(forLogicalPath: post.logicalPath, locale: locale).drop(while: { $0 == "/" })))
+            }
+        )
+        try writer.write(rss, to: outputDirectory.appendingPathComponent("feed.rss"))
+
+        // Blog search index — overwrites the (empty) one the doc phase wrote for
+        // this single locale, so on a blog-only site the posts are the index.
+        let searchFile = urls.directory(forLocale: locale, in: outputDirectory)
+            .appendingPathComponent("search", isDirectory: true)
+            .appendingPathComponent("search_index.json")
+        try writer.write(try searchIndex.jsonData(), to: searchFile)
+
+        return sitemapEntries
+    }
+
+    /// Number of listing pages for `count` items at `perPage` each (at least 1,
+    /// so an empty blog still emits a single index page).
+    private func pageCount(_ count: Int, perPage: Int) -> Int {
+        max(1, (count + perPage - 1) / perPage)
+    }
+
+    /// The slice of items shown on a 1-based listing page.
+    private func slice<T>(_ items: [T], page: Int, perPage: Int) -> [T] {
+        let start = (page - 1) * perPage
+        guard start < items.count else { return [] }
+        return Array(items[start..<min(start + perPage, items.count)])
+    }
+
+    /// Relative path back to the site root for a page at the given directory
+    /// depth (`./` at the root, `../` one level down, …).
+    private func relativeBaseURL(depth: Int) -> String {
+        depth == 0 ? "./" : String(repeating: "../", count: depth)
+    }
+
     private func render404(
         language: Language,
         build: VersionBuild,
@@ -578,6 +899,8 @@ public struct SiteGenerator {
     private struct SitemapEntry {
         let loc: String
         let alternates: [LanguageAlternate]
+        /// W3C date (`YYYY-MM-DD`) for `<lastmod>`, when known (e.g. a post's date).
+        var lastmod: String? = nil
     }
 
     private func sitemap(for entries: [SitemapEntry]) -> String {
@@ -591,6 +914,7 @@ public struct SiteGenerator {
         for entry in entries {
             if entry.alternates.count > 1 {
                 xml += "  <url>\n    <loc>\(entry.loc)</loc>\n"
+                if let lastmod = entry.lastmod { xml += "    <lastmod>\(lastmod)</lastmod>\n" }
                 for alt in entry.alternates {
                     xml += "    <xhtml:link rel=\"alternate\" hreflang=\"\(alt.locale)\" href=\"\(alt.absoluteURL)\"/>\n"
                     if alt.isDefault {
@@ -598,6 +922,8 @@ public struct SiteGenerator {
                     }
                 }
                 xml += "  </url>\n"
+            } else if let lastmod = entry.lastmod {
+                xml += "  <url><loc>\(entry.loc)</loc><lastmod>\(lastmod)</lastmod></url>\n"
             } else {
                 xml += "  <url><loc>\(entry.loc)</loc></url>\n"
             }

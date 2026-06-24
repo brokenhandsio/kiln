@@ -13,7 +13,7 @@
     #if(noindex):<meta name="robots" content="noindex">#endif
 
     <!-- Open Graph -->
-    <meta property="og:type" content="#if(page.isHome):website#else:article#endif">
+    <meta property="og:type" content="#if(blogListing):website#elseif(page.isHome):website#else:article#endif">
     <meta property="og:title" content="#if(page.isHome):#(site.name)#else:#(page.title)#endif">
     #if(page.description):<meta property="og:description" content="#(page.description)">#endif
     <meta property="og:url" content="#(page.canonicalURL)">
@@ -21,14 +21,21 @@
     <meta property="og:locale" content="#(language.ogLocale)">
     #for(alt in languages):#if(!alt.isCurrent):<meta property="og:locale:alternate" content="#(alt.ogLocale)">
     #endif#endfor
-    #if(page.imageURL):<meta property="og:image" content="#(page.imageURL)">#endif
+    #if(page.imageURL):<meta property="og:image" content="#(page.imageURL)">
+    <meta property="og:image:alt" content="#if(page.isHome):#(site.name)#else:#(page.title)#endif">
+    #if(page.imageType):<meta property="og:image:type" content="#(page.imageType)">#endif#endif
+    #if(blogPost):<meta property="article:published_time" content="#(blogPost.isoDateTime)">
+    #for(author in blogPost.authors):<meta property="article:author" content="#(author.name)">
+    #endfor#for(tag in blogPost.tags):<meta property="article:tag" content="#(tag.name)">
+    #endfor#endif
 
     <!-- Twitter -->
     <meta name="twitter:card" content="#if(page.imageURL):summary_large_image#else:summary#endif">
     #if(site.twitterSite):<meta name="twitter:site" content="#(site.twitterSite)">#endif
     <meta name="twitter:title" content="#if(page.isHome):#(site.name)#else:#(page.title)#endif">
     #if(page.description):<meta name="twitter:description" content="#(page.description)">#endif
-    #if(page.imageURL):<meta name="twitter:image" content="#(page.imageURL)">#endif
+    #if(page.imageURL):<meta name="twitter:image" content="#(page.imageURL)">
+    <meta name="twitter:image:alt" content="#if(page.isHome):#(site.name)#else:#(page.title)#endif">#endif
 
     #if(site.favicon):<link rel="icon" href="#(basePath)/#(site.favicon)">#endif
 

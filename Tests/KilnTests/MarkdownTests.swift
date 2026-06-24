@@ -5,6 +5,16 @@ import Testing
 struct MarkdownTests {
     let renderer = MarkdownRenderer()
 
+    @Test("Images render with alt and are lazy-loaded")
+    func imageLazyLoading() {
+        let result = renderer.render("![A diagram](/img/diagram.png)")
+        #expect(result.html.contains("<img"))
+        #expect(result.html.contains("src=\"/img/diagram.png\""))
+        #expect(result.html.contains("alt=\"A diagram\""))
+        #expect(result.html.contains("loading=\"lazy\""))
+        #expect(result.html.contains("decoding=\"async\""))
+    }
+
     @Test("Admonitions render with kind and title")
     func admonitionWithTitle() {
         let result = renderer.render("""

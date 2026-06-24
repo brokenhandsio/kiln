@@ -1,0 +1,36 @@
+#extend("base"):
+#export("content"):
+<div class="container blog-container">
+    <h1 class="vapor-blog-page-heading">Posts tagged #(blogListing.activeTagName)</h1>
+
+    <div class="row mb-5">
+        <div class="col-lg-3 mb-4">
+            <div class="blog-tag-list">
+                <h2 class="list-heading d-none d-lg-block">#(blogListing.heading)</h2>
+                <ul class="tag-list-collapse">
+                    <li class="tag-list-tag">
+                        <a class="tag-link d-flex align-items-center#if(blogListing.allActive): active#endif" href="#(blogListing.tagsIndexURL)">View All<span class="badge ms-2 d-none d-lg-block">#(blogListing.totalPostCount)</span></a>
+                    </li>
+                    #for(tag in blogListing.tags):
+                    <li class="tag-list-tag">
+                        <a class="tag-link d-flex align-items-center#if(tag.isActive): active#endif" href="#(tag.url)">#(tag.name)<span class="badge ms-2 d-none d-lg-block">#(tag.count)</span></a>
+                    </li>
+                    #endfor
+                </ul>
+            </div>
+        </div>
+        <div class="col">
+            #if(blogListing.hasPosts):
+            <div class="row row-cols-1 g-4">
+                #for(card in blogListing.posts):
+                <div class="col">#extend("partials/blog-card", card)</div>
+                #endfor
+            </div>
+            #endif
+        </div>
+    </div>
+
+    #extend("partials/blog-pagination", blogListing.pagination)
+</div>
+#endexport
+#endextend

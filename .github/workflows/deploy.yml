@@ -46,7 +46,7 @@ jobs:
       # Examples/ExampleSite/public on the host via the bind mount.
       - name: Build the site
         run: |
-          docker run --rm -v "$PWD":/kiln -w /kiln/Examples/ExampleSite swift:6.2 \
+          docker run --rm -v "$PWD":/kiln -w /kiln/Examples/ExampleSite swift:6.3 \
             swift run ExampleSite
 
       - name: Configure AWS credentials
