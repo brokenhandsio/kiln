@@ -1,6 +1,7 @@
 #extend("base"):
 #export("content"):
 <div class="container team-page">
+    <a href="#(blogListing.authorsIndexURL)" class="author-back-link mt-4"><span class="vapor-icon icon-chevron-left" aria-hidden="true"></span>All authors</a>
     <div class="team-page-header author-page-header">
         #if(blogListing.author.hasImage):<img class="team-avatar" src="#(blogListing.author.imageURL)" alt="#(blogListing.author.name)">#endif
         <h1 class="main-title">#(blogListing.author.name)</h1>
@@ -10,7 +11,7 @@
     </div>
     <div class="blog-container">
         #if(blogListing.hasPosts):
-        <div class="row row-cols-1 g-4 mb-5">#for(card in blogListing.posts):<div class="col">#extend("partials/blog-card", card)</div>#endfor</div>
+        <div class="row row-cols-1 row-cols-lg-2 g-4 mb-5">#for(card in blogListing.posts):<div class="col">#extend("partials/blog-card", card)</div>#endfor</div>
         #endif
         #extend("partials/blog-pagination", blogListing.pagination)
     </div>
