@@ -51,8 +51,9 @@ kiln serve --no-watch          # build + serve once, no rebuild-on-change
 kiln serve --no-build          # serve the existing output without building first
 ```
 
-The watcher polls for changes (skipping `.build`, `.git`, `.swiftpm`, and the
-output directory) and re-runs the build. Reload your browser to see updates.
+The watcher polls for changes (skipping `.build`, `.git`, `.swiftpm`,
+`node_modules`, and the output directory) and re-runs the build. Reload your
+browser to see updates.
 
 !!! note "No injected live-reload"
     `serve` rebuilds on change but doesn't auto-refresh the browser — reload to
@@ -66,6 +67,37 @@ Build the site by running your project's executable:
 ```sh
 kiln build              # writes the static site (to ./site by convention)
 kiln build --release    # build in release configuration
+```
+
+## Building assets first (`kiln.json`)
+
+If your site has an asset pipeline — say webpack or Sass compiled with `npm` —
+you'll want it to run *before* the site is generated, so the latest CSS/JS is
+picked up. Drop an optional `kiln.json` at the project root:
+
+```json
+{
+  "preBuild": {
+    "command": "npm run build",
+    "watch": ["src/scss", "src/js"]
+  }
+}
+```
+
+Both `kiln build` and `kiln serve` then run `command` before the Swift build,
+streaming its output (so webpack warnings/errors are visible). During `kiln
+serve`, the directories in `watch` are watched alongside your project, so editing
+a stylesheet re-runs the asset build and regenerates the site. The `watch` paths
+are resolved relative to the project root and may point outside it (e.g.
+`"../design/src"` for a shared design repo).
+
+This is the one piece of CLI configuration Kiln reads from a file — it's a
+*tooling* concern, separate from your Swift-defined site config. With no
+`kiln.json`, behaviour is unchanged. You can override or skip the step per-run:
+
+```sh
+kiln build --pre-build "make assets"   # override the configured command
+kiln serve --no-pre-build              # skip the asset step this run
 ```
 
 ## Reference

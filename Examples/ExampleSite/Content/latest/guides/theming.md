@@ -62,6 +62,41 @@ Theme/
 └── js/
 ```
 
+## Sharing templates across sites
+
+If several sites share the same look — a common header, footer, and cards — you
+don't want to copy those templates into every project. Ship them once from a
+shared Swift package as a bundled resource, then pull them in as a **shared theme
+layer**.
+
+In the shared package, bundle a theme directory (with a `templates/` folder) as a
+resource and expose its URL:
+
+```swift
+// Package.swift
+.target(name: "DesignTheme", resources: [.copy("Theme")])
+
+// DesignTheme.swift
+public enum DesignTheme {
+    public static var directory: URL {
+        Bundle.module.url(forResource: "Theme", withExtension: nil)!
+    }
+}
+```
+
+Then each site lists it in `sharedLayers`:
+
+```swift
+theme: .custom(directory: "Theme", sharedLayers: [DesignTheme.directory])
+```
+
+Templates now resolve in order: **your site's `Theme/` → the shared layer(s) →
+Kiln's bundled default**. So a site overrides anything locally, falls back to the
+shared design for common partials, and falls back to Kiln's default for the rest.
+`sharedLayers` also works on `.default(sharedLayers:)` if you don't have a local
+theme directory. Assets (`css`/`js`) follow the same layering, with later layers
+overriding earlier ones.
+
 ## Template context
 
 Templates receive a context with `site`, `page`, `nav`, `language`, `languages`,
