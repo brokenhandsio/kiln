@@ -26,6 +26,9 @@
     var docs = [];
     var loaded = false;
     var loading = false;
+    // Index of the keyboard-highlighted result (-1 = none). Reset whenever the
+    // list is re-rendered or hidden.
+    var activeIndex = -1;
 
     // Lowercase and remove diacritics. Under NFC input each character folds to
     // exactly one character, so folded offsets line up with the original text.
@@ -175,11 +178,33 @@
         });
         results.innerHTML = html;
         results.hidden = false;
+        activeIndex = -1;
     }
 
     function hide() {
         results.hidden = true;
         results.innerHTML = "";
+        activeIndex = -1;
+    }
+
+    // Live list of result anchors (empty for the no-results / prompt states).
+    function resultLinks() {
+        return Array.prototype.slice.call(results.querySelectorAll(".kiln-search-result"));
+    }
+
+    // Highlight the result at `index`, wrapping past either end, and keep it in
+    // view. Drives the `.kiln-active` style the theme already defines for hover.
+    function setActive(index) {
+        var links = resultLinks();
+        if (!links.length) { activeIndex = -1; return; }
+        if (index < 0) index = links.length - 1;
+        else if (index >= links.length) index = 0;
+        activeIndex = index;
+        for (var i = 0; i < links.length; i++) {
+            var on = i === activeIndex;
+            links[i].classList.toggle("kiln-active", on);
+            if (on) links[i].scrollIntoView({ block: "nearest" });
+        }
     }
 
     input.addEventListener("focus", loadIndex);
@@ -189,7 +214,23 @@
         if (loaded) run(query); else loadIndex();
     });
     input.addEventListener("keydown", function (event) {
-        if (event.key === "Escape") { input.value = ""; hide(); input.blur(); }
+        if (event.key === "Escape") { input.value = ""; hide(); input.blur(); return; }
+        if (results.hidden) return;
+        if (event.key === "ArrowDown") {
+            if (!resultLinks().length) return;
+            event.preventDefault();
+            setActive(activeIndex + 1);
+        } else if (event.key === "ArrowUp") {
+            if (!resultLinks().length) return;
+            event.preventDefault();
+            setActive(activeIndex - 1);
+        } else if (event.key === "Enter") {
+            var links = resultLinks();
+            if (activeIndex >= 0 && links[activeIndex]) {
+                event.preventDefault();
+                window.location.href = links[activeIndex].getAttribute("href");
+            }
+        }
     });
     document.addEventListener("click", function (event) {
         if (!event.target.closest(".kiln-search")) hide();
