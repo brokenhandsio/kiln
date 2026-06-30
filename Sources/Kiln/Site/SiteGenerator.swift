@@ -575,7 +575,9 @@ public struct SiteGenerator {
                 currentPage: page, totalPages: indexPages,
                 urlForPage: { urls.blogIndexURLPath(page: $0) },
                 tags: collection.tags, activeTagSlug: nil, isTagsPage: false,
-                totalPostCount: collection.posts.count, urls: urls, blog: blog
+                totalPostCount: collection.posts.count, urls: urls, blog: blog,
+                previousLabel: language.localisation.resolved.previousPage,
+                nextLabel: language.localisation.resolved.nextPage
             )
             sitemapEntries.append(try await emit(
                 template: "blog-index",
@@ -622,7 +624,9 @@ public struct SiteGenerator {
                     currentPage: page, totalPages: tagPages,
                     urlForPage: { urls.blogTagURLPath(slug: tag.slug, page: $0) },
                     tags: collection.tags, activeTagSlug: tag.slug, isTagsPage: true,
-                    totalPostCount: collection.posts.count, urls: urls, blog: blog
+                    totalPostCount: collection.posts.count, urls: urls, blog: blog,
+                    previousLabel: language.localisation.resolved.previousPage,
+                    nextLabel: language.localisation.resolved.nextPage
                 )
                 sitemapEntries.append(try await emit(
                     template: "blog-tags",
@@ -665,7 +669,9 @@ public struct SiteGenerator {
                         cards: slice(authored, page: page, perPage: perPage),
                         currentPage: page, totalPages: authorPages,
                         urlForPage: { urls.blogAuthorURLPath(slug: slug, page: $0) },
-                        urls: urls, blog: blog
+                        urls: urls, blog: blog,
+                        previousLabel: language.localisation.resolved.previousPage,
+                        nextLabel: language.localisation.resolved.nextPage
                     )
                     // The first page is the canonical author profile (ProfilePage + Person).
                     let profile = page == 1 ? ProfileStructuredData(
