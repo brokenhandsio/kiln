@@ -1,15 +1,19 @@
 # Handoff: Vapor design-system consolidation on Kiln
 
-## ⚠️ First: the work is UNCOMMITTED
-All changes below live in working trees across **5 repos** and are **not committed**.
-To continue on another machine you must bring those changes over (commit+push, or
-sync the working trees). This document is *context*, not the code itself. The user
-manages all commits/pushes/tags/releases/deploys manually — do not commit or push
-unprompted.
+## Status / machine notes
+The original cross-machine migration is **done**: the work below was committed to
+its feature branches and is present on this machine. Newer work (the shared
+`<head>`, see DONE §"Shared head") is **uncommitted** in the working trees. The
+user manages all commits/pushes/tags/releases/deploys manually — do not commit or
+push unprompted.
 
-Repo layout (paths on the origin machine; adjust the root for yours):
-- Kiln engine: `~/Developer/BH/kiln`
+Repo layout **on this machine** (the origin machine used `~/Developer/BH/kiln`):
+- Kiln engine: `~/Developer/BrokenHands/kiln`  (branch `shared-resources`)
 - Sites: `~/Developer/Vapor/{design,website,blog,docs}`
+  (branches: design `kiln-migration`, blog `shared-kiln`, website/docs `shared-design`)
+
+Path-dep note: blog's `Package.swift` uses `.package(path: "../../BrokenHands/kiln")`
+(was `../../BH/kiln` on the origin machine — fixed for this layout).
 
 ## Goal
 The Vapor docs/blog/website are all on the **Kiln** static site generator
@@ -21,7 +25,7 @@ Leaf templates move into the shared package. Also added two Kiln engine features
 
 ## ✅ DONE (all verified)
 
-### Kiln engine (`~/Developer/BH/kiln`)
+### Kiln engine (`~/Developer/BrokenHands/kiln`)
 1. **Shared theme layers.** `Theme.sharedLayers: [URL]` added
    (`Sources/Kiln/Configuration/Theme.swift`, needs `public import Foundation`),
    threaded through `resolveTheme()` in `Sources/Kiln/Site/SiteGenerator.swift`
@@ -61,7 +65,7 @@ Leaf templates move into the shared package. Also added two Kiln engine features
   - `author-card.leaf` — person/team card (avatar/name/handle/bio/socials).
 
 ### Blog (`~/Developer/Vapor/blog`) — adopted as the proof site
-- `Package.swift`: switched Kiln to local path dep `../../BH/kiln`, added
+- `Package.swift`: switched Kiln to local path dep `../../BrokenHands/kiln`, added
   `../design` dep + `VaporDesignTheme` product.
 - `Sources/Blog/main.swift`: `import VaporDesignTheme`; theme is
   `.custom(directory: "Theme", sharedLayers: [VaporDesignTheme.directory], palette: …)`;
@@ -75,6 +79,54 @@ Leaf templates move into the shared package. Also added two Kiln engine features
 - Verified: rendered footer/header/pagination/author-card are structurally identical
   to pre-refactor output (footer only differs by an intended `download` attr on the
   Press Kit link; pagination aria-label "blog-pagination"→generic "Pagination").
+
+### Shared head (the ENTIRE `<head>`) — done for blog + website, staged for docs
+- New shared partials in `design/Sources/VaporDesignTheme/Theme/templates/partials/`:
+  - `head.leaf` — the full `<head>`: charset, OG/Twitter cards, canonical, title,
+    favicons, CSS/JS links, structured data. Consumed via `<head>#extend("partials/head")</head>`
+    (unscoped → `#localise`/`customStrings`/`site.*`/`page.*` reachable).
+  - `head-preconnect.leaf`, `head-brand.leaf` — preconnect hints + favicon/theme-color
+    block; both consumed BY `head.leaf`.
+- **NO Kiln engine changes** — all per-site variation is data:
+  - `og:type` = `blogPost ? article : (isHome ? website : customStrings["head.defaultOgType"])`.
+  - `<title>` from `head.homeSuffix` + `head.titleSeparator` + `page.frontMatter.titleKey`;
+    long-title (>50 char) drops the suffix, applied **universally** (SEO).
+  - extra CSS via `KilnSite(extraCSS:)`; RSS `<link>` gated on a dot-free `feedURL`
+    custom string; website/docs-only metas gated and emit nothing for blog.
+- **JS unified**: docs' local `theme-init.js` + the marketing sites' `detectColorScheme.js`
+  collapse to ONE CDN script `design.vapor.codes/js/theme-init.js` (staged at
+  `design/static/js/theme-init.js`; ⚠️ must be CDN-deployed before sites reference it live).
+- Blog adopted (`blog/Theme/templates/base.leaf` head → `#extend("partials/head")`;
+  `main.swift` adds the `head.*` + `feedURL` customStrings and `extraCSS:["static/css/blog.css"]`).
+  Verified across 5 page types (home/post/author/tags/paginated): normalised-identical
+  output except the one intended `detectColorScheme.js → theme-init.js` swap.
+- Config contract documented in `VaporDesignTheme/README.md` ("Shared head").
+
+### Website (`~/Developer/Vapor/website`) — adopted shared header/footer/head
+- `Package.swift`: local `../../BrokenHands/kiln` path dep + `../design` + `VaporDesignTheme` product.
+- `Sources/VaporWebsite/main.swift`: `import VaporDesignTheme`; theme gains
+  `sharedLayers: [VaporDesignTheme.directory]`; added `twitterSite: "@codevapor"`
+  (was hardcoded in the head) and `copyright: "© QuTheory, LLC 2026"` (footer reads `#(site.copyright)`).
+- `Theme/templates/base.leaf`: inline `<head>` → `#extend("partials/head")`. Body
+  unchanged (home `#if(page.isHome)` body-class + `updateStarsCount`/`scrollNavbar`/`scrollShowcase` scripts stay).
+- Strings across the 11 `Translations/*.swift`:
+  - Per-language `footer.tagline`/`footer.frameworkDocs`/`footer.apiDocs` (duplicated
+    from each file's `home.hero.caption`/`nav.frameworkDocs`/`nav.apiDocs` via awk, to
+    preserve localised footer output exactly).
+  - English-only (fallback covers all): `siteId:"main"`, `nav.brandText:"Vapor"`,
+    `head.defaultOgType:"website"`, `head.homeSuffix:""`, `head.titleSeparator:" | "`.
+  - No `extraCSS` (site has no site-specific stylesheet), no `feedURL`.
+- Deleted local `footer.leaf` + `header.leaf` (now resolve from shared layer).
+- Verified (home/team/German, normalised): header + footer byte-identical incl.
+  localised strings. Head deltas were all intended/superset:
+  - intended: preconnect comment gone, `theme-init.js`, Press Kit `download`, `&copy;`→`©`.
+  - additive metas: `og:image:alt`/`og:image:type`/`twitter:image:alt`.
+  - **`robots:noindex` now emitted on the 50 non-English fallback pages** — the old
+    head ignored Kiln's `noindex` (= `version.noindex || isFallback`,
+    `RenderContext.swift:157`). KEPT per user: correct de-dup SEO, and self-corrects
+    (a page stops being `isFallback` once it has real translated content → indexed again).
+  - `<link rel="alternate" type="text/markdown">` per page — KEPT per user (`.md`
+    files exist; `llmsText` left on).
 
 ## Key decisions & gotchas (IMPORTANT)
 - **CDN-only** for CSS/JS — shared partials reference `design.vapor.codes/main.css`+`main.js`.
@@ -98,23 +150,35 @@ Leaf templates move into the shared package. Also added two Kiln engine features
   double quotes) parses fine and matches output — don't switch to single quotes.
 - **Verify formatted partials with a WHITESPACE-NORMALISED diff** (templates are
   pretty-printed now, so byte-diff won't match; normalise inter-tag whitespace).
+- **LeafKit undefined-key behaviour** (verified in source): `#(x)`/`#if(x)` on a
+  missing key → empty/false, NO error — so shared templates can reference the
+  *superset* of all sites' fields. BUT `#for(x in y)` **throws** if `y` is undefined,
+  so every loop must be over an always-present array (`languages`, `site.extraCSS`)
+  or wrapped in `#if` (`#if(blogPost)`). This is what makes the shared `head.leaf`
+  work with no per-site null-declarations.
+- **Head is data-driven, not engine-driven**: everything divergent flows through
+  existing context (`customStrings`/`#localise`, `page.frontMatter`, `site.extraCSS`,
+  `site.twitterSite`). Do NOT add `RenderContext` fields for head variation.
+- **theme-init.js CDN deploy**: the unified colour-scheme script is staged in
+  `design/static/js/`. Sites reference `design.vapor.codes/js/theme-init.js`, which
+  must be deployed to the CDN before it resolves live.
 - **Local path deps** are in use for blog↔kiln↔design during dev. The new Kiln
   features are UNRELEASED — website/docs adoption also needs local path deps until
   the user cuts a Kiln release + design-package release and swaps back to version pins.
 
 ## ⏭️ TODO (in rough order)
-1. **Shared `base.leaf`** — the `<head>`/meta/CDN-link skeleton (~90% identical
-   across sites). Hardest because of site-gated sections: blog article OG tags,
-   docs sidebar/TOC chrome, website home-page body class + scripts. Likely a shared
-   skeleton + context-gated/`#if` sections, with docs possibly keeping its own.
-2. **Adopt shared layer in website + docs** (same recipe as blog):
-   - website: `siteId: "main"`, add `footer.*` + `nav.*` custom strings across its
-     ~11 language files (`Sources/VaporWebsite/Translations/*.swift`), delete its
-     duplicated footer/header partials. NOTE: user said a "team branch" on the
-     website will use the new shared `pagination.leaf` + `author-card.leaf` — those
-     were extracted FOR that; don't edit the website's team branch unprompted.
-   - docs: `siteId: "docs"`, delete its duplicated footer (keep its own header/base
-     sidebar chrome).
+1. **Shared `<head>` — DONE for blog + website** (see DONE §"Shared head"/"Website").
+   Remaining: docs adopts it as part of its shared-layer adoption (TODO 2). The
+   `<body>` is intentionally NOT shared (docs' sidebar shell, website's home
+   body-class/scripts, blog's banner stay in each site's own `base.leaf`).
+2. **Adopt shared layer (incl. `head.leaf`) in docs** (website is DONE — see DONE §"Website"):
+   - docs: `siteId: "docs"`, `head.defaultOgType:"article"`, `head.homeSuffix:""`,
+     `head.titleSeparator:" · "`, move `theme.css`/extras into `KilnSite(extraCSS:)`,
+     delete its duplicated footer + inline head (keep its own header/base sidebar chrome).
+     Its translated pages index correctly via the same `isFallback` noindex mechanic.
+   - NOTE (website team branch): a "team branch" on the website will use the shared
+     `pagination.leaf` + `author-card.leaf` — those were extracted FOR that; don't edit
+     the website's team branch unprompted.
 3. **Design site Publish→Kiln migration** — port `DesignSite` (the showcase/reference
    pages) off Publish to a Kiln site; drop the Publish dep; add a `kiln.json`
    (`{ "preBuild": { "command": "npm run build", "watch": ["src"] } }`) so
@@ -124,10 +188,14 @@ Leaf templates move into the shared package. Also added two Kiln engine features
    + a design-package release; swap local path deps back to version pins.
 
 ## How to verify
-- Kiln: `cd ~/Developer/BH/kiln && swift build && swift test` (expect 121 pass).
+- Kiln: `cd ~/Developer/BrokenHands/kiln && swift build && swift test` (expect 121 pass).
 - Blog: `cd ~/Developer/Vapor/blog && swift run Blog` then inspect `site/index.html`
   (header/footer/pagination) and `site/authors/index.html` (author-card). Diff a
   rendered partial before/after with whitespace normalised.
+- Website: `cd ~/Developer/Vapor/website && swift run VaporWebsite` then inspect
+  `site/index.html`, `site/team/index.html`, `site/de/index.html`. Non-English pages
+  should carry `robots:noindex` (fallbacks); English pages should not. NOTE: normalise
+  BOTH `><` and `> <` when diffing (old head was minified, shared head is pretty-printed).
 - Pattern for verifying a newly-shared partial: capture the site's current rendered
   HTML for that component → extract it into the shared package → delete the site's
   local copy → rebuild → normalised-diff (should match modulo intended changes).
@@ -135,7 +203,8 @@ Leaf templates move into the shared package. Also added two Kiln engine features
 ## Canonical sources for porting more partials
 Publish components at `~/Developer/Vapor/design/Sources/VaporDesign/Components/`
 (`SiteFooter.swift`, `SiteNavigation.swift`, `Pagination.swift`, `Blog/*`,
-`MainSite/*`). The website's existing `Theme/templates/partials/header.leaf` is
-already a clean parameterised port of `SiteNavigation` (main-site variant).
+`MainSite/*`). The shared `header.leaf` (in the design package) is the canonical
+parameterised port of `SiteNavigation` (main-site variant) — the website's own
+`header.leaf`/`footer.leaf` have now been deleted in favour of it.
 NOTE: the `MainSite/*` cards (PackageCard, ShowcaseCard, …) are website-only —
 not cross-site chrome, don't extract them.
