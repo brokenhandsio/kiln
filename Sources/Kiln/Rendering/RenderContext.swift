@@ -153,8 +153,11 @@ struct RenderContext {
             // noindex non-default versions AND untranslated fallback pages (a
             // fallback serves the default language's content at a localised URL,
             // so indexing it would be duplicate/thin content — hreflang + the
-            // canonical already point search engines at the real page).
-            "noindex": .bool(version.noindex || isFallback),
+            // canonical already point search engines at the real page). Sites that
+            // localise via customStrings/templates (so their "fallbacks" are in
+            // fact translated) can opt fallbacks back into indexing via
+            // `KilnSite.indexFallbackPages`. Non-default versions stay noindex.
+            "noindex": .bool(version.noindex || (isFallback && !site.indexFallbackPages)),
             // Blog data (post page / listing page); `.trueNil` ⇒ `#if(blogPost)`
             // and `#if(blogListing)` are false on every non-blog page.
             "blogPost": blogPost ?? .trueNil,

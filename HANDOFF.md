@@ -45,7 +45,14 @@ Leaf templates move into the shared package. Also added two Kiln engine features
    `pagination()` now emits `previousLabel`/`nextLabel`; threaded through
    `listing()` + `authorPage()` and the 3 call sites in
    `SiteGenerator.renderBlog` (pass `language.localisation.resolved.previousPage/.nextPage`).
-   `swift test` → **121 tests pass**.
+4. **`KilnSite.indexFallbackPages: Bool = false`.** Overrides the fallback→`noindex`
+   rule: by default a localised page with no per-locale *content file* is a fallback
+   and gets `robots: noindex`; set this `true` when a site localises via
+   `customStrings`/templates (so its "fallbacks" are actually translated) to keep
+   them indexable. `RenderContext.swift:157` now emits
+   `version.noindex || (isFallback && !site.indexFallbackPages)` — non-default doc
+   versions stay `noindex` regardless. Test: `BuildTests.indexFallbackPagesOverride`.
+   `swift test` → **122 tests pass**.
 
 ### Design package (`~/Developer/Vapor/design`)
 - `Package.swift`: new `VaporDesignTheme` library target + product,
@@ -121,12 +128,15 @@ Leaf templates move into the shared package. Also added two Kiln engine features
   localised strings. Head deltas were all intended/superset:
   - intended: preconnect comment gone, `theme-init.js`, Press Kit `download`, `&copy;`→`©`.
   - additive metas: `og:image:alt`/`og:image:type`/`twitter:image:alt`.
-  - **`robots:noindex` now emitted on the 50 non-English fallback pages** — the old
-    head ignored Kiln's `noindex` (= `version.noindex || isFallback`,
-    `RenderContext.swift:157`). KEPT per user: correct de-dup SEO, and self-corrects
-    (a page stops being `isFallback` once it has real translated content → indexed again).
   - `<link rel="alternate" type="text/markdown">` per page — KEPT per user (`.md`
     files exist; `llmsText` left on).
+- **noindex resolution**: the shared head initially emitted `robots:noindex` on all
+  50 non-English pages, because Kiln's `isFallback` keys off per-locale *content
+  files* (`Content/index.de.md`, …) and this site has NONE — it localises via
+  `customStrings`, so every non-English page looked like an untranslated fallback
+  even though it renders fully translated. Fixed with the new
+  `indexFallbackPages: true` (main.swift) → 0 noindex pages; non-English pages are
+  self-canonical (`/de/…`) with full hreflang, so they index correctly.
 
 ## Key decisions & gotchas (IMPORTANT)
 - **CDN-only** for CSS/JS — shared partials reference `design.vapor.codes/main.css`+`main.js`.
@@ -175,7 +185,9 @@ Leaf templates move into the shared package. Also added two Kiln engine features
    - docs: `siteId: "docs"`, `head.defaultOgType:"article"`, `head.homeSuffix:""`,
      `head.titleSeparator:" · "`, move `theme.css`/extras into `KilnSite(extraCSS:)`,
      delete its duplicated footer + inline head (keep its own header/base sidebar chrome).
-     Its translated pages index correctly via the same `isFallback` noindex mechanic.
+     Do NOT set `indexFallbackPages` for docs UNLESS it also localises via customStrings
+     — if docs uses per-locale content files, its fallbacks are genuinely untranslated
+     and SHOULD stay `noindex` (the default). Verify which model docs uses first.
    - NOTE (website team branch): a "team branch" on the website will use the shared
      `pagination.leaf` + `author-card.leaf` — those were extracted FOR that; don't edit
      the website's team branch unprompted.
@@ -188,13 +200,14 @@ Leaf templates move into the shared package. Also added two Kiln engine features
    + a design-package release; swap local path deps back to version pins.
 
 ## How to verify
-- Kiln: `cd ~/Developer/BrokenHands/kiln && swift build && swift test` (expect 121 pass).
+- Kiln: `cd ~/Developer/BrokenHands/kiln && swift build && swift test` (expect 122 pass).
 - Blog: `cd ~/Developer/Vapor/blog && swift run Blog` then inspect `site/index.html`
   (header/footer/pagination) and `site/authors/index.html` (author-card). Diff a
   rendered partial before/after with whitespace normalised.
 - Website: `cd ~/Developer/Vapor/website && swift run VaporWebsite` then inspect
-  `site/index.html`, `site/team/index.html`, `site/de/index.html`. Non-English pages
-  should carry `robots:noindex` (fallbacks); English pages should not. NOTE: normalise
+  `site/index.html`, `site/team/index.html`, `site/de/index.html`. With
+  `indexFallbackPages: true`, NO page should carry `robots:noindex`; non-English
+  pages should be self-canonical (`/de/…`) with hreflang alternates. NOTE: normalise
   BOTH `><` and `> <` when diffing (old head was minified, shared head is pretty-printed).
 - Pattern for verifying a newly-shared partial: capture the site's current rendered
   HTML for that component → extract it into the shared package → delete the site's

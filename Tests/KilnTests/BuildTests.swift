@@ -5,7 +5,7 @@ import Foundation
 @Suite("End-to-end build")
 struct BuildTests {
     /// Build the bundled fixture docs into a fresh temporary directory.
-    func buildFixture(linkChecking: LinkChecking = .warn, basePath: String = "") async throws -> URL {
+    func buildFixture(linkChecking: LinkChecking = .warn, basePath: String = "", indexFallbackPages: Bool = false) async throws -> URL {
         guard let fixtures = Bundle.module.url(forResource: "Fixtures", withExtension: nil) else {
             Issue.record("Could not locate the Fixtures resource")
             throw ContentError.contentDirectoryNotFound("Fixtures")
@@ -26,7 +26,8 @@ struct BuildTests {
                 .init(.english, isDefault: true),
                 .init(.german, navTranslations: ["Section": "Abschnitt"],
                       localisation: .init(searchPlaceholder: "Suchen", tableOfContentsTitle: "Auf dieser Seite")),
-            ]
+            ],
+            indexFallbackPages: indexFallbackPages
         ) {
             Page("Home", "index.md")
             Page("Landing", "landing.md")
@@ -91,6 +92,23 @@ struct BuildTests {
         #expect(germanPage.contains("This page has no German translation"))
         // …and the reader is told it's a fallback.
         #expect(germanPage.contains("kiln-fallback"))
+        // By default a fallback page is noindex (duplicate/thin localised content).
+        #expect(germanPage.contains("<meta name=\"robots\" content=\"noindex\">"))
+        // The default-language original is always indexable.
+        let englishPage = try read(output.appendingPathComponent("section/page/index.html"))
+        #expect(!englishPage.contains("noindex"))
+    }
+
+    @Test("indexFallbackPages opts fallback pages back into indexing")
+    func indexFallbackPagesOverride() async throws {
+        let output = try await buildFixture(indexFallbackPages: true)
+        defer { try? FileManager.default.removeItem(at: output) }
+
+        let germanPage = try read(output.appendingPathComponent("de/section/page/index.html"))
+        // With the override, the fallback page is no longer noindex…
+        #expect(!germanPage.contains("noindex"))
+        // …but it is still a self-canonical, real URL (so it can be indexed).
+        #expect(germanPage.contains("<link rel=\"canonical\" href=\"https://fixture.example.com/de/section/page/\">"))
     }
 
     @Test("Per-page front matter can hide the sidebar and TOC rails")
