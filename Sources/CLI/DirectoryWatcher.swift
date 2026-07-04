@@ -1,17 +1,19 @@
-import Dispatch
 import Foundation
+import NIOPosix
 
 /// A simple cross-platform file watcher that polls modification times and
 /// invokes a callback when anything under `root` changes.
 ///
-/// Polling (rather than FSEvents/inotify) keeps it dependency-free and
-/// identical on macOS and Linux — fine for a local preview server.
+/// Polling (rather than FSEvents/inotify) keeps it simple and identical on macOS
+/// and Linux — fine for a local preview server. The (blocking) directory scan
+/// runs on NIO's dedicated blocking-I/O thread pool, so it never occupies a
+/// Swift-concurrency cooperative thread.
 final class DirectoryWatcher: @unchecked Sendable {
     private let roots: [URL]
     private let ignoredDirectories: Set<String>
     private let pollInterval: TimeInterval
     private var lastSignature: Int = 0
-    private var running = false
+    private var task: Task<Void, Never>?
 
     /// - Parameters:
     ///   - root: directory to watch recursively.
@@ -29,41 +31,46 @@ final class DirectoryWatcher: @unchecked Sendable {
         self.lastSignature = signature()
     }
 
-    /// Begin polling on a background thread. The (async) `onChange` build runs to
+    /// Begin polling in a background `Task`. The (async) `onChange` build runs to
     /// completion before the next scan, debounced so a burst of edits triggers a
-    /// single rebuild.
+    /// single rebuild. Each scan is offloaded to NIO's blocking-I/O pool, so the
+    /// only work on the cooperative pool is the lightweight orchestration and the
+    /// (already async) build.
     func start(onChange: @escaping @Sendable () async -> Void) {
-        running = true
-        let thread = Thread { [weak self] in
+        task = Task { [weak self] in
             guard let self else { return }
-            while self.running {
-                Thread.sleep(forTimeInterval: self.pollInterval)
-                guard self.running else { break }
-                let current = self.signature()
+            while !Task.isCancelled {
+                // `sleep` throws on cancellation → exit the loop.
+                do { try await Task.sleep(for: .seconds(self.pollInterval)) } catch { break }
+
+                let current = await self.scanSignature()
                 if current != self.lastSignature {
                     self.lastSignature = current
                     // Debounce: let a burst of writes settle, then re-check.
-                    Thread.sleep(forTimeInterval: self.pollInterval)
-                    self.lastSignature = self.signature()
-                    // Bridge to the async build and block this watcher thread until
-                    // it finishes (the build Task runs on the cooperative pool).
-                    let finished = DispatchSemaphore(value: 0)
-                    Task { await onChange(); finished.signal() }
-                    finished.wait()
+                    try? await Task.sleep(for: .seconds(self.pollInterval))
+                    self.lastSignature = await self.scanSignature()
+                    await onChange()
                     // Re-baseline AFTER the build so the files it generated (e.g.
                     // webpack assets, the swift output) don't trigger another
                     // rebuild on the next scan — otherwise an asset pre-build
                     // step would loop forever.
-                    self.lastSignature = self.signature()
+                    self.lastSignature = await self.scanSignature()
                 }
             }
         }
-        thread.name = "kiln-watcher"
-        thread.start()
     }
 
     func stop() {
-        running = false
+        task?.cancel()
+        task = nil
+    }
+
+    /// Compute the tree signature on NIO's dedicated blocking-I/O thread pool so
+    /// the blocking `FileManager` enumeration never runs on a cooperative thread.
+    /// On failure (pool inactive) it returns the last signature, so a transient
+    /// error is treated as "no change" rather than a spurious rebuild.
+    private func scanSignature() async -> Int {
+        (try? await NIOThreadPool.singleton.runIfActive { self.signature() }) ?? lastSignature
     }
 
     /// A hash of (path, modification time) for every watched file across all roots.
