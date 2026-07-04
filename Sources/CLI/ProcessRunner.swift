@@ -1,3 +1,4 @@
+import Dispatch
 import Foundation
 
 /// A CLI-level error with a user-facing message.
@@ -53,21 +54,31 @@ enum ProcessRunner {
 
         let buffer = OutputBuffer()
         let handle = pipe.fileHandleForReading
-        handle.readabilityHandler = { handle in
-            let data = handle.availableData
-            guard !data.isEmpty else { return }
-            try? FileHandle.standardOutput.write(contentsOf: data)
-            buffer.append(data)
+
+        // Drain the merged pipe on a background queue, streaming each chunk to our
+        // stdout live *and* capturing it. `availableData` blocks until data is
+        // ready and returns empty at EOF (when the child closes its write end). We
+        // deliberately avoid `FileHandle.readabilityHandler`: on Linux
+        // (swift-corelibs-foundation) it needs a running dispatch source that a
+        // synchronous `waitUntilExit()` never pumps, so it silently drops all the
+        // captured output. `FileHandle` isn't `Sendable`, but the reader queue is
+        // its only user until we block on the semaphore below, so it's safe.
+        let finishedReading = DispatchSemaphore(value: 0)
+        nonisolated(unsafe) let readHandle = handle
+        DispatchQueue(label: "io.kiln.process-reader").async {
+            while true {
+                let data = readHandle.availableData
+                if data.isEmpty { break }
+                try? FileHandle.standardOutput.write(contentsOf: data)
+                buffer.append(data)
+            }
+            finishedReading.signal()
         }
 
         try process.run()
         process.waitUntilExit()
-        handle.readabilityHandler = nil
-        // Drain anything buffered after the final readability callback.
-        if let remaining = try? handle.readToEnd(), !remaining.isEmpty {
-            try? FileHandle.standardOutput.write(contentsOf: remaining)
-            buffer.append(remaining)
-        }
+        // Wait for the reader to observe EOF and drain any trailing output.
+        finishedReading.wait()
 
         if process.terminationStatus != 0 {
             throw CLIError(message: "`\(command)` failed (exit \(process.terminationStatus)).")
@@ -77,7 +88,7 @@ enum ProcessRunner {
 }
 
 /// A small thread-safe byte accumulator for capturing process output from the
-/// pipe's background readability callbacks.
+/// background pipe-reader queue.
 private final class OutputBuffer: @unchecked Sendable {
     private let lock = NSLock()
     private var data = Data()
