@@ -80,6 +80,17 @@ public struct KilnSite: Sendable {
     /// files and a raw-markdown copy of every page (`…/index.md`) alongside its
     /// HTML, with a `<link rel="alternate" type="text/markdown">` for discovery.
     public var llmsText: Bool
+    /// Whether localised pages that fall back to the default language's *content
+    /// file* should still be indexable (no `robots: noindex`).
+    ///
+    /// By default (`false`), a localised page with no per-locale content file is
+    /// treated as an untranslated fallback and marked `noindex` — it serves the
+    /// default language's content at a localised URL, which would be duplicate/thin
+    /// content. Set this to `true` when a site localises through `customStrings` /
+    /// templates rather than per-locale content files, so its "fallback" pages are
+    /// in fact fully translated and should be indexed. Does not affect the
+    /// `noindex` applied to non-default documentation versions.
+    public var indexFallbackPages: Bool
     /// An optional blog: a directory of dated markdown posts rendered as post
     /// pages plus generated listing pages (paginated index, per-tag pages) and
     /// an RSS feed. A site with a blog must be single-language and unversioned.
@@ -111,6 +122,7 @@ public struct KilnSite: Sendable {
         languages: [Language] = [Language(.english, isDefault: true)],
         markdown: MarkdownExtensions = MarkdownExtensions(),
         llmsText: Bool = true,
+        indexFallbackPages: Bool = false,
         blog: Blog? = nil,
         versions: [DocVersion] = [],
         @NavBuilder navigation: () -> [NavItem] = { [] }
@@ -133,6 +145,7 @@ public struct KilnSite: Sendable {
         self.languages = languages
         self.markdown = markdown
         self.llmsText = llmsText
+        self.indexFallbackPages = indexFallbackPages
         self.blog = blog
         self.versions = versions
         self.navigation = navigation()

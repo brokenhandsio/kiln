@@ -5,6 +5,7 @@ import LeafKit
 public enum ThemeError: Error, CustomStringConvertible {
     case bundledThemeMissing
     case customThemeDirectoryNotFound(String)
+    case sharedLayerDirectoryNotFound(String)
 
     public var description: String {
         switch self {
@@ -12,6 +13,8 @@ public enum ThemeError: Error, CustomStringConvertible {
             return "Kiln's bundled default theme could not be located in the package resources."
         case .customThemeDirectoryNotFound(let path):
             return "Custom theme directory not found: \(path)"
+        case .sharedLayerDirectoryNotFound(let path):
+            return "Shared theme layer directory not found: \(path)"
         }
     }
 }
@@ -572,7 +575,9 @@ public struct SiteGenerator {
                 currentPage: page, totalPages: indexPages,
                 urlForPage: { urls.blogIndexURLPath(page: $0) },
                 tags: collection.tags, activeTagSlug: nil, isTagsPage: false,
-                totalPostCount: collection.posts.count, urls: urls, blog: blog
+                totalPostCount: collection.posts.count, urls: urls, blog: blog,
+                previousLabel: language.localisation.resolved.previousPage,
+                nextLabel: language.localisation.resolved.nextPage
             )
             sitemapEntries.append(try await emit(
                 template: "blog-index",
@@ -619,7 +624,9 @@ public struct SiteGenerator {
                     currentPage: page, totalPages: tagPages,
                     urlForPage: { urls.blogTagURLPath(slug: tag.slug, page: $0) },
                     tags: collection.tags, activeTagSlug: tag.slug, isTagsPage: true,
-                    totalPostCount: collection.posts.count, urls: urls, blog: blog
+                    totalPostCount: collection.posts.count, urls: urls, blog: blog,
+                    previousLabel: language.localisation.resolved.previousPage,
+                    nextLabel: language.localisation.resolved.nextPage
                 )
                 sitemapEntries.append(try await emit(
                     template: "blog-tags",
@@ -662,7 +669,9 @@ public struct SiteGenerator {
                         cards: slice(authored, page: page, perPage: perPage),
                         currentPage: page, totalPages: authorPages,
                         urlForPage: { urls.blogAuthorURLPath(slug: slug, page: $0) },
-                        urls: urls, blog: blog
+                        urls: urls, blog: blog,
+                        previousLabel: language.localisation.resolved.previousPage,
+                        nextLabel: language.localisation.resolved.nextPage
                     )
                     // The first page is the canonical author profile (ProfilePage + Person).
                     let profile = page == 1 ? ProfileStructuredData(
@@ -938,17 +947,34 @@ public struct SiteGenerator {
         }
         let bundledTemplates = bundledTheme.appendingPathComponent("templates", isDirectory: true)
 
+        // Shared layers are absolute directories (typically resource-bundle URLs
+        // from a shared design package), so they are NOT resolved against cwd.
+        let sharedLayers = site.theme.sharedLayers
+        for layer in sharedLayers where !FileManager.default.fileExists(atPath: layer.path) {
+            throw ThemeError.sharedLayerDirectoryNotFound(layer.path)
+        }
+        let sharedTemplates = sharedLayers.map { $0.appendingPathComponent("templates", isDirectory: true) }
+
         switch site.theme.source {
         case .default:
-            return (templates: [bundledTemplates], assets: [bundledTheme])
+            // Templates: highest priority first. Assets: lowest priority first
+            // (copyThemeAssets overwrites bundle-first → shared-last).
+            return (
+                templates: sharedTemplates + [bundledTemplates],
+                assets: [bundledTheme] + sharedLayers
+            )
         case .custom(let directory):
             let customURL = URL(fileURLWithPath: directory, relativeTo: URL(fileURLWithPath: FileManager.default.currentDirectoryPath))
             guard FileManager.default.fileExists(atPath: customURL.path) else {
                 throw ThemeError.customThemeDirectoryNotFound(customURL.path)
             }
             let customTemplates = customURL.appendingPathComponent("templates", isDirectory: true)
-            // Custom templates take priority; custom assets override bundled.
-            return (templates: [customTemplates, bundledTemplates], assets: [bundledTheme, customURL])
+            // Custom templates take priority, then shared layers, then bundled.
+            // Assets: bundled first, then shared, then custom (custom wins).
+            return (
+                templates: [customTemplates] + sharedTemplates + [bundledTemplates],
+                assets: [bundledTheme] + sharedLayers + [customURL]
+            )
         }
     }
 }

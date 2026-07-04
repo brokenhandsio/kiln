@@ -68,3 +68,6 @@ fastlane/test_output
 # occasionally emitted into the working tree instead of .build/
 *.d
 *.dia
+
+# Local-only migration notes — kept out of the released repo.
+HANDOFF.md

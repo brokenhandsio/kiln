@@ -183,10 +183,14 @@ kiln serve --directory public    # serve a different output directory
 kiln serve --no-watch            # build + serve once, no rebuild-on-change
 kiln serve --no-build            # serve the existing output without building first
 kiln serve --base-path /docs     # preview a site whose basePath is "/docs" (visit http://127.0.0.1:8080/docs/)
+kiln serve --pre-build "make js" # override the configured asset pre-build command for this run
+kiln serve --no-pre-build        # skip the asset pre-build step this run
 ```
 
-The watcher polls for changes (skipping `.build`, `.git`, `.swiftpm`, and the
-output directory) and re-runs the build; reload your browser to see updates.
+The watcher polls for changes (skipping `.build`, `.git`, `.swiftpm`,
+`node_modules`, and the output directory) and re-runs the build; reload your
+browser to see updates. If a `kiln.json` asset pre-build is configured (see
+below), each rebuild runs it before regenerating the site.
 
 ### `kiln build`
 
@@ -195,7 +199,36 @@ Build the site by running your project's executable:
 ```sh
 kiln build                       # writes the static site (to ./site by convention)
 kiln build --release             # build in release configuration
+kiln build --pre-build "make js" # override the configured asset pre-build command
+kiln build --no-pre-build        # skip the asset pre-build step
 ```
+
+### Building assets first (`kiln.json`)
+
+If your site has an asset pipeline — say webpack or Sass compiled with `npm` —
+it should run *before* the site is generated so the latest CSS/JS is picked up.
+Drop an optional `kiln.json` at the project root:
+
+```json
+{
+  "preBuild": {
+    "command": "npm run build",
+    "watch": ["src/scss", "src/js"]
+  }
+}
+```
+
+Both `kiln build` and `kiln serve` then run `command` before the Swift build,
+streaming its output live (so webpack warnings/errors are visible). During `kiln
+serve`, the directories in `watch` are watched alongside your project, so
+editing a stylesheet re-runs the asset build and regenerates the site. The
+`watch` paths are resolved relative to the project root and may point outside it
+(e.g. `"../design/src"` for a shared design repo).
+
+This is the one piece of CLI configuration Kiln reads from a file — a *tooling*
+concern, separate from your Swift-defined site config. With no `kiln.json`,
+behaviour is unchanged; override or skip the step per-run with `--pre-build
+<cmd>` / `--no-pre-build`.
 
 > [!NOTE]
 > `kiln` is optional — everything it does, you can also do with `swift run` plus

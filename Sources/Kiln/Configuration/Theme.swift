@@ -1,3 +1,5 @@
+public import Foundation
+
 /// Fonts used by the default theme. A `nil` value keeps the theme's built-in
 /// system font stack (equivalent to MkDocs' `font: false`).
 public struct Fonts: Sendable, Equatable {
@@ -31,6 +33,13 @@ public enum ThemeFeature: String, Sendable, Hashable {
 /// directory of your own Leaf templates and assets with `.custom(directory:)`
 /// to override any part of it — templates resolve from your directory first and
 /// fall back to the bundled theme, so you only override what you need.
+///
+/// `sharedLayers` inserts additional theme directories *between* your custom
+/// directory and the bundled default. These are typically resource-bundle
+/// directories shipped by a shared design package (via `Bundle.module`), letting
+/// several sites pull in one set of common templates while still overriding
+/// individual templates locally. Resolution order is:
+/// custom directory → shared layers (in order) → bundled default.
 public struct Theme: Sendable {
     public enum Source: Sendable {
         /// Use Kiln's bundled default theme.
@@ -41,6 +50,11 @@ public struct Theme: Sendable {
     }
 
     public var source: Source
+    /// Additional theme layers — absolute directories, typically derived from a
+    /// shared design package's `Bundle.module` — inserted between the site's
+    /// custom directory and Kiln's bundled default. Earlier entries win for
+    /// templates; later entries' assets override earlier ones.
+    public var sharedLayers: [URL]
     public var palette: Palette
     /// Path (relative to the content directory's assets) to a logo image.
     public var logo: String?
@@ -51,6 +65,7 @@ public struct Theme: Sendable {
 
     public init(
         source: Source = .default,
+        sharedLayers: [URL] = [],
         palette: Palette = Palette(),
         logo: String? = nil,
         favicon: String? = nil,
@@ -58,6 +73,7 @@ public struct Theme: Sendable {
         features: Set<ThemeFeature> = [.searchSuggest, .searchHighlight]
     ) {
         self.source = source
+        self.sharedLayers = sharedLayers
         self.palette = palette
         self.logo = logo
         self.favicon = favicon
@@ -67,24 +83,26 @@ public struct Theme: Sendable {
 
     /// Kiln's bundled default theme.
     public static func `default`(
+        sharedLayers: [URL] = [],
         palette: Palette = Palette(),
         logo: String? = nil,
         favicon: String? = nil,
         fonts: Fonts? = nil,
         features: Set<ThemeFeature> = [.searchSuggest, .searchHighlight]
     ) -> Theme {
-        Theme(source: .default, palette: palette, logo: logo, favicon: favicon, fonts: fonts, features: features)
+        Theme(source: .default, sharedLayers: sharedLayers, palette: palette, logo: logo, favicon: favicon, fonts: fonts, features: features)
     }
 
     /// A theme that overrides the bundled default with your own templates/assets.
     public static func custom(
         directory: String,
+        sharedLayers: [URL] = [],
         palette: Palette = Palette(),
         logo: String? = nil,
         favicon: String? = nil,
         fonts: Fonts? = nil,
         features: Set<ThemeFeature> = [.searchSuggest, .searchHighlight]
     ) -> Theme {
-        Theme(source: .custom(directory: directory), palette: palette, logo: logo, favicon: favicon, fonts: fonts, features: features)
+        Theme(source: .custom(directory: directory), sharedLayers: sharedLayers, palette: palette, logo: logo, favicon: favicon, fonts: fonts, features: features)
     }
 }

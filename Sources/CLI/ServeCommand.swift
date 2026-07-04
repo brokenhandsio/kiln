@@ -47,14 +47,35 @@ struct Serve: AsyncParsableCommand {
     @Flag(name: .long, help: "Don't watch for changes / rebuild.")
     var noWatch = false
 
+    @Option(name: .long, help: "Run this command to build assets before generating the site (overrides kiln.json).")
+    var preBuild: String?
+
+    @Flag(name: .long, help: "Skip the asset pre-build step even if one is configured.")
+    var noPreBuild = false
+
     func run() async throws {
         let cwd = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
         let servedDirectory = URL(fileURLWithPath: directory, relativeTo: cwd)
         let runArguments = swiftRunArguments(target: target, release: release)
 
+        let config = try KilnCLIConfig.load(in: cwd)
+        let preBuildCommand = resolvePreBuildCommand(
+            configured: config?.preBuild?.command, override: preBuild, disabled: noPreBuild
+        )
+
+        // Run the asset pre-build (if any) then the Swift site build. Used for
+        // both the initial build and watch-triggered rebuilds.
+        let fullBuild: @Sendable () throws -> Void = {
+            if let preBuildCommand {
+                emit("Building assets (\(preBuildCommand))…")
+                try ProcessRunner.runCommand(preBuildCommand, in: cwd)
+            }
+            try ProcessRunner.runSwift(runArguments)
+        }
+
         if !noBuild {
             emit("Building documentation…")
-            try ProcessRunner.runSwift(runArguments)
+            try fullBuild()
         }
 
         let indexPath = servedDirectory.appendingPathComponent("index.html").path
@@ -65,18 +86,23 @@ struct Serve: AsyncParsableCommand {
         var watcher: DirectoryWatcher?
         if !noWatch {
             let directoryName = directory
-            let w = DirectoryWatcher(root: cwd, outputDirectoryName: directoryName)
+            // Extra directories to watch (e.g. asset sources in a shared design
+            // repo), resolved relative to cwd.
+            let additionalRoots = (config?.preBuild?.watch ?? []).map {
+                URL(fileURLWithPath: $0, relativeTo: cwd)
+            }
+            let w = DirectoryWatcher(root: cwd, outputDirectoryName: directoryName, additionalRoots: additionalRoots)
             w.start {
                 emit("\nChange detected — rebuilding…")
                 do {
-                    try ProcessRunner.runSwift(runArguments)
+                    try fullBuild()
                     emit("Rebuilt at \(timestamp()). Reload your browser.")
                 } catch {
                     emit("Build failed at \(timestamp()): \(error)")
                 }
             }
             watcher = w
-            emit("Watching for changes (skipping .build, .git, .swiftpm, \(directory)/)…")
+            emit("Watching for changes (skipping .build, .git, .swiftpm, node_modules, \(directory)/)…")
         }
 
         let mountPath = SiteURLs.normaliseBasePath(basePath)
