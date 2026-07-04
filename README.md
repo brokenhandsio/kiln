@@ -1,5 +1,8 @@
 # Kiln
 
+[![](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fbrokenhandsio%2Fkiln%2Fbadge%3Ftype%3Dswift-versions)](https://swiftpackageindex.com/brokenhandsio/kiln)
+[![](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fbrokenhandsio%2Fkiln%2Fbadge%3Ftype%3Dplatforms)](https://swiftpackageindex.com/brokenhandsio/kiln)
+
 **Kiln** is a documentation tool for projects that provides first class support for multiple versions and localisation. It works as a static site generator written in Swift. You describe
 your site in a type-safe Swift configuration and Kiln turns a directory of
 markdown into a fast, modern static website — no YAML, no Python toolchain.
