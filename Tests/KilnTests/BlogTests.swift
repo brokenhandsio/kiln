@@ -301,6 +301,14 @@ struct BlogTests {
         let third = try #require(feed.range(of: "<title>Third Post</title>"))
         let first = try #require(feed.range(of: "<title>First Post</title>"))
         #expect(third.lowerBound < first.lowerBound)
+
+        // The feed carries the full post body via `content:encoded` (not just the
+        // excerpt), and root-relative links are absolutised so they resolve in a
+        // reader. Second Post's body links to the security tag with a `/…` URL.
+        #expect(feed.contains("xmlns:content=\"http://purl.org/rss/1.0/modules/content/\""))
+        #expect(feed.contains("<content:encoded>"))
+        #expect(feed.contains("https://blog.example.com/tags/security/"))
+        #expect(!feed.contains("href=\"/"))   // no root-relative links leak into the feed
     }
 
     @Test("Sitemap and search index include the blog pages")

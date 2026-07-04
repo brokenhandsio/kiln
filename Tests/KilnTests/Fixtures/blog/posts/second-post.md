@@ -9,3 +9,5 @@ authorImageURLs: /author-images/tim.jpg; /author-images/gwynne.jpg
 
 A jointly authored update covering a security advisory and how it was resolved
 across the affected packages in the ecosystem.
+
+More background is filed under the [security tag](/tags/security/).

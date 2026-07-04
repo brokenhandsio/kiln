@@ -708,6 +708,7 @@ public struct SiteGenerator {
             description: blog.feedDescription ?? site.description ?? site.name,
             siteURL: absoluteURL(forLocation: homeLocation),
             feedURL: absoluteURL(forLocation: basePathLocationPrefix + "feed.rss"),
+            siteOrigin: site.url.hasSuffix("/") ? String(site.url.dropLast()) : site.url,
             language: locale,
             posts: collection.posts,
             postURL: { post in
