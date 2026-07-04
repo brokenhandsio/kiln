@@ -65,17 +65,17 @@ struct Serve: AsyncParsableCommand {
 
         // Run the asset pre-build (if any) then the Swift site build. Used for
         // both the initial build and watch-triggered rebuilds.
-        let fullBuild: @Sendable () throws -> Void = {
+        let fullBuild: @Sendable () async throws -> Void = {
             if let preBuildCommand {
                 emit("Building assets (\(preBuildCommand))…")
-                try ProcessRunner.runCommand(preBuildCommand, in: cwd)
+                try await ProcessRunner.runCommand(preBuildCommand, in: cwd)
             }
-            try ProcessRunner.runSwift(runArguments)
+            try await ProcessRunner.runSwift(runArguments)
         }
 
         if !noBuild {
             emit("Building documentation…")
-            try fullBuild()
+            try await fullBuild()
         }
 
         let indexPath = servedDirectory.appendingPathComponent("index.html").path
@@ -95,7 +95,7 @@ struct Serve: AsyncParsableCommand {
             w.start {
                 emit("\nChange detected — rebuilding…")
                 do {
-                    try fullBuild()
+                    try await fullBuild()
                     emit("Rebuilt at \(timestamp()). Reload your browser.")
                 } catch {
                     emit("Build failed at \(timestamp()): \(error)")

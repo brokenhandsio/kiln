@@ -1,3 +1,4 @@
+import Dispatch
 import Foundation
 
 /// A simple cross-platform file watcher that polls modification times and
@@ -28,9 +29,10 @@ final class DirectoryWatcher: @unchecked Sendable {
         self.lastSignature = signature()
     }
 
-    /// Begin polling on a background thread. `onChange` runs on that thread,
-    /// debounced so a burst of edits triggers a single rebuild.
-    func start(onChange: @escaping @Sendable () -> Void) {
+    /// Begin polling on a background thread. The (async) `onChange` build runs to
+    /// completion before the next scan, debounced so a burst of edits triggers a
+    /// single rebuild.
+    func start(onChange: @escaping @Sendable () async -> Void) {
         running = true
         let thread = Thread { [weak self] in
             guard let self else { return }
@@ -43,7 +45,11 @@ final class DirectoryWatcher: @unchecked Sendable {
                     // Debounce: let a burst of writes settle, then re-check.
                     Thread.sleep(forTimeInterval: self.pollInterval)
                     self.lastSignature = self.signature()
-                    onChange()
+                    // Bridge to the async build and block this watcher thread until
+                    // it finishes (the build Task runs on the cooperative pool).
+                    let finished = DispatchSemaphore(value: 0)
+                    Task { await onChange(); finished.signal() }
+                    finished.wait()
                     // Re-baseline AFTER the build so the files it generated (e.g.
                     // webpack assets, the swift output) don't trigger another
                     // rebuild on the next scan — otherwise an asset pre-build

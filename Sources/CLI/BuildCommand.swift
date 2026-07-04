@@ -24,10 +24,10 @@ struct Build: AsyncParsableCommand {
         let config = try KilnCLIConfig.load(in: cwd)
         if let command = resolvePreBuildCommand(configured: config?.preBuild?.command, override: preBuild, disabled: noPreBuild) {
             print("Building assets (\(command))…")
-            try ProcessRunner.runCommand(command, in: cwd)
+            try await ProcessRunner.runCommand(command, in: cwd)
         }
         print("Building documentation…")
-        try ProcessRunner.runSwift(swiftRunArguments(target: target, release: release))
+        try await ProcessRunner.runSwift(swiftRunArguments(target: target, release: release))
         print("Done.")
     }
 }

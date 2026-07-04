@@ -1,5 +1,14 @@
-import Dispatch
 import Foundation
+import Subprocess
+
+// `FilePath` for the working directory — matching how Subprocess itself imports
+// it (the OS `System` framework on Apple platforms, the `swift-system` package
+// elsewhere) so we pass the same `FilePath` type its API expects.
+#if canImport(System)
+import System
+#else
+import SystemPackage
+#endif
 
 /// A CLI-level error with a user-facing message.
 struct CLIError: Error, CustomStringConvertible {
@@ -7,22 +16,25 @@ struct CLIError: Error, CustomStringConvertible {
     var description: String { message }
 }
 
-/// Runs external commands, inheriting the terminal's standard I/O so build
-/// output streams straight through.
+/// Runs external commands via swift-subprocess — the modern, cross-platform way
+/// to spawn processes. Replaces `Foundation.Process`, whose pipe I/O needed
+/// platform-specific handling to capture output reliably on Linux.
 enum ProcessRunner {
-    /// Run `swift` with the given arguments in `directory` (default: cwd).
-    /// Throws ``CLIError`` on a non-zero exit.
-    static func runSwift(_ arguments: [String], in directory: URL? = nil) throws {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-        process.arguments = ["swift"] + arguments
-        if let directory { process.currentDirectoryURL = directory }
-        // Process inherits the parent's stdout/stderr/stdin by default, which
-        // keeps swift's coloured diagnostics intact.
-        try process.run()
-        process.waitUntilExit()
-        if process.terminationStatus != 0 {
-            throw CLIError(message: "`swift \(arguments.joined(separator: " "))` failed (exit \(process.terminationStatus)).")
+    /// Run `swift` with the given arguments in `directory` (default: cwd),
+    /// inheriting our stdout/stderr so swift's coloured diagnostics stream
+    /// straight through. Throws ``CLIError`` on a non-zero exit.
+    static func runSwift(_ arguments: [String], in directory: URL? = nil) async throws {
+        let result = try await run(
+            .name("swift"),
+            arguments: Arguments(arguments),
+            workingDirectory: directory.map { FilePath($0.path) },
+            output: .standardOutput,
+            error: .standardError
+        )
+        guard result.terminationStatus.isSuccess else {
+            throw CLIError(
+                message: "`swift \(arguments.joined(separator: " "))` failed (\(result.terminationStatus))."
+            )
         }
     }
 
@@ -39,69 +51,33 @@ enum ProcessRunner {
     ///
     /// Throws ``CLIError`` on a non-zero exit.
     @discardableResult
-    static func runCommand(_ command: String, in directory: URL? = nil) throws -> CommandResult {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-        // Run through `sh -c` so the command parses naturally.
-        process.arguments = ["sh", "-c", command]
-        if let directory { process.currentDirectoryURL = directory }
-
-        // Merge stdout and stderr into one pipe so the live stream preserves the
-        // order tools write in (webpack reports warnings on stderr).
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        process.standardError = pipe
-
-        let buffer = OutputBuffer()
-        let handle = pipe.fileHandleForReading
-
-        // Drain the merged pipe on a background queue, streaming each chunk to our
-        // stdout live *and* capturing it. `availableData` blocks until data is
-        // ready and returns empty at EOF (when the child closes its write end). We
-        // deliberately avoid `FileHandle.readabilityHandler`: on Linux
-        // (swift-corelibs-foundation) it needs a running dispatch source that a
-        // synchronous `waitUntilExit()` never pumps, so it silently drops all the
-        // captured output. `FileHandle` isn't `Sendable`, but the reader queue is
-        // its only user until we block on the semaphore below, so it's safe.
-        let finishedReading = DispatchSemaphore(value: 0)
-        nonisolated(unsafe) let readHandle = handle
-        DispatchQueue(label: "io.kiln.process-reader").async {
-            while true {
-                let data = readHandle.availableData
-                if data.isEmpty { break }
-                try? FileHandle.standardOutput.write(contentsOf: data)
-                buffer.append(data)
+    static func runCommand(_ command: String, in directory: URL? = nil) async throws -> CommandResult {
+        // Merge stderr into stdout (`2>&1`, via `.combinedWithOutput`) so the
+        // streamed order matches what the tool writes (webpack reports warnings on
+        // stderr). The closure streams each line live while accumulating it.
+        let outcome = try await run(
+            .name("sh"),
+            arguments: ["-c", command],
+            workingDirectory: directory.map { FilePath($0.path) },
+            error: .combinedWithOutput
+        ) { _, standardOutput in
+            var captured = ""
+            for try await line in standardOutput.lines() {
+                print(line)
+                captured += line
+                captured += "\n"
             }
-            finishedReading.signal()
+            return captured
         }
 
-        try process.run()
-        process.waitUntilExit()
-        // Wait for the reader to observe EOF and drain any trailing output.
-        finishedReading.wait()
-
-        if process.terminationStatus != 0 {
-            throw CLIError(message: "`\(command)` failed (exit \(process.terminationStatus)).")
+        guard outcome.terminationStatus.isSuccess else {
+            throw CLIError(message: "`\(command)` failed (\(outcome.terminationStatus)).")
         }
-        return CommandResult(exitCode: process.terminationStatus, output: buffer.string())
-    }
-}
-
-/// A small thread-safe byte accumulator for capturing process output from the
-/// background pipe-reader queue.
-private final class OutputBuffer: @unchecked Sendable {
-    private let lock = NSLock()
-    private var data = Data()
-
-    func append(_ chunk: Data) {
-        lock.lock()
-        data.append(chunk)
-        lock.unlock()
-    }
-
-    func string() -> String {
-        lock.lock()
-        defer { lock.unlock() }
-        return String(decoding: data, as: UTF8.self)
+        let exitCode: Int32
+        switch outcome.terminationStatus {
+        case .exited(let code): exitCode = code
+        case .signaled(let signal): exitCode = 128 + signal
+        }
+        return CommandResult(exitCode: exitCode, output: outcome.value)
     }
 }

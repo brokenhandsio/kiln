@@ -56,14 +56,14 @@ struct PreBuildTests {
     }
 
     @Test("runCommand captures output")
-    func runCommandCaptures() throws {
-        let result = try ProcessRunner.runCommand("echo kiln-capture-marker")
+    func runCommandCaptures() async throws {
+        let result = try await ProcessRunner.runCommand("echo kiln-capture-marker")
         #expect(result.exitCode == 0)
         #expect(result.output.contains("kiln-capture-marker"))
     }
 
     @Test("runCommand throws on a non-zero exit")
-    func runCommandThrows() {
-        #expect(throws: CLIError.self) { try ProcessRunner.runCommand("exit 3") }
+    func runCommandThrows() async {
+        await #expect(throws: CLIError.self) { try await ProcessRunner.runCommand("exit 3") }
     }
 }
