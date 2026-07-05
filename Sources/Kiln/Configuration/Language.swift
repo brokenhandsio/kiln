@@ -15,6 +15,11 @@ public struct Language: Sendable {
     /// Whether to build this language. Set to `false` to keep a translation in
     /// the repo without publishing it.
     public var build: Bool
+    /// Whether this language is written right-to-left. Drives the `dir="rtl"`
+    /// attribute on the page shell and the direction-aware theme CSS. Defaults
+    /// to the ``LanguageCode``'s direction (RTL for Arabic/Hebrew) and can be
+    /// overridden for ``LanguageCode/custom(code:name:)`` locales.
+    public var isRTL: Bool
     /// Optional localised site name (overrides ``KilnSite/name`` for this
     /// language), e.g. `"Vapor Dokumentation"`.
     public var siteName: String?
@@ -45,11 +50,15 @@ public struct Language: Sendable {
     /// - Parameters:
     ///   - code: the language (e.g. `.english`, `.german`, or `.custom`).
     ///   - name: overrides the code's default display name in the switcher.
+    ///   - isRTL: overrides the writing direction. Defaults to the code's own
+    ///     direction (RTL for Arabic/Hebrew, LTR otherwise); pass `true`/`false`
+    ///     for a ``LanguageCode/custom(code:name:)`` locale Kiln can't classify.
     public init(
         _ code: LanguageCode,
         isDefault: Bool = false,
         build: Bool = true,
         name: String? = nil,
+        isRTL: Bool? = nil,
         siteName: String? = nil,
         description: String? = nil,
         navTranslations: [String: String] = [:],
@@ -63,6 +72,7 @@ public struct Language: Sendable {
         self.name = name ?? code.name
         self.isDefault = isDefault
         self.build = build
+        self.isRTL = isRTL ?? code.isRTL
         self.siteName = siteName
         self.description = description
         self.image = image

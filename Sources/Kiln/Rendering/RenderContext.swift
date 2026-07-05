@@ -205,6 +205,11 @@ struct RenderContext {
             "twitterSite": .string(site.twitterSite),
             "palette": paletteData,
             "features": featuresData,
+            // The default language's locale/direction, so templates can tag
+            // fallback (untranslated) content with the original language and
+            // direction — e.g. English content served LTR inside an RTL page.
+            "defaultLocale": .string(site.defaultLanguage.locale),
+            "defaultDir": .string(site.defaultLanguage.isRTL ? "rtl" : "ltr"),
         ]
         if let repository = site.repository {
             dict["repository"] = .dictionary([
@@ -311,6 +316,10 @@ struct RenderContext {
             "locale": .string(language.locale),
             "name": .string(language.name),
             "isDefault": .bool(language.isDefault),
+            // Writing direction for the `<html dir="…">` attribute and any
+            // direction-conditional template logic.
+            "direction": .string(language.isRTL ? "rtl" : "ltr"),
+            "isRTL": .bool(language.isRTL),
             // Path prefix for the current language: "" for the default language
             // (pages live at the site root) and "/<locale>" otherwise (pages live
             // under `/<locale>/`). Prepend it to hand-authored internal links so a
