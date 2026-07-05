@@ -47,4 +47,24 @@ struct ConfigurationTests {
         }
         #expect(site.buildableLanguages.map(\.locale) == ["en"])
     }
+
+    @Test("Language codes carry the right writing direction")
+    func languageCodeDirection() {
+        #expect(LanguageCode.arabic.isRTL)
+        #expect(LanguageCode.hebrew.isRTL)
+        #expect(!LanguageCode.english.isRTL)
+        #expect(!LanguageCode.german.isRTL)
+        // Kiln can't classify a custom locale, so it defaults to LTR.
+        #expect(!LanguageCode.custom(code: "fa", name: "فارسی").isRTL)
+    }
+
+    @Test("Language direction defaults from its code and is overridable")
+    func languageDirection() {
+        #expect(Language(.arabic).isRTL)
+        #expect(!Language(.english, isDefault: true).isRTL)
+        // A custom RTL locale can declare its direction explicitly.
+        #expect(Language(.custom(code: "fa", name: "فارسی"), isRTL: true).isRTL)
+        // …and an explicit value overrides the code's default either way.
+        #expect(!Language(.arabic, isRTL: false).isRTL)
+    }
 }

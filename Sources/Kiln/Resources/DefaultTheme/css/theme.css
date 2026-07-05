@@ -145,7 +145,8 @@ a:hover { text-decoration: underline; }
     align-self: start;
     height: calc(100vh - var(--kiln-header-height));
     overflow-y: auto;
-    padding: 24px 8px 48px 0;
+    padding-block: 24px 48px;
+    padding-inline: 0 8px;
 }
 
 .kiln-toc {
@@ -164,7 +165,7 @@ a:hover { text-decoration: underline; }
 
 /* ---- Sidebar navigation ---- */
 .kiln-nav-list { list-style: none; margin: 0; padding: 0; }
-.kiln-nav-list .kiln-nav-list { margin-left: 12px; border-left: 1px solid var(--border); padding-left: 8px; }
+.kiln-nav-list .kiln-nav-list { margin-inline-start: 12px; border-inline-start: 1px solid var(--border); padding-inline-start: 8px; }
 
 .kiln-nav-link {
     display: block;
@@ -201,6 +202,8 @@ a:hover { text-decoration: underline; }
     color: var(--muted);
 }
 .kiln-nav-section[open] > .kiln-nav-summary::before { transform: rotate(90deg); }
+/* Collapsed chevron points toward the content edge, so mirror it in RTL. */
+[dir="rtl"] .kiln-nav-section:not([open]) > .kiln-nav-summary::before { transform: scaleX(-1); }
 
 /* ---- Article ---- */
 .kiln-article {
@@ -219,12 +222,12 @@ a:hover { text-decoration: underline; }
 .kiln-article blockquote {
     margin: 1em 0;
     padding: 0.2em 1.1em;
-    border-left: 4px solid var(--border);
+    border-inline-start: 4px solid var(--border);
     color: var(--muted);
 }
 
 .headerlink {
-    margin-left: 0.4em;
+    margin-inline-start: 0.4em;
     color: var(--muted);
     opacity: 0;
     text-decoration: none;
@@ -252,6 +255,11 @@ pre {
     line-height: 1.5;
 }
 pre code { background: none; padding: 0; font-size: 0.85rem; color: var(--code-text); }
+/* Code is always left-to-right, even inside RTL prose (indentation, comments and
+   punctuation only read correctly LTR). Isolate inline code so a token can't
+   disrupt the bidi ordering of the surrounding text. */
+pre, pre code { direction: ltr; text-align: left; }
+:not(pre) > code { unicode-bidi: isolate; }
 
 /* ---- Tables ---- */
 .kiln-article table {
@@ -260,7 +268,7 @@ pre code { background: none; padding: 0; font-size: 0.85rem; color: var(--code-t
     margin: 1.2em 0;
     font-size: 0.92rem;
 }
-.kiln-article th, .kiln-article td { border: 1px solid var(--border); padding: 8px 12px; text-align: left; }
+.kiln-article th, .kiln-article td { border: 1px solid var(--border); padding: 8px 12px; text-align: start; }
 .kiln-article thead th { background: var(--surface); }
 .kiln-article tbody tr:nth-child(even) { background: var(--surface); }
 
@@ -269,7 +277,7 @@ pre code { background: none; padding: 0; font-size: 0.85rem; color: var(--code-t
     margin: 1.2em 0;
     padding: 14px 16px;
     border: 1px solid var(--border);
-    border-left: 4px solid var(--accent);
+    border-inline-start: 4px solid var(--accent);
     border-radius: var(--kiln-radius);
     background: var(--surface);
 }
@@ -284,45 +292,46 @@ pre code { background: none; padding: 0; font-size: 0.85rem; color: var(--code-t
 details.admonition > summary.admonition-title { cursor: pointer; list-style: none; }
 details.admonition > summary.admonition-title::-webkit-details-marker { display: none; }
 
-.admonition.note, .admonition.seealso { border-left-color: #3b82f6; }
+.admonition.note, .admonition.seealso { border-inline-start-color: #3b82f6; }
 .admonition.note .admonition-title, .admonition.seealso .admonition-title { color: #3b82f6; }
-.admonition.tip, .admonition.success, .admonition.hint { border-left-color: #10b981; }
+.admonition.tip, .admonition.success, .admonition.hint { border-inline-start-color: #10b981; }
 .admonition.tip .admonition-title, .admonition.success .admonition-title, .admonition.hint .admonition-title { color: #10b981; }
-.admonition.warning, .admonition.caution, .admonition.attention { border-left-color: #f59e0b; }
+.admonition.warning, .admonition.caution, .admonition.attention { border-inline-start-color: #f59e0b; }
 .admonition.warning .admonition-title, .admonition.caution .admonition-title, .admonition.attention .admonition-title { color: #f59e0b; }
-.admonition.danger, .admonition.error, .admonition.bug { border-left-color: #ef4444; }
+.admonition.danger, .admonition.error, .admonition.bug { border-inline-start-color: #ef4444; }
 .admonition.danger .admonition-title, .admonition.error .admonition-title, .admonition.bug .admonition-title { color: #ef4444; }
-.admonition.info { border-left-color: #06b6d4; }
+.admonition.info { border-inline-start-color: #06b6d4; }
 .admonition.info .admonition-title { color: #06b6d4; }
 
 /* ---- Table of contents ---- */
 .kiln-toc-title { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 0 0 10px; }
 .kiln-toc-list, .kiln-toc-sublist { list-style: none; margin: 0; padding: 0; }
-.kiln-toc-sublist { margin-left: 12px; }
-.kiln-toc-entry a { display: block; padding: 3px 0; color: var(--muted); font-size: 0.85rem; border-left: 2px solid transparent; padding-left: 10px; margin-left: -2px; }
+.kiln-toc-sublist { margin-inline-start: 12px; }
+.kiln-toc-entry a { display: block; padding: 3px 0; color: var(--muted); font-size: 0.85rem; border-inline-start: 2px solid transparent; padding-inline-start: 10px; margin-inline-start: -2px; }
 .kiln-toc-entry a:hover { color: var(--text); text-decoration: none; }
-.kiln-toc-entry a.kiln-toc-active { color: var(--accent); border-left-color: var(--accent); }
+.kiln-toc-entry a.kiln-toc-active { color: var(--accent); border-inline-start-color: var(--accent); }
 
 /* ---- Page navigation (prev/next) ---- */
 .kiln-page-nav { display: flex; justify-content: space-between; gap: 16px; margin-top: 48px; padding-top: 24px; border-top: 1px solid var(--border); }
 .kiln-page-nav a { flex: 1; display: flex; flex-direction: column; padding: 14px 18px; border: 1px solid var(--border); border-radius: var(--kiln-radius); }
 .kiln-page-nav a:hover { border-color: var(--accent); text-decoration: none; }
-.kiln-next { text-align: right; align-items: flex-end; }
+.kiln-next { text-align: end; align-items: flex-end; }
 .kiln-page-nav-label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
 .kiln-page-nav-title { font-weight: 600; color: var(--text); }
 
 .kiln-edit-link { display: inline-block; margin-top: 24px; font-size: 0.85rem; color: var(--muted); }
 
-.kiln-fallback { border-left-color: #f59e0b; }
+.kiln-fallback { border-inline-start-color: #f59e0b; }
 .kiln-fallback .admonition-title { color: #f59e0b; }
 
 /* ---- Search ---- */
 .kiln-search { position: relative; display: flex; align-items: center; }
-.kiln-search-icon { position: absolute; left: 10px; color: var(--muted); pointer-events: none; }
+.kiln-search-icon { position: absolute; inset-inline-start: 10px; color: var(--muted); pointer-events: none; }
 .kiln-search-input {
     width: 220px;
     max-width: 40vw;
-    padding: 8px 12px 8px 34px;
+    padding: 8px 12px;
+    padding-inline-start: 34px;
     border: 1px solid var(--border);
     border-radius: 8px;
     background: var(--surface);
@@ -333,7 +342,7 @@ details.admonition > summary.admonition-title::-webkit-details-marker { display:
 .kiln-search-results {
     position: absolute;
     top: calc(100% + 8px);
-    right: 0;
+    inset-inline-end: 0;
     width: min(520px, 90vw);
     max-height: 70vh;
     overflow-y: auto;
@@ -357,7 +366,7 @@ details.admonition > summary.admonition-title::-webkit-details-marker { display:
 .kiln-lang-menu {
     position: absolute;
     top: calc(100% + 8px);
-    right: 0;
+    inset-inline-end: 0;
     list-style: none;
     margin: 0;
     padding: 6px;
@@ -390,7 +399,7 @@ details.admonition > summary.admonition-title::-webkit-details-marker { display:
 .kiln-version-menu {
     position: absolute;
     top: calc(100% + 8px);
-    right: 0;
+    inset-inline-end: 0;
     list-style: none;
     margin: 0;
     padding: 6px;
@@ -449,8 +458,7 @@ details.admonition > summary.admonition-title::-webkit-details-marker { display:
     .kiln-search {
         position: fixed;
         top: var(--kiln-header-height);
-        left: 0;
-        right: 0;
+        inset-inline: 0;
         display: none;
         flex-direction: column;
         padding: 12px 18px 16px;
@@ -461,7 +469,7 @@ details.admonition > summary.admonition-title::-webkit-details-marker { display:
     }
     body.kiln-search-open .kiln-search { display: flex; }
     .kiln-search-icon { display: none; }
-    .kiln-search-input { width: 100%; max-width: none; padding-left: 12px; }
+    .kiln-search-input { width: 100%; max-width: none; padding-inline-start: 12px; }
     .kiln-search-results {
         position: static;
         width: 100%;
@@ -482,23 +490,26 @@ details.admonition > summary.admonition-title::-webkit-details-marker { display:
         margin-bottom: 12px;
         border-bottom: 1px solid var(--border);
     }
-    /* Dropdowns open inward (left-aligned) so they don't clip off the drawer. */
+    /* Dropdowns open inward (start-aligned) so they don't clip off the drawer. */
     .kiln-controls-drawer .kiln-lang-menu,
-    .kiln-controls-drawer .kiln-version-menu { left: 0; right: auto; }
+    .kiln-controls-drawer .kiln-version-menu { inset-inline-start: 0; inset-inline-end: auto; }
 
     .kiln-sidebar {
         position: fixed;
         top: var(--kiln-header-height);
-        left: 0;
+        inset-inline-start: 0;
         width: 86%;
         max-width: 320px;
         background: var(--bg);
-        border-right: 1px solid var(--border);
+        border-inline-end: 1px solid var(--border);
         padding: 16px;
+        /* Hidden off the inline-start edge; the RTL override below flips the
+           slide direction since translateX() isn't a logical property. */
         transform: translateX(-100%);
         transition: transform 0.2s ease;
         z-index: 60;
     }
+    [dir="rtl"] .kiln-sidebar { transform: translateX(100%); }
     body.kiln-nav-open .kiln-sidebar { transform: translateX(0); }
     body.kiln-nav-open .kiln-backdrop {
         display: block;
@@ -563,7 +574,7 @@ details.admonition > summary.admonition-title::-webkit-details-marker { display:
 .kiln-skip-link {
     position: fixed;
     top: 0.5rem;
-    left: 0.5rem;
+    inset-inline-start: 0.5rem;
     z-index: 10000;
     padding: 0.6rem 1rem;
     border-radius: 8px;
