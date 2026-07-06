@@ -420,6 +420,19 @@ struct RenderContext {
                 article: articleStructuredData,
                 profile: profileStructuredData
             ).map(LeafData.string) ?? .trueNil,
+            // The visible breadcrumb trail — populated only when a page supplies an
+            // explicit `breadcrumbOverride` (DocC symbol pages, blog posts), so
+            // nav-driven pages are unchanged (`.trueNil` ⇒ `#if(page.breadcrumb)`
+            // false). Each crumb: `name`, and `url` (`.trueNil` for the current,
+            // unlinked page). The nav-derived trail still feeds JSON-LD above.
+            "breadcrumb": breadcrumbOverride.map { crumbs in
+                LeafData.array(crumbs.map { crumb in
+                    LeafData.dictionary([
+                        "name": .string(crumb.name),
+                        "url": crumb.url.map(LeafData.string) ?? .trueNil,
+                    ])
+                })
+            } ?? .trueNil,
             "imageURL": .string(socialImageURL),
             // MIME type of the social image (from its extension), for
             // `<meta property="og:image:type">`. Nil when unknown/imageless.

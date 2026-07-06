@@ -209,6 +209,31 @@ struct DocCRenderPhaseTests {
         #expect(queue.contains("Topics") || queue.contains("docc-topic"))
     }
 
+    @Test("Symbol pages carry a breadcrumb trail (visible + BreadcrumbList JSON-LD)")
+    func breadcrumbs() async throws {
+        let output = try await buildSite()
+        let method = try html(output, "queues/queue/dispatch(_:_:maxretrycount:delayuntil:id:)-630ll/index.html")
+
+        // Visible trail: ancestors are links, the current page is an unlinked crumb.
+        #expect(method.contains("<nav class=\"kiln-breadcrumb\""))
+        #expect(method.contains("<a href=\"/queues/\">Queues</a>"))
+        #expect(method.contains("<a href=\"/queues/queue/\">Queue</a>"))
+        #expect(method.contains("aria-current=\"page\">dispatch"))
+
+        // JSON-LD BreadcrumbList: Home → Queues → Queue → the method, in order.
+        #expect(method.contains("\"@type\":\"BreadcrumbList\""))
+        let list = try #require(method.range(of: "\"@type\":\"BreadcrumbList\""))
+        let json = String(method[list.lowerBound...])
+        let queuesPos = json.range(of: "\"name\":\"Queues\"")
+        let queuePos = json.range(of: "\"name\":\"Queue\"")
+        #expect(queuesPos != nil && queuePos != nil)
+        #expect(queuesPos!.lowerBound < queuePos!.lowerBound, "module precedes the type in the trail")
+
+        // The module landing has no ancestors → no breadcrumb.
+        let landing = try html(output, "queues/index.html")
+        #expect(!landing.contains("<nav class=\"kiln-breadcrumb\""))
+    }
+
     @Test("A method page's type references resolve to site URLs")
     func linksResolve() async throws {
         let output = try await buildSite()

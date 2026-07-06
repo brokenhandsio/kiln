@@ -358,6 +358,13 @@ struct DocCRenderPhase {
         var versionContext = VersionContext()
         versionContext.noindex = !isDefaultVersion
 
+        // Breadcrumb: the resolved ancestry (module → … → parent) plus the current
+        // page as a trailing, unlinked crumb. Only symbol pages have ancestors; a
+        // module landing gets none (Home → Module alone isn't worth a trail).
+        let breadcrumb = rendered.breadcrumb.isEmpty
+            ? nil
+            : rendered.breadcrumb + [BreadcrumbItem(name: rendered.title, url: nil)]
+
         let context = RenderContext(
             site: site,
             language: language,
@@ -387,7 +394,8 @@ struct DocCRenderPhase {
             doccSidebarHTML: sidebarHTML.isEmpty ? nil : sidebarHTML,
             doccModuleSwitcherHTML: moduleSwitcherHTML.isEmpty ? nil : moduleSwitcherHTML,
             doccVersionSwitcherHTML: versionSwitcherHTML.isEmpty ? nil : versionSwitcherHTML,
-            version: versionContext
+            version: versionContext,
+            breadcrumbOverride: breadcrumb
         )
         return try await renderer.render("page", context: context.leafData)
     }

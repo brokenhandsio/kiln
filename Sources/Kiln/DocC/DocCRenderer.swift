@@ -14,6 +14,10 @@ public struct RenderedDocC: Sendable {
     /// The nested on-page table of contents built from the discussion headings
     /// and generated section headings.
     public var tableOfContents: [TOCEntry]
+    /// The breadcrumb ancestry (module → … → parent), each resolved to its site
+    /// URL. Excludes the current page and the site home; empty for a module
+    /// landing (no ancestors). Feeds the visible trail and `BreadcrumbList` JSON-LD.
+    public var breadcrumb: [BreadcrumbItem]
 }
 
 /// Renders a decoded DocC ``RenderNode`` into themed HTML for a Kiln page.
@@ -83,8 +87,27 @@ public struct DocCRenderer: Sendable {
             symbolKind: node.metadata.symbolKind,
             abstractText: abstractText,
             contentHTML: body,
-            tableOfContents: TableOfContents.build(from: toc, levels: 1...6)
+            tableOfContents: TableOfContents.build(from: toc, levels: 1...6),
+            breadcrumb: breadcrumbAncestry(node, resolver: resolver)
         )
+    }
+
+    /// The ancestor breadcrumb trail from `hierarchy.paths` (DocC's first path is
+    /// the primary ancestry, module root → parent). Each identifier is resolved to
+    /// a linked crumb; identifiers that resolve to no topic/URL (e.g. the bundle
+    /// technology root) are skipped, and one with only a title becomes an unlinked
+    /// crumb.
+    private func breadcrumbAncestry(_ node: RenderNode, resolver: DocCLinkResolver) -> [BreadcrumbItem] {
+        guard let path = node.hierarchy?.paths?.first else { return [] }
+        var crumbs: [BreadcrumbItem] = []
+        for identifier in path {
+            if let link = resolver.resolveTopic(identifier) {
+                crumbs.append(BreadcrumbItem(name: link.title, url: link.href))
+            } else if let title = resolver.title(for: identifier) {
+                crumbs.append(BreadcrumbItem(name: title, url: nil))
+            }
+        }
+        return crumbs
     }
 
     // MARK: Declarations
