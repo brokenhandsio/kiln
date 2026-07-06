@@ -44,7 +44,9 @@ live at **[kiln.brokenhands.io](https://kiln.brokenhands.io)**. Its source is th
   versions.
 - **Localisation** — multiple languages with automatic fallback to your default
   language, per-language navigation translations and site names, hreflang
-  alternates, and a language switcher.
+  alternates, and a language switcher. Right-to-left languages (Arabic, Hebrew, …)
+  set `dir="rtl"` on the page automatically, and the default theme is authored with
+  CSS logical properties so it mirrors correctly.
 - **A fresh default theme** — modern, responsive, with light/dark colour
   schemes, a sidebar nav, an on-page table of contents, and search. Fully
   overridable with your own [Leaf](https://github.com/vapor/leaf-kit) templates.
@@ -260,6 +262,24 @@ unavailable" banner — the equivalent of mkdocs-static-i18n's
 
 The default language is built at the site root; other languages live under
 `/<locale>/`.
+
+### Writing direction (RTL)
+
+Each `Language` has an `isRTL` flag that drives the `dir` attribute on the page
+(`<html lang="ar" dir="rtl">`). It defaults from the `LanguageCode` — `.arabic`
+and `.hebrew` are right-to-left, everything else is left-to-right — and is exposed
+to templates as `#(language.direction)` (`"rtl"`/`"ltr"`) and `#(language.isRTL)`.
+For a locale Kiln can't classify, set it explicitly:
+
+```swift
+Language(.custom(code: "fa", name: "فارسی"), isRTL: true)
+```
+
+When an RTL page falls back to the (LTR) default language because a translation is
+missing, the default theme wraps just that content in `dir="ltr"` — so the page
+chrome stays RTL while the untranslated prose still reads naturally. The theme's
+CSS is written with logical properties so it mirrors without a separate stylesheet;
+code blocks are kept LTR regardless of page direction.
 
 ### Interface strings
 

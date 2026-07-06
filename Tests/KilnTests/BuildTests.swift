@@ -5,7 +5,7 @@ import Foundation
 @Suite("End-to-end build")
 struct BuildTests {
     /// Build the bundled fixture docs into a fresh temporary directory.
-    func buildFixture(linkChecking: LinkChecking = .warn, basePath: String = "", indexFallbackPages: Bool = false) async throws -> URL {
+    func buildFixture(linkChecking: LinkChecking = .warn, basePath: String = "", indexFallbackPages: Bool = false, languages: [Language]? = nil) async throws -> URL {
         guard let fixtures = Bundle.module.url(forResource: "Fixtures", withExtension: nil) else {
             Issue.record("Could not locate the Fixtures resource")
             throw ContentError.contentDirectoryNotFound("Fixtures")
@@ -22,7 +22,7 @@ struct BuildTests {
             image: "assets/card.png",
             twitterSite: "@fixture",
             carbonAds: .init(serve: "TESTSERVE", placement: "fixture"),
-            languages: [
+            languages: languages ?? [
                 .init(.english, isDefault: true),
                 .init(.german, navTranslations: ["Section": "Abschnitt"],
                       localisation: .init(searchPlaceholder: "Suchen", tableOfContentsTitle: "Auf dieser Seite")),
@@ -97,6 +97,27 @@ struct BuildTests {
         // The default-language original is always indexable.
         let englishPage = try read(output.appendingPathComponent("section/page/index.html"))
         #expect(!englishPage.contains("noindex"))
+    }
+
+    @Test("RTL languages set dir=rtl and wrap fallback content LTR")
+    func rightToLeftDirection() async throws {
+        let output = try await buildFixture(languages: [
+            .init(.english, isDefault: true),
+            .init(.arabic),
+        ])
+        defer { try? FileManager.default.removeItem(at: output) }
+
+        // The default (English) shell is explicitly left-to-right.
+        let englishHome = try read(output.appendingPathComponent("index.html"))
+        #expect(englishHome.contains("<html lang=\"en\" dir=\"ltr\">"))
+
+        // The Arabic shell is right-to-left…
+        let arabicHome = try read(output.appendingPathComponent("ar/index.html"))
+        #expect(arabicHome.contains("<html lang=\"ar\" dir=\"rtl\">"))
+        // …but with no Arabic translation the English content is served in an
+        // LTR subtree so it still reads naturally inside the RTL page.
+        #expect(arabicHome.contains("kiln-fallback"))
+        #expect(arabicHome.contains("<div class=\"kiln-fallback-content\" lang=\"en\" dir=\"ltr\">"))
     }
 
     @Test("indexFallbackPages opts fallback pages back into indexing")

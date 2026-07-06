@@ -119,4 +119,19 @@ public enum LanguageCode: Sendable, Equatable {
         case .custom(_, let name): return name
         }
     }
+
+    /// Whether this language is written right-to-left. Drives the `dir="rtl"`
+    /// attribute on the page shell and the direction-aware theme CSS.
+    ///
+    /// Kiln can't infer direction for ``custom(code:name:)`` locales, so those
+    /// default to left-to-right — pass `isRTL:` to ``Language/init(_:isRTL:...)``
+    /// to override (e.g. `Language(.custom(code: "fa", name: "فارسی"), isRTL: true)`).
+    public var isRTL: Bool {
+        switch self {
+        case .arabic, .hebrew:
+            return true
+        default:
+            return false
+        }
+    }
 }
