@@ -16,6 +16,9 @@ public struct DocCCatalogBuilder: Sendable {
 
     /// One module card.
     public struct Entry: Sendable, Equatable {
+        /// The module's target name (the archive key), for identity/current matching.
+        public var name: String
+        /// The display title (``Module/displayTitle``).
         public var title: String
         public var description: String?
         /// Site URL of the module's default-version landing page (e.g. `/queues/`).
@@ -44,6 +47,7 @@ public struct DocCCatalogBuilder: Sendable {
                 }
                 let urls = DocCURLs(moduleName: module.name, version: package.defaultVersion, basePath: basePath)
                 byGroup[groupName]?.append(Entry(
+                    name: module.name,
                     title: module.displayTitle,
                     description: module.description,
                     url: urls.moduleRootURL

@@ -44,6 +44,7 @@ struct DocCRenderPhase {
 
     func run(renderer: TemplateRenderer, writer: OutputWriter) async throws -> Result {
         let registry = DocCModuleRegistry(site: docc, basePath: basePath)
+        let switcher = DocCModuleSwitcher(docc: docc, basePath: basePath)
         // Resolve the archives directory *within* the content directory (append
         // components rather than URL(relativeTo:), which drops a base's last
         // component when it has no trailing slash).
@@ -72,12 +73,15 @@ struct DocCRenderPhase {
                     // The module's sidebar tree, parsed once; highlighted per page.
                     let navigationBuilder = DocCNavigationBuilder(urls: urls)
                     let navigationTree = navigationBuilder.build(archive.index)
+                    // Module switcher (same for every page of this module).
+                    let moduleSwitcherHTML = switcher.renderHTML(currentModule: module.name)
 
                     for page in archive.pages {
                         let rendered = contentRenderer.render(page.node)
                         let sidebar = navigationBuilder.renderHTML(navigationTree, currentPath: page.path)
                         let html = try await renderPage(page: page, rendered: rendered, urls: urls,
                                                         sidebarHTML: sidebar,
+                                                        moduleSwitcherHTML: moduleSwitcherHTML,
                                                         isDefaultVersion: version.isDefault,
                                                         language: language, renderer: renderer)
                         try writer.write(html, to: urls.outputFile(forDocCPath: page.path, in: outputDirectory))
@@ -104,7 +108,9 @@ struct DocCRenderPhase {
 
         // The catalog landing page (site root): links to every module.
         let catalogURL = basePath.isEmpty ? "/" : basePath + "/"
-        let catalogHTML = try await renderCatalog(language: language, renderer: renderer)
+        let catalogHTML = try await renderCatalog(language: language,
+                                                  moduleSwitcherHTML: switcher.renderHTML(currentModule: nil),
+                                                  renderer: renderer)
         try writer.write(catalogHTML, to: outputDirectory.appendingPathComponent("index.html"))
         result.pages.append(WrittenPage(url: catalogURL, title: site.name, abstract: site.description,
                                         moduleName: "", noindex: false))
@@ -114,7 +120,7 @@ struct DocCRenderPhase {
 
     // MARK: Catalog
 
-    private func renderCatalog(language: Language, renderer: TemplateRenderer) async throws -> String {
+    private func renderCatalog(language: Language, moduleSwitcherHTML: String, renderer: TemplateRenderer) async throws -> String {
         let catalogURL = basePath.isEmpty ? "/" : basePath + "/"
 
         var body = "<header class=\"docc-catalog-header\">\n<h1>\(HTMLEscaping.text(site.name))</h1>\n"
@@ -149,6 +155,7 @@ struct DocCRenderPhase {
             isHome: true,
             isFallback: false,
             navigation: PageNavigation(nodes: [], previous: nil, next: nil),
+            doccModuleSwitcherHTML: moduleSwitcherHTML.isEmpty ? nil : moduleSwitcherHTML,
             version: VersionContext()
         )
         return try await renderer.render("page", context: context.leafData)
@@ -161,6 +168,7 @@ struct DocCRenderPhase {
         rendered: RenderedDocC,
         urls: DocCURLs,
         sidebarHTML: String,
+        moduleSwitcherHTML: String,
         isDefaultVersion: Bool,
         language: Language,
         renderer: TemplateRenderer
@@ -205,6 +213,7 @@ struct DocCRenderPhase {
             isFallback: false,
             navigation: PageNavigation(nodes: [], previous: nil, next: nil),
             doccSidebarHTML: sidebarHTML.isEmpty ? nil : sidebarHTML,
+            doccModuleSwitcherHTML: moduleSwitcherHTML.isEmpty ? nil : moduleSwitcherHTML,
             version: versionContext
         )
         return try await renderer.render("page", context: context.leafData)

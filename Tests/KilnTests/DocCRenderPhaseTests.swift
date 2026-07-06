@@ -125,6 +125,18 @@ struct DocCRenderPhaseTests {
         #expect(!fm.fileExists(atPath: output.appendingPathComponent("archives").path))
     }
 
+    @Test("Every page carries the module switcher with the current module flagged")
+    func moduleSwitcher() async throws {
+        let output = try await buildSite()
+        let queue = try html(output, "queues/queue/index.html")
+        #expect(queue.contains("docc-module-switcher"))
+        // The current module is the summary label and flagged in the list.
+        #expect(queue.contains("<span class=\"docc-module-current-name\">Queues</span>"))
+        #expect(queue.contains("<a class=\"docc-module-link docc-current\" href=\"/queues/\">Queues</a>"))
+        // The sibling module is listed to switch to.
+        #expect(queue.contains("href=\"/xctqueues/\">XCTQueues</a>"))
+    }
+
     @Test("Every page carries the module sidebar, highlighting the current symbol")
     func sidebar() async throws {
         let output = try await buildSite()

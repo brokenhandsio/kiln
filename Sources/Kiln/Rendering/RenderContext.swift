@@ -108,6 +108,10 @@ struct RenderContext {
     /// non-DocC pages. Surfaced as `nav.doccHTML`; when set the theme injects it in
     /// place of the `nav-tree` partial.
     var doccSidebarHTML: String? = nil
+    /// Pre-rendered module-switcher HTML (all hosted DocC modules, grouped), or
+    /// `nil` on non-DocC pages. Surfaced as `nav.moduleSwitcher`; the theme injects
+    /// it into the sidebar.
+    var doccModuleSwitcherHTML: String? = nil
 
     /// Versioning data (neutral by default ⇒ no version markup for unversioned sites).
     var version: VersionContext = VersionContext()
@@ -458,6 +462,8 @@ struct RenderContext {
             // Pre-rendered DocC sidebar (`.trueNil` ⇒ `#if(nav.doccHTML)` false on
             // every non-DocC page, so the standard nav-tree renders instead).
             "doccHTML": doccSidebarHTML.map(LeafData.string) ?? .trueNil,
+            // Pre-rendered DocC module switcher (`.trueNil` off DocC pages).
+            "moduleSwitcher": doccModuleSwitcherHTML.map(LeafData.string) ?? .trueNil,
         ]
         if let previous = navigation.previous {
             dict["previous"] = .dictionary(["title": .string(previous.title), "url": .string(previous.url)])

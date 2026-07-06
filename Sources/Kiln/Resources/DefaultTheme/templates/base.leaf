@@ -80,6 +80,7 @@
             <div class="kiln-controls kiln-controls-drawer">
                 #extend("partials/controls")
             </div>
+            #if(nav.moduleSwitcher):#unsafeHTML(nav.moduleSwitcher)#endif
             <nav class="kiln-nav" aria-label="Main navigation">
                 #if(nav.doccHTML):#unsafeHTML(nav.doccHTML)#else:#extend("partials/nav-tree", nav)#endif
             </nav>
