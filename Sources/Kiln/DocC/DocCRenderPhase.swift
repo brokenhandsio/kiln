@@ -273,7 +273,7 @@ struct DocCRenderPhase {
         body += "</header>\n"
         body += DocCCatalogBuilder(docc: docc, basePath: basePath).renderHTML()
 
-        let socialImage = site.image.map { absoluteURL(basePath + "/" + $0.drop(while: { $0 == "/" })) }
+        let socialImage = socialImageURL(for: language)
         let context = RenderContext(
             site: site,
             language: language,
@@ -351,7 +351,7 @@ struct DocCRenderPhase {
             pageURL: pageURL,
             canonicalURL: canonical,
             pageDescription: rendered.abstractText ?? language.description ?? site.description,
-            socialImageURL: nil,
+            socialImageURL: socialImageURL(for: language),
             editURL: nil,
             sourcePath: "",
             isHome: false,
@@ -369,5 +369,11 @@ struct DocCRenderPhase {
     private func absoluteURL(_ siteRelative: String) -> String {
         let base = site.url.hasSuffix("/") ? String(site.url.dropLast()) : site.url
         return base + siteRelative
+    }
+
+    /// The absolute social/OpenGraph image URL for a language (its own image, else
+    /// the site default), for `<meta property="og:image">`.
+    private func socialImageURL(for language: Language) -> String? {
+        (language.image ?? site.image).map { absoluteURL(basePath + "/" + $0.drop(while: { $0 == "/" })) }
     }
 }

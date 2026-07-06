@@ -30,12 +30,17 @@ struct DocCRenderPhaseTests {
         let images = archives.appendingPathComponent("Queues.doccarchive/images")
         try fm.createDirectory(at: images, withIntermediateDirectories: true)
         try Data("png".utf8).write(to: images.appendingPathComponent("diagram.png"))
+        // A social/OG image asset in the content dir.
+        let assets = content.appendingPathComponent("assets")
+        try fm.createDirectory(at: assets, withIntermediateDirectories: true)
+        try Data("png".utf8).write(to: assets.appendingPathComponent("api-og.png"))
 
         let output = fm.temporaryDirectory.appendingPathComponent("kiln-docc-output-\(UUID().uuidString)")
         let site = KilnSite(
             name: "Vapor API",
             url: "https://api.vapor.codes",
             description: "API reference.",
+            image: "assets/api-og.png",
             llmsText: true,
             docc: DocCSite(packages: [
                 APIPackage("vapor/queues", ref: "main", group: "Core", modules: [
@@ -107,6 +112,15 @@ struct DocCRenderPhaseTests {
 
         // Per-module fragments back the incremental assembly.
         #expect(FileManager.default.fileExists(atPath: output.appendingPathComponent("_kiln/search/queues.json").path))
+    }
+
+    @Test("Symbol pages carry the OpenGraph social image")
+    func ogImage() async throws {
+        let output = try await buildSite()
+        let queue = try html(output, "queues/queue/index.html")
+        #expect(queue.contains("<meta property=\"og:image\" content=\"https://api.vapor.codes/assets/api-og.png\">"))
+        // The image asset is copied to the output.
+        #expect(FileManager.default.fileExists(atPath: output.appendingPathComponent("assets/api-og.png").path))
     }
 
     @Test("Writes an llms.txt module index and no full corpus")
