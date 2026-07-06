@@ -136,10 +136,22 @@ struct DocCRenderPhaseTests {
         let queue = try html(output, "queues/queue/index.html")
         #expect(queue.contains("<title>Queue · Queues · Vapor API</title>"))
         // The visible heading stays the bare symbol name, not the enriched title.
-        #expect(queue.contains("<h1>Queue</h1>"))
+        #expect(queue.contains("<h1 class=\"docc-symbol-title\">Queue</h1>"))
         // The module landing is not doubled up ("Queues · Queues").
         let landing = try html(output, "queues/index.html")
         #expect(landing.contains("<title>Queues · Vapor API</title>"))
+    }
+
+    @Test("Symbol titles are tagged for the code font; module landings are not")
+    func symbolTitleCodeFont() async throws {
+        let output = try await buildSite()
+        // A symbol page's <h1> carries the code-font class.
+        let queue = try html(output, "queues/queue/index.html")
+        #expect(queue.contains("<h1 class=\"docc-symbol-title\">Queue</h1>"))
+        // The module landing's title is a framework name, not a symbol → plain <h1>.
+        let landing = try html(output, "queues/index.html")
+        #expect(landing.contains("<h1>Queues</h1>"))
+        #expect(!landing.contains("docc-symbol-title"))
     }
 
     @Test("Symbol pages carry the OpenGraph social image")
@@ -202,7 +214,7 @@ struct DocCRenderPhaseTests {
     func symbolPage() async throws {
         let output = try await buildSite()
         let queue = try html(output, "queues/queue/index.html")
-        #expect(queue.contains("<h1>Queue</h1>"))
+        #expect(queue.contains("<h1 class=\"docc-symbol-title\">Queue</h1>"))
         #expect(queue.contains("docc-eyebrow"))          // role heading eyebrow
         #expect(queue.contains("<pre class=\"declaration\">"))
         // Curated Topics section for the protocol's members.
@@ -238,7 +250,7 @@ struct DocCRenderPhaseTests {
     func linksResolve() async throws {
         let output = try await buildSite()
         let method = try html(output, "queues/queue/dispatch(_:_:maxretrycount:delayuntil:id:)-630ll/index.html")
-        #expect(method.contains("<h1>dispatch(_:_:maxRetryCount:delayUntil:id:)</h1>"))
+        #expect(method.contains("<h1 class=\"docc-symbol-title\">dispatch(_:_:maxRetryCount:delayUntil:id:)</h1>"))
         // Declaration type `Job` links to its site page (module-first, stripped).
         #expect(method.contains("href=\"/queues/job/\""))
         // Parameters section rendered.

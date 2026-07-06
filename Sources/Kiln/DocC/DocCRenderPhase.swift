@@ -351,7 +351,12 @@ struct DocCRenderPhase {
         if let role = rendered.roleHeading, !role.isEmpty {
             body += "<p class=\"docc-eyebrow\">\(HTMLEscaping.text(role))</p>\n"
         }
-        body += "<h1>\(HTMLEscaping.text(rendered.title))</h1>\n</header>\n"
+        // A symbol page's title is a code identifier (type/method name), so tag it
+        // for the code font. The module landing (its own symbolKind is "module")
+        // and articles (no symbolKind) keep the prose heading font.
+        let isSymbolTitle = !isModuleLanding && rendered.symbolKind != nil
+        let titleClass = isSymbolTitle ? " class=\"docc-symbol-title\"" : ""
+        body += "<h1\(titleClass)>\(HTMLEscaping.text(rendered.title))</h1>\n</header>\n"
         body += rendered.contentHTML
 
         // Non-default package versions are noindex (duplicate/older content).
