@@ -129,6 +129,9 @@ struct DocCRenderPhase {
                                                           basePath: basePath, pathsByVersion: pathsByVersion)
                 let moduleSwitcherHTML = switcher.renderHTML(currentModule: module.name)
 
+                // Search: collect this module's default-version symbols only.
+                var moduleSearch = SearchIndexBuilder()
+
                 for version in package.versions {
                     guard let archive = archivesByVersion[version.id] else { continue }
                     let urls = DocCURLs(moduleName: module.name, version: version, basePath: basePath)
@@ -156,12 +159,34 @@ struct DocCRenderPhase {
                             moduleName: module.name,
                             noindex: !version.isDefault
                         ))
+                        // Only default versions are indexed (search.js prepends "/",
+                        // so store the location without a leading slash).
+                        if version.isDefault {
+                            moduleSearch.add(
+                                location: String(urls.url(forDocCPath: page.path).drop(while: { $0 == "/" })),
+                                title: rendered.title,
+                                html: rendered.abstractText ?? ""
+                            )
+                        }
                     }
 
                     // Copy the archive's referenced assets into the module dir.
                     try AssetCopier(outputDirectory: outputDirectory)
                         .copyDocCAssets(from: archive.archiveURL, into: urls.moduleDirectory(in: outputDirectory))
                 }
+
+                // Persist this module's search fragment (reused on incremental
+                // builds when the module is skipped).
+                try writer.write(try moduleSearch.jsonData(), to: Self.searchFragmentURL(module: module.name, in: outputDirectory))
+            }
+        }
+
+        // Remove search fragments for modules no longer present.
+        if incremental {
+            for (key, _) in previous where result.manifestModules[key] == nil {
+                let moduleName = String(key.prefix(while: { $0 != "@" }))
+                if result.manifestModules.keys.contains(where: { $0.hasPrefix("\(moduleName)@") }) { continue }
+                try? fileManager.removeItem(at: Self.searchFragmentURL(module: moduleName, in: outputDirectory))
             }
         }
 
@@ -182,7 +207,58 @@ struct DocCRenderPhase {
         result.pages.append(WrittenPage(url: catalogURL, title: site.name, abstract: site.description,
                                         moduleName: "", noindex: false))
 
+        // Sitewide search index (default-version symbols from every module) and
+        // the AI/agent module index.
+        try assembleSearchIndex(writer: writer)
+        if site.llmsText { try writeLLMSIndex(writer: writer) }
+
         return result
+    }
+
+    // MARK: Search + LLMs
+
+    /// A module's search fragment: `_kiln/search/<module>.json`.
+    static func searchFragmentURL(module: String, in outputDirectory: URL) -> URL {
+        outputDirectory
+            .appendingPathComponent("_kiln/search", isDirectory: true)
+            .appendingPathComponent("\(module.lowercased()).json")
+    }
+
+    /// Assemble the sitewide search index from every module's fragment (plus the
+    /// catalog), so search works from any page. Fragment-based so an incremental
+    /// build that skips modules still ships a complete index.
+    private func assembleSearchIndex(writer: OutputWriter) throws {
+        var builder = SearchIndexBuilder()
+        // The catalog / home page.
+        builder.add(location: "", title: site.name, html: site.description ?? "")
+
+        let fragmentsDir = outputDirectory.appendingPathComponent("_kiln/search", isDirectory: true)
+        let decoder = JSONDecoder()
+        if let enumerator = FileManager.default.enumerator(at: fragmentsDir, includingPropertiesForKeys: nil) {
+            for case let file as URL in enumerator where file.pathExtension == "json" {
+                guard let data = try? Data(contentsOf: file),
+                      let index = try? decoder.decode(SearchIndex.self, from: data) else { continue }
+                for doc in index.docs { builder.add(document: doc) }
+            }
+        }
+        try writer.write(try builder.jsonData(),
+                         to: outputDirectory.appendingPathComponent("search/search_index.json"))
+    }
+
+    /// Write a compact `llms.txt` listing every module (default versions), grouped
+    /// like the catalog — the AI/agent index for the API. No full corpus.
+    private func writeLLMSIndex(writer: OutputWriter) throws {
+        let sections = DocCCatalogBuilder(docc: docc, basePath: basePath).groups().map { group in
+            LLMSText.Section(
+                title: group.title,
+                links: group.entries.map { LLMSText.Link(title: $0.title, url: absoluteURL($0.url)) }
+            )
+        }
+        let llms = LLMSText.index(title: site.name, summary: site.description, sections: sections)
+        try writer.write(llms, to: outputDirectory.appendingPathComponent("llms.txt"))
+        // No full corpus for API reference (5k+ symbols) — drop any placeholder
+        // the markdown phase wrote.
+        try? FileManager.default.removeItem(at: outputDirectory.appendingPathComponent("llms-full.txt"))
     }
 
     // MARK: Catalog

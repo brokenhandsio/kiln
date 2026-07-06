@@ -35,10 +35,11 @@ struct DocCRenderPhaseTests {
         let site = KilnSite(
             name: "Vapor API",
             url: "https://api.vapor.codes",
-            llmsText: false,
+            description: "API reference.",
+            llmsText: true,
             docc: DocCSite(packages: [
-                APIPackage("vapor/queues", ref: "main", modules: [
-                    Module("Queues", group: "Core"),
+                APIPackage("vapor/queues", ref: "main", group: "Core", modules: [
+                    Module("Queues"),
                     Module("XCTQueues", group: "Testing"),
                 ]),
             ])
@@ -86,6 +87,67 @@ struct DocCRenderPhaseTests {
         #expect(!index.contains("docc-expanded"))
         #expect(!index.contains("kiln-no-sidebar"))
         #expect(index.contains("kiln-no-toc"))
+    }
+
+    @Test("Builds a sitewide search index of default-version symbols")
+    func searchIndex() async throws {
+        let output = try await buildSite()
+        // The sitewide index at the root; every page's search box points here.
+        let indexData = try Data(contentsOf: output.appendingPathComponent("search/search_index.json"))
+        let index = try JSONDecoder().decode(SearchIndex.self, from: indexData)
+        let byLocation = Dictionary(index.docs.map { ($0.location, $0) }, uniquingKeysWith: { a, _ in a })
+
+        // A symbol from each module, located root-relative (search.js prepends "/").
+        let queue = try #require(byLocation["queues/queue/"])
+        #expect(queue.title == "Queue")
+        #expect(queue.text.contains("store and retrieve jobs"))   // abstract indexed
+        #expect(byLocation["xctqueues/"] != nil)                  // sibling module → sitewide
+        // The catalog/home is searchable.
+        #expect(byLocation[""]?.title == "Vapor API")
+
+        // Per-module fragments back the incremental assembly.
+        #expect(FileManager.default.fileExists(atPath: output.appendingPathComponent("_kiln/search/queues.json").path))
+    }
+
+    @Test("Writes an llms.txt module index and no full corpus")
+    func llmsIndex() async throws {
+        let output = try await buildSite()
+        let llms = try String(contentsOf: output.appendingPathComponent("llms.txt"), encoding: .utf8)
+        #expect(llms.contains("# Vapor API"))
+        #expect(llms.contains("## Core"))
+        #expect(llms.contains("[Queues](https://api.vapor.codes/queues/)"))
+        #expect(llms.contains("## Testing"))
+        // No full corpus for API reference.
+        #expect(!FileManager.default.fileExists(atPath: output.appendingPathComponent("llms-full.txt").path))
+    }
+
+    @Test("Only default versions are indexed for search")
+    func searchExcludesNonDefault() async throws {
+        guard let fixtures = Bundle.module.url(forResource: "Fixtures", withExtension: nil) else {
+            throw ContentError.contentDirectoryNotFound("Fixtures")
+        }
+        let queuesArchive = fixtures.appendingPathComponent("docc/Queues.doccarchive")
+        let fm = FileManager.default
+        let content = fm.temporaryDirectory.appendingPathComponent("kiln-docc-2v-\(UUID().uuidString)")
+        // Same fixture under two version ids: "4" (default) and "5-beta".
+        for vid in ["4", "5-beta"] {
+            let dir = content.appendingPathComponent("archives/\(vid)")
+            try fm.createDirectory(at: dir, withIntermediateDirectories: true)
+            try fm.copyItem(at: queuesArchive, to: dir.appendingPathComponent("Queues.doccarchive"))
+        }
+        let output = fm.temporaryDirectory.appendingPathComponent("kiln-docc-2v-out-\(UUID().uuidString)")
+        let site = KilnSite(name: "API", url: "https://api.example.com", llmsText: false,
+                            docc: DocCSite(packages: [APIPackage("vapor/queues", group: "Core", modules: [Module("Queues")], versions: [
+                                PackageVersion("4", ref: "v4", isDefault: true),
+                                PackageVersion("5-beta", ref: "main", isPrerelease: true),
+                            ])]))
+        try await Kiln.build(site, contentDirectory: content, outputDirectory: output, linkChecking: .off)
+
+        let index = try JSONDecoder().decode(SearchIndex.self,
+            from: Data(contentsOf: output.appendingPathComponent("search/search_index.json")))
+        // Default (v4) symbols present at the module root; beta ones absent.
+        #expect(index.docs.contains { $0.location == "queues/queue/" })
+        #expect(!index.docs.contains { $0.location.hasPrefix("queues/5-beta/") })
     }
 
     @Test("Renders a symbol page with declaration, eyebrow, and TOC")
