@@ -157,6 +157,40 @@ struct DocCRendererTests {
         #expect(html.contains("Int"))
     }
 
+    @Test("A thematic break renders as <hr>; a mentions section renders 'Mentioned in'")
+    func rendersThematicBreakAndMentions() throws {
+        let node = try decode("""
+        {
+          "schemaVersion": {"major": 0, "minor": 3, "patch": 0},
+          "identifier": {"url": "doc://T/documentation/T/X", "interfaceLanguage": "swift"},
+          "kind": "symbol",
+          "metadata": {"title": "X"},
+          "primaryContentSections": [
+            {"kind": "mentions", "mentions": ["doc://T/documentation/T/guide", "doc://T/documentation/T/missing"]},
+            {"kind": "content", "content": [
+              {"type": "paragraph", "inlineContent": [{"type": "text", "text": "Before."}]},
+              {"type": "thematicBreak"},
+              {"type": "paragraph", "inlineContent": [{"type": "text", "text": "After."}]}
+            ]}
+          ],
+          "references": {
+            "doc://T/documentation/T/guide": {"type": "topic", "identifier": "doc://T/documentation/T/guide",
+              "title": "Using T", "url": "/documentation/T/guide", "kind": "article"}
+          }
+        }
+        """)
+
+        let html = DocCRenderer().render(node).contentHTML
+        // Thematic break → a horizontal rule between the two paragraphs.
+        #expect(html.contains("<hr>"))
+        // Mentions → a "Mentioned in" section linking the resolvable article; the
+        // unresolvable identifier is skipped, not emitted as a broken link.
+        #expect(html.contains("docc-mentions"))
+        #expect(html.contains("Mentioned in"))
+        #expect(html.contains("<a href=\"/documentation/T/guide\">Using T</a>"))
+        #expect(!html.contains("missing"))
+    }
+
     @Test("The module landing renders curated Topics as symbol cards")
     func rendersTopics() throws {
         let node = try node("Queues", "documentation/queues.json")

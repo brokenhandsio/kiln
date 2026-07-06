@@ -65,6 +65,8 @@ public struct DocCRenderer: Sendable {
                 toc += block.headings
             case .possibleValues(let values):
                 body += renderPossibleValues(values, resolver: resolver, slugger: slugger, toc: &toc)
+            case .mentions(let identifiers):
+                body += renderMentions(identifiers, resolver: resolver)
             case .unknown:
                 break // recorded at decode time; nothing to render
             }
@@ -178,6 +180,20 @@ public struct DocCRenderer: Sendable {
             out += "<dd class=\"docc-parameter-description\">\(block.html)</dd>\n"
         }
         out += "</dl>\n</section>\n"
+        return out
+    }
+
+    /// Render the "Mentioned in" section — links to articles that reference this
+    /// symbol. Unresolvable identifiers are skipped; nothing is emitted if none
+    /// resolve.
+    private func renderMentions(_ identifiers: [String], resolver: DocCLinkResolver) -> String {
+        let links = identifiers.compactMap { resolver.resolveTopic($0) }
+        guard !links.isEmpty else { return "" }
+        var out = "<section class=\"docc-mentions\">\n<h2 class=\"docc-mentions-title\">Mentioned in</h2>\n<ul>\n"
+        for link in links {
+            out += "<li><a href=\"\(HTMLEscaping.attribute(link.href))\">\(HTMLEscaping.text(link.title))</a></li>\n"
+        }
+        out += "</ul>\n</section>\n"
         return out
     }
 
@@ -438,6 +454,9 @@ struct DocCBlockRenderer {
                 html += "<li><a href=\"\(HTMLEscaping.attribute(link.href))\">\(HTMLEscaping.text(link.title))</a></li>\n"
             }
             html += "</ul>\n"
+
+        case .thematicBreak:
+            html += "<hr>\n"
 
         case .unknown:
             break // recorded at decode time

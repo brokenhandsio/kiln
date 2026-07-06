@@ -13,6 +13,8 @@ public enum RenderPrimarySection: Sendable {
     case content([RenderBlockContent])
     /// Enumerated possible values (e.g. for a string-backed option), each with prose.
     case possibleValues([PossibleValue])
+    /// "Mentioned in" — identifiers of articles that reference this symbol.
+    case mentions([String])
     /// A section kind not modelled by Kiln (recorded in ``DocCDiagnostics``).
     case unknown(kind: String)
 
@@ -41,7 +43,7 @@ public enum RenderPrimarySection: Sendable {
 
 extension RenderPrimarySection: Decodable {
     private enum CodingKeys: String, CodingKey {
-        case kind, declarations, parameters, content, values
+        case kind, declarations, parameters, content, values, mentions
     }
 
     public init(from decoder: any Decoder) throws {
@@ -56,6 +58,8 @@ extension RenderPrimarySection: Decodable {
             self = .content(try c.decodeIfPresent([RenderBlockContent].self, forKey: .content) ?? [])
         case "possibleValues":
             self = .possibleValues(try c.decodeIfPresent([PossibleValue].self, forKey: .values) ?? [])
+        case "mentions":
+            self = .mentions(try c.decodeIfPresent([String].self, forKey: .mentions) ?? [])
         default:
             decoder.recordUnknownDocC(kind, at: "primary content section")
             self = .unknown(kind: kind)

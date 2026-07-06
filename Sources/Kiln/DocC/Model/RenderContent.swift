@@ -94,6 +94,8 @@ public enum RenderBlockContent: Sendable {
     case termList(items: [RenderTermListItem])
     /// A block of reference links (a "Topics"-style grid/list within prose).
     case links(style: String?, items: [String])
+    /// A thematic break — a horizontal rule (`---` in Markdown).
+    case thematicBreak
     /// A construct not modelled by Kiln (recorded in ``DocCDiagnostics``).
     case unknown(type: String)
 }
@@ -146,6 +148,8 @@ extension RenderBlockContent: Decodable {
                 style: try c.decodeIfPresent(String.self, forKey: .style),
                 items: try c.decodeIfPresent([String].self, forKey: .items) ?? []
             )
+        case "thematicBreak":
+            self = .thematicBreak
         default:
             decoder.recordUnknownDocC(type, at: "block content")
             self = .unknown(type: type)
