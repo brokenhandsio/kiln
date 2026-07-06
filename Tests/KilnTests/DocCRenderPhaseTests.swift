@@ -124,6 +124,22 @@ struct DocCRenderPhaseTests {
         #expect(sitemap.contains("<loc>https://api.vapor.codes/queues/</loc>"))
         #expect(sitemap.contains("<loc>https://api.vapor.codes/queues/queue/</loc>"))
         #expect(sitemap.contains("<loc>https://api.vapor.codes/xctqueues/</loc>"))
+        // Symbol pages carry a <lastmod> (the module archive's build date, W3C).
+        #expect(sitemap.contains("<loc>https://api.vapor.codes/queues/queue/</loc><lastmod>"))
+        #expect(sitemap.range(of: "<lastmod>[0-9]{4}-[0-9]{2}-[0-9]{2}</lastmod>", options: .regularExpression) != nil)
+    }
+
+    @Test("Symbol page titles append the module; the landing keeps just its own")
+    func pageTitleIncludesModule() async throws {
+        let output = try await buildSite()
+        // A symbol page reads "Queue · Queues · <site>" (the theme adds the site).
+        let queue = try html(output, "queues/queue/index.html")
+        #expect(queue.contains("<title>Queue · Queues · Vapor API</title>"))
+        // The visible heading stays the bare symbol name, not the enriched title.
+        #expect(queue.contains("<h1>Queue</h1>"))
+        // The module landing is not doubled up ("Queues · Queues").
+        let landing = try html(output, "queues/index.html")
+        #expect(landing.contains("<title>Queues · Vapor API</title>"))
     }
 
     @Test("Symbol pages carry the OpenGraph social image")

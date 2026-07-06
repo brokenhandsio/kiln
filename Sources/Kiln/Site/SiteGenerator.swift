@@ -228,9 +228,11 @@ public struct SiteGenerator {
             // Add the DocC pages to the sitemap. Sourced from the assembled search
             // index (default-version symbols + catalog) so it stays complete on
             // incremental builds where unchanged modules aren't re-rendered.
-            // Locations are site-relative with the base path already applied.
-            for location in result.indexableLocations {
-                sitemapEntries.append(SitemapEntry(loc: absoluteURL(forLocation: location), alternates: []))
+            // Locations are site-relative with the base path already applied;
+            // <lastmod> is the owning module's archive build date.
+            for page in result.indexablePages {
+                sitemapEntries.append(SitemapEntry(loc: absoluteURL(forLocation: page.location),
+                                                   alternates: [], lastmod: page.lastmod))
             }
             // Persist the manifest for the next incremental build.
             try DocCBuildManifest(renderInputs: renderInputs, modules: result.manifestModules).write(to: outputDirectory)

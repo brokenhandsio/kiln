@@ -23,11 +23,18 @@ struct DocCRenderPhase {
         var manifestModules: [String: DocCBuildManifest.Entry] = [:]
         /// Modules skipped this build (unchanged), for logging.
         var skipped: [String] = []
-        /// Site-relative locations of every indexable page (default-version
-        /// symbols + the catalog), for the sitemap. Sourced from the assembled
-        /// search index so it stays complete across incremental builds (skipped
-        /// modules keep their persisted fragments). Locations have no leading slash.
-        var indexableLocations: [String] = []
+        /// Every indexable page (default-version symbols + the catalog), for the
+        /// sitemap. Sourced from the assembled search index so it stays complete
+        /// across incremental builds (skipped modules keep their persisted
+        /// fragments).
+        var indexablePages: [IndexablePage] = []
+    }
+
+    /// A sitemap-bound page: a site-relative location (no leading slash) and an
+    /// optional `<lastmod>` (a module's archive build date; `nil` for the catalog).
+    struct IndexablePage: Sendable {
+        var location: String
+        var lastmod: String?
     }
 
     /// The archive location convention: `<archives>/<versionID>/<Module>.doccarchive`.
@@ -59,6 +66,10 @@ struct DocCRenderPhase {
         let loader = DocCArchiveLoader()
         let language = site.defaultLanguage
         var result = Result()
+        // Per-module sitemap <lastmod> (its default archive's build date), keyed by
+        // the module's lowercased name — the same key as its search fragment file.
+        // Recorded for skipped modules too, so the regenerated sitemap stays dated.
+        var moduleLastmod: [String: String] = [:]
 
         let fileManager = FileManager.default
         for package in docc.packages {
@@ -82,6 +93,13 @@ struct DocCRenderPhase {
                     ))
                 }
                 guard !states.isEmpty else { continue }
+
+                // Record the module's sitemap <lastmod> from its default archive's
+                // newest mtime (before the skip check, so skipped modules keep a date).
+                if let defaultState = states.first(where: { $0.version.isDefault }),
+                   let mtime = DocCFingerprint.newestMTime(defaultState.archiveURL) {
+                    moduleLastmod[module.name.lowercased()] = BlogDateFormatting.iso(mtime)
+                }
 
                 // Incremental skip: every version unchanged AND its output present.
                 let canSkip = incremental && states.allSatisfy { state in
@@ -137,6 +155,7 @@ struct DocCRenderPhase {
                         let rendered = contentRenderer.render(page.node)
                         let versionSwitcherHTML = versionSwitcher.renderHTML(currentVersion: version, currentPath: page.path)
                         let html = try await renderPage(page: page, rendered: rendered, urls: urls,
+                                                        moduleTitle: module.displayTitle,
                                                         sidebarHTML: sidebar,
                                                         moduleSwitcherHTML: moduleSwitcherHTML,
                                                         versionSwitcherHTML: versionSwitcherHTML,
@@ -191,7 +210,7 @@ struct DocCRenderPhase {
         // Sitewide search index (default-version symbols from every module) and
         // the AI/agent module index. The assembled index doubles as the sitemap's
         // page set — same "indexable pages" definition, complete under incremental.
-        result.indexableLocations = try assembleSearchIndex(writer: writer)
+        result.indexablePages = try assembleSearchIndex(writer: writer, moduleLastmod: moduleLastmod)
         if site.llmsText { try writeLLMSIndex(writer: writer) }
 
         return result
@@ -210,12 +229,15 @@ struct DocCRenderPhase {
     /// catalog), so search works from any page. Fragment-based so an incremental
     /// build that skips modules still ships a complete index.
     ///
-    /// Returns every indexed page's site-relative location (no leading slash) for
-    /// the sitemap — the same "indexable pages" set, kept in sync for free.
-    private func assembleSearchIndex(writer: OutputWriter) throws -> [String] {
+    /// Returns every indexed page (site-relative location + a `<lastmod>` from the
+    /// owning module's `moduleLastmod` entry) for the sitemap — the same "indexable
+    /// pages" set, kept in sync for free. The catalog has no lastmod.
+    private func assembleSearchIndex(writer: OutputWriter, moduleLastmod: [String: String]) throws -> [IndexablePage] {
         var builder = SearchIndexBuilder()
+        var pages: [IndexablePage] = []
         // The catalog / home page.
         builder.add(location: "", title: site.name, html: site.description ?? "")
+        pages.append(IndexablePage(location: "", lastmod: nil))
 
         let fragmentsDir = outputDirectory.appendingPathComponent("_kiln/search", isDirectory: true)
         let decoder = JSONDecoder()
@@ -223,12 +245,17 @@ struct DocCRenderPhase {
             for case let file as URL in enumerator where file.pathExtension == "json" {
                 guard let data = try? Data(contentsOf: file),
                       let index = try? decoder.decode(SearchIndex.self, from: data) else { continue }
-                for doc in index.docs { builder.add(document: doc) }
+                // The fragment filename is the module's lowercased name (its lastmod key).
+                let lastmod = moduleLastmod[file.deletingPathExtension().lastPathComponent]
+                for doc in index.docs {
+                    builder.add(document: doc)
+                    pages.append(IndexablePage(location: doc.location, lastmod: lastmod))
+                }
             }
         }
         try writer.write(try builder.jsonData(),
                          to: outputDirectory.appendingPathComponent("search/search_index.json"))
-        return builder.documents.map(\.location)
+        return pages
     }
 
     /// Write a compact `llms.txt` listing every module (default versions), grouped
@@ -300,6 +327,7 @@ struct DocCRenderPhase {
         page: DocCPage,
         rendered: RenderedDocC,
         urls: DocCURLs,
+        moduleTitle: String,
         sidebarHTML: String,
         moduleSwitcherHTML: String,
         versionSwitcherHTML: String,
@@ -309,6 +337,13 @@ struct DocCRenderPhase {
     ) async throws -> String {
         let pageURL = urls.url(forDocCPath: page.path)
         let canonical = absoluteURL(pageURL)
+
+        // The `<title>`: a symbol page appends its module so it reads
+        // "Queue · Queues · <site>" (matching the theme's " · <site>" suffix) and
+        // disambiguates same-named symbols across modules. The module landing page
+        // (empty DocC suffix) keeps just its own title to avoid "Queues · Queues".
+        let isModuleLanding = urls.suffix(forDocCPath: page.path).isEmpty
+        let pageTitle = isModuleLanding ? rendered.title : "\(rendered.title) · \(moduleTitle)"
 
         // page.leaf emits page.content verbatim, so the DocC body carries its own
         // header (role eyebrow + <h1>) — the render node deliberately omits it.
@@ -336,7 +371,7 @@ struct DocCRenderPhase {
             markdownURL: nil,
             baseURL: urls.baseURL(forDocCPath: page.path),
             basePath: basePath,
-            pageTitle: rendered.title,
+            pageTitle: pageTitle,
             contentHTML: body,
             tableOfContents: rendered.tableOfContents,
             frontMatter: .empty,

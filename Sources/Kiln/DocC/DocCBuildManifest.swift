@@ -81,6 +81,22 @@ enum DocCFingerprint {
         return hash("\(count):\(totalSize):\(newest)")
     }
 
+    /// The newest file modification date in a `.doccarchive`, for the sitemap's
+    /// `<lastmod>`. Since Stage A regenerates archives wholesale, this reflects
+    /// when the module's docs were last built. `nil` if the archive is unreadable.
+    static func newestMTime(_ archiveURL: URL) -> Date? {
+        var newest: Date?
+        let keys: Set<URLResourceKey> = [.contentModificationDateKey, .isRegularFileKey]
+        if let enumerator = FileManager.default.enumerator(at: archiveURL, includingPropertiesForKeys: Array(keys)) {
+            for case let file as URL in enumerator {
+                guard let values = try? file.resourceValues(forKeys: keys), values.isRegularFile == true,
+                      let mtime = values.contentModificationDate else { continue }
+                if newest == nil || mtime > newest! { newest = mtime }
+            }
+        }
+        return newest
+    }
+
     // MARK: Helpers
 
     private static func leafFiles(in directory: URL) -> [URL] {
