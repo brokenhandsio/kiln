@@ -27,12 +27,14 @@ public struct SiteGenerator {
     let contentDirectory: URL
     let outputDirectory: URL
     let linkChecking: LinkChecking
+    let incremental: Bool
 
-    public init(site: KilnSite, contentDirectory: URL, outputDirectory: URL, linkChecking: LinkChecking = .warn) {
+    public init(site: KilnSite, contentDirectory: URL, outputDirectory: URL, linkChecking: LinkChecking = .warn, incremental: Bool = false) {
         self.site = site
         self.contentDirectory = contentDirectory
         self.outputDirectory = outputDirectory
         self.linkChecking = linkChecking
+        self.incremental = incremental
     }
 
     /// The site's mount path, normalised (e.g. `"/docs"` or `""`).
@@ -75,7 +77,20 @@ public struct SiteGenerator {
     /// lifetime (and async shutdown) is managed by the caller.
     private func build(into renderer: TemplateRenderer, theme: (templates: [URL], assets: [URL])) async throws {
         let writer = OutputWriter(outputDirectory: outputDirectory)
-        try writer.reset()
+
+        // Incremental DocC: when the render inputs (executable + templates) match
+        // the previous build's manifest, reuse the output and skip re-rendering
+        // modules whose archives are unchanged. Otherwise do a clean full build.
+        let renderInputs = DocCFingerprint.renderInputs(templateDirectories: theme.templates)
+        let previousManifest = incremental ? DocCBuildManifest.load(from: outputDirectory) : nil
+        let doIncremental = incremental && site.docc != nil
+            && previousManifest?.renderInputs == renderInputs
+            && FileManager.default.fileExists(atPath: outputDirectory.path)
+        if doIncremental {
+            FileHandle.standardError.write(Data("[kiln] docc: incremental build (render inputs unchanged)\n".utf8))
+        } else {
+            try writer.reset()
+        }
 
         let markdown = MarkdownRenderer(options: site.markdown)
         let isVersioned = site.isVersioned
@@ -198,12 +213,20 @@ public struct SiteGenerator {
                 site: site, docc: docc, contentDirectory: contentDirectory,
                 outputDirectory: outputDirectory, basePath: basePath
             )
-            let result = try await phase.run(renderer: renderer, writer: writer)
+            let result = try await phase.run(
+                renderer: renderer, writer: writer,
+                incremental: doIncremental, previous: previousManifest?.modules ?? [:]
+            )
+            if !result.skipped.isEmpty {
+                FileHandle.standardError.write(Data("[kiln] docc: reused \(result.skipped.count) unchanged module(s): \(result.skipped.sorted().joined(separator: ", "))\n".utf8))
+            }
             if !result.warnings.isEmpty {
                 var report = "[kiln] docc: \(result.warnings.count) warning(s):\n"
                 for warning in result.warnings { report += "  \(warning)\n" }
                 FileHandle.standardError.write(Data(report.utf8))
             }
+            // Persist the manifest for the next incremental build.
+            try DocCBuildManifest(renderInputs: renderInputs, modules: result.manifestModules).write(to: outputDirectory)
         }
 
         // Theme assets once (identical across versions; referenced root-absolutely).

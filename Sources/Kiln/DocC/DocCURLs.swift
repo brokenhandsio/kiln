@@ -83,6 +83,13 @@ public struct DocCURLs: Sendable {
         return segments.isEmpty ? "./" : String(repeating: "../", count: segments.count)
     }
 
+    /// This module+version's output directory relative to the output root, e.g.
+    /// `"queues"` or `"queues/5-alpha"` (used by the incremental-build manifest).
+    public var relativeModuleDirectory: String {
+        let version = versionSegment.hasSuffix("/") ? String(versionSegment.dropLast()) : versionSegment
+        return version.isEmpty ? moduleSegment : moduleSegment + "/" + version
+    }
+
     /// The on-disk directory this module+version is written into
     /// (`<output>/queues/` or `<output>/queues/5-alpha/`) — where its copied
     /// assets (images/videos/downloads) also land.

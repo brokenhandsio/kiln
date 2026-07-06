@@ -32,6 +32,11 @@ struct DocCRenderPhase {
     struct Result: Sendable {
         var pages: [WrittenPage] = []
         var warnings: [String] = []
+        /// The build manifest's per module-version entries (current + carried-over
+        /// skipped ones), for the incremental build's manifest.
+        var manifestModules: [String: DocCBuildManifest.Entry] = [:]
+        /// Modules skipped this build (unchanged), for logging.
+        var skipped: [String] = []
     }
 
     /// The archive location convention: `<archives>/<versionID>/<Module>.doccarchive`.
@@ -42,7 +47,15 @@ struct DocCRenderPhase {
             .appendingPathComponent("\(module.name).doccarchive", isDirectory: true)
     }
 
-    func run(renderer: TemplateRenderer, writer: OutputWriter) async throws -> Result {
+    /// - Parameters:
+    ///   - incremental: reuse output for modules whose archives are unchanged.
+    ///   - previous: the previous build's manifest module entries (for skip checks).
+    func run(
+        renderer: TemplateRenderer,
+        writer: OutputWriter,
+        incremental: Bool = false,
+        previous: [String: DocCBuildManifest.Entry] = [:]
+    ) async throws -> Result {
         let registry = DocCModuleRegistry(site: docc, basePath: basePath)
         let switcher = DocCModuleSwitcher(docc: docc, basePath: basePath)
         // Resolve the archives directory *within* the content directory (append
@@ -56,25 +69,58 @@ struct DocCRenderPhase {
         let language = site.defaultLanguage
         var result = Result()
 
+        let fileManager = FileManager.default
         for package in docc.packages {
             // Module switcher lists all modules; identical across a module's pages.
             for module in package.modules {
-                // Load every version of this module up front, so the version
-                // switcher can resolve a symbol's URL in each version (or fall
-                // back to that version's landing).
-                var archivesByVersion: [String: DocCArchive] = [:]
+                // Per-version archive state (cheap fingerprints; no decode yet).
+                struct VersionState { let version: PackageVersion; let archiveURL: URL; let key: String; let fingerprint: String; let relativeDir: String }
+                var states: [VersionState] = []
                 for version in package.versions {
                     let archiveURL = Self.archiveURL(module: module, version: version, in: archivesBase)
-                    guard FileManager.default.fileExists(atPath: archiveURL.path) else {
+                    guard fileManager.fileExists(atPath: archiveURL.path) else {
                         result.warnings.append("missing archive for \(module.name)@\(version.id) at \(archiveURL.path)")
                         continue
                     }
+                    let urls = DocCURLs(moduleName: module.name, version: version, basePath: basePath)
+                    states.append(VersionState(
+                        version: version, archiveURL: archiveURL,
+                        key: "\(module.name)@\(version.id)",
+                        fingerprint: DocCFingerprint.archive(archiveURL),
+                        relativeDir: urls.relativeModuleDirectory
+                    ))
+                }
+                guard !states.isEmpty else { continue }
+
+                // Incremental skip: every version unchanged AND its output present.
+                let canSkip = incremental && states.allSatisfy { state in
+                    previous[state.key]?.fingerprint == state.fingerprint
+                        && fileManager.fileExists(atPath: outputDirectory.appendingPathComponent(state.relativeDir).path)
+                }
+                if canSkip {
+                    for state in states { result.manifestModules[state.key] = previous[state.key] }
+                    result.skipped.append(module.name)
+                    continue
+                }
+
+                // (Re)rendering this module: clear stale output for its versions
+                // (a full build already reset the output).
+                if incremental {
+                    for state in states {
+                        try? fileManager.removeItem(at: outputDirectory.appendingPathComponent(state.relativeDir))
+                    }
+                }
+
+                // Load every version's archive (the version switcher needs each
+                // version's page paths to resolve/fall back).
+                var archivesByVersion: [String: DocCArchive] = [:]
+                for state in states {
                     let diagnostics = DocCDiagnostics()
-                    let archive = try loader.load(archiveURL: archiveURL, diagnostics: diagnostics)
-                    archivesByVersion[version.id] = archive
-                    let label = "\(module.name)@\(version.id)"
-                    for issue in archive.loadIssues { result.warnings.append("[\(label)] \(issue)") }
-                    for unknown in diagnostics.summary { result.warnings.append("[\(label)] unhandled \(unknown)") }
+                    let archive = try loader.load(archiveURL: state.archiveURL, diagnostics: diagnostics)
+                    archivesByVersion[state.version.id] = archive
+                    result.manifestModules[state.key] = DocCBuildManifest.Entry(fingerprint: state.fingerprint, outputDir: state.relativeDir)
+                    for issue in archive.loadIssues { result.warnings.append("[\(state.key)] \(issue)") }
+                    for unknown in diagnostics.summary { result.warnings.append("[\(state.key)] unhandled \(unknown)") }
                 }
                 guard !archivesByVersion.isEmpty else { continue }
 
@@ -114,6 +160,14 @@ struct DocCRenderPhase {
                     try AssetCopier(outputDirectory: outputDirectory)
                         .copyDocCAssets(from: archive.archiveURL, into: urls.moduleDirectory(in: outputDirectory))
                 }
+            }
+        }
+
+        // Incremental cleanup: remove output for module-versions that existed in
+        // the previous build but are no longer in the config.
+        if incremental {
+            for (key, entry) in previous where result.manifestModules[key] == nil {
+                try? fileManager.removeItem(at: outputDirectory.appendingPathComponent(entry.outputDir))
             }
         }
 
