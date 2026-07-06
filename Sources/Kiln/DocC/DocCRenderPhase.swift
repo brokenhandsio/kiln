@@ -134,11 +134,13 @@ struct DocCRenderPhase {
                     let urls = DocCURLs(moduleName: module.name, version: version, basePath: basePath)
                     let contentRenderer = DocCRenderer(pathMapper: registry.linkMapper(current: urls, currentPackageRepo: package.repo))
                     let navigationBuilder = DocCNavigationBuilder(urls: urls)
-                    let navigationTree = navigationBuilder.build(archive.index)
+                    // The sidebar tree is identical for every page of this module,
+                    // so render it once; the current page is highlighted in the
+                    // browser (docc-nav.js).
+                    let sidebar = navigationBuilder.renderHTML(navigationBuilder.build(archive.index))
 
                     for page in archive.pages {
                         let rendered = contentRenderer.render(page.node)
-                        let sidebar = navigationBuilder.renderHTML(navigationTree, currentPath: page.path)
                         let versionSwitcherHTML = versionSwitcher.renderHTML(currentVersion: version, currentPath: page.path)
                         let html = try await renderPage(page: page, rendered: rendered, urls: urls,
                                                         sidebarHTML: sidebar,

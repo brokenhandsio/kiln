@@ -30,7 +30,7 @@ struct DocCNavigationTests {
     func rendersHTML() throws {
         let builder = DocCNavigationBuilder(urls: urls)
         let tree = builder.build(try queuesIndex())
-        let html = builder.renderHTML(tree, currentPath: "/documentation/queues/queue")
+        let html = builder.renderHTML(tree)
 
         // Group markers are always-open disclosures with a plain summary.
         #expect(html.contains("<details class=\"docc-nav-group\" open>"))
@@ -38,33 +38,28 @@ struct DocCNavigationTests {
         // A leaf symbol links to its site URL with an icon kind class.
         #expect(html.contains("docc-kind-protocol"))
         #expect(html.contains("href=\"/queues/queue/\""))
-        // ScheduleBuilder (a class with members) is an expandable branch.
-        #expect(html.contains("<details class=\"docc-nav-branch\""))
+        // ScheduleBuilder (a class with members) is an expandable branch, rendered
+        // closed — the browser (docc-nav.js) opens the current trail.
+        #expect(html.contains("<details class=\"docc-nav-branch\">"))
         #expect(html.contains("href=\"/queues/schedulebuilder/\""))
     }
 
-    @Test("The current page is marked and its ancestors are opened")
-    func highlightsCurrent() throws {
+    @Test("The tree is rendered once with no per-page current state")
+    func staticTree() throws {
         let builder = DocCNavigationBuilder(urls: urls)
         let tree = builder.build(try queuesIndex())
-
-        // A method nested under ScheduleBuilder → its branch opens and it's current.
-        let current = "/documentation/queues/schedulebuilder/daily()"
-        let html = builder.renderHTML(tree, currentPath: current)
-        #expect(html.contains("aria-current=\"page\""))
-        #expect(html.contains("docc-current"))
-        // The ScheduleBuilder branch containing it is opened.
-        #expect(html.contains("<details class=\"docc-nav-branch\" open>"))
-
-        // On a page that isn't in the tree, nothing is marked current.
-        let none = builder.renderHTML(tree, currentPath: "/documentation/queues/nonexistent")
-        #expect(!none.contains("aria-current"))
+        let html = builder.renderHTML(tree)
+        // Highlighting is applied client-side, so the static HTML carries no
+        // current markers and symbol branches are closed.
+        #expect(!html.contains("aria-current"))
+        #expect(!html.contains("docc-current"))
+        #expect(!html.contains("docc-nav-branch\" open"))
     }
 
     @Test("A nil index yields an empty sidebar")
     func emptyIndex() {
         let builder = DocCNavigationBuilder(urls: urls)
         #expect(builder.build(nil).isEmpty)
-        #expect(builder.renderHTML([], currentPath: "/x").isEmpty)
+        #expect(builder.renderHTML([]).isEmpty)
     }
 }

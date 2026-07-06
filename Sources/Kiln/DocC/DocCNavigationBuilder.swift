@@ -50,30 +50,24 @@ public struct DocCNavigationBuilder: Sendable {
         )
     }
 
-    /// Render the sidebar HTML for a page, marking the entry whose path matches
-    /// `currentPath` as current and opening the disclosure of every ancestor.
-    func renderHTML(_ nodes: [Node], currentPath: String) -> String {
+    /// Render the sidebar HTML for a module — **once**, with no current-page
+    /// state. Group markers start open; symbol branches start closed. The
+    /// current page's highlighting and ancestor expansion are applied per page in
+    /// the browser (`docc-nav.js`) by matching the link href to the URL, so the
+    /// tree is built once per module instead of re-rendered for every page.
+    func renderHTML(_ nodes: [Node]) -> String {
         guard !nodes.isEmpty else { return "" }
         var out = "<ul class=\"docc-nav-list\">\n"
-        for node in nodes { out += render(node, currentPath: currentPath).html }
+        for node in nodes { out += render(node) }
         out += "</ul>\n"
         return out
     }
 
-    /// Render one node, returning its HTML and whether it (or a descendant) is the
-    /// current page — used to open the ancestor disclosures.
-    private func render(_ node: Node, currentPath: String) -> (html: String, active: Bool) {
-        let isCurrent = node.path == currentPath
-        var active = isCurrent
-
+    private func render(_ node: Node) -> String {
         var childrenHTML = ""
         if !node.children.isEmpty {
             childrenHTML = "<ul class=\"docc-nav-list\">\n"
-            for child in node.children {
-                let result = render(child, currentPath: currentPath)
-                childrenHTML += result.html
-                if result.active { active = true }
-            }
+            for child in node.children { childrenHTML += render(child) }
             childrenHTML += "</ul>\n"
         }
 
@@ -86,23 +80,21 @@ public struct DocCNavigationBuilder: Sendable {
             html += childrenHTML
             html += "</details>"
         } else if !node.children.isEmpty {
-            // A symbol that is both a link and a parent: open when on the trail.
-            html += "<details class=\"docc-nav-branch\"\(active ? " open" : "")>"
-            html += "<summary>\(link(node, isCurrent: isCurrent))</summary>\n"
+            // A symbol that is both a link and a parent (closed; JS opens the trail).
+            html += "<details class=\"docc-nav-branch\">"
+            html += "<summary>\(link(node))</summary>\n"
             html += childrenHTML
             html += "</details>"
         } else {
-            html += link(node, isCurrent: isCurrent)
+            html += link(node)
         }
         html += "</li>\n"
-        return (html, active)
+        return html
     }
 
-    private func link(_ node: Node, isCurrent: Bool) -> String {
+    private func link(_ node: Node) -> String {
         guard let url = node.url else { return HTMLEscaping.text(node.title) }
-        let currentClass = isCurrent ? " docc-current" : ""
-        let currentAttr = isCurrent ? " aria-current=\"page\"" : ""
-        return "<a class=\"docc-nav-link\(currentClass)\" href=\"\(HTMLEscaping.attribute(url))\"\(currentAttr)>\(HTMLEscaping.text(node.title))</a>"
+        return "<a class=\"docc-nav-link\" href=\"\(HTMLEscaping.attribute(url))\">\(HTMLEscaping.text(node.title))</a>"
     }
 
     /// Reduce a DocC entry type to a safe CSS-class suffix (alphanumerics only).

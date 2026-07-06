@@ -143,15 +143,18 @@ struct DocCRenderPhaseTests {
         #expect(!queue.contains("docc-select--version"))
     }
 
-    @Test("Every page carries the module sidebar, highlighting the current symbol")
+    @Test("Every page carries the module sidebar + the client-side highlight script")
     func sidebar() async throws {
         let output = try await buildSite()
         let queue = try html(output, "queues/queue/index.html")
         // The DocC sidebar is injected (not the empty nav-tree).
         #expect(queue.contains("docc-nav-list"))
         #expect(queue.contains("<summary>Protocols</summary>"))
-        // The current page (Queue) is marked in the sidebar.
-        #expect(queue.contains("docc-current"))
-        #expect(queue.contains("aria-current=\"page\""))
+        // Current-page highlighting is applied in the browser, so the static HTML
+        // has no current marker but loads the script that adds it.
+        #expect(!queue.contains("docc-current"))
+        #expect(queue.contains("/_kiln/js/docc-nav.js"))
+        // The script asset is emitted.
+        #expect(FileManager.default.fileExists(atPath: output.appendingPathComponent("_kiln/js/docc-nav.js").path))
     }
 }

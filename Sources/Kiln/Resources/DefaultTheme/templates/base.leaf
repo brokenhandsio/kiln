@@ -144,6 +144,7 @@
     <script>window.kilnSearchIndex = "#(searchIndexURL)"; window.kilnVersionBase = "#(basePath)#(versionBasePath)";</script>
     <script src="#(basePath)/_kiln/js/vendor/highlight.min.js"></script>
     <script src="#(basePath)/_kiln/js/theme.js"></script>
+    #if(nav.doccHTML):<script src="#(basePath)/_kiln/js/docc-nav.js"></script>#endif
     #if(site.searchEnabled):<script src="#(basePath)/_kiln/js/search.js"></script>#endif
     #for(src in site.extraJS):<script src="#(basePath)/#(src)"></script>
     #endfor
