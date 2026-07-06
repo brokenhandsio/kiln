@@ -157,6 +157,77 @@ struct DocCRendererTests {
         #expect(html.contains("Int"))
     }
 
+    @Test("The module landing renders curated Topics as symbol cards")
+    func rendersTopics() throws {
+        let node = try node("Queues", "documentation/queues.json")
+        let rendered = DocCRenderer().render(node)
+        let html = rendered.contentHTML
+
+        #expect(html.contains("<h2 id=\"topics\">Topics</h2>"))
+        // A curated group heading (DocC's own anchor).
+        #expect(html.contains("<h3 id=\"Classes\">Classes</h3>"))
+        // A symbol card: code-styled link to the member + its abstract.
+        #expect(html.contains("<a class=\"docc-topic-link\" href=\"/documentation/queues/schedulebuilder\"><code>ScheduleBuilder</code></a>"))
+        #expect(html.contains("<div class=\"docc-topic-abstract\">"))
+
+        // Topics + its groups are in the TOC (h2 with h3 children).
+        let topics = try #require(rendered.tableOfContents.first { $0.id == "topics" })
+        #expect(topics.children.contains { $0.title == "Classes" })
+    }
+
+    @Test("A conforming struct renders its Relationships section")
+    func rendersRelationships() throws {
+        let node = try node("Queues", "documentation/queues/jobdata.json")
+        let rendered = DocCRenderer().render(node)
+        let html = rendered.contentHTML
+
+        #expect(html.contains("<h2 id=\"relationships\">Relationships</h2>"))
+        #expect(html.contains("<h3 id=\"conforms-to\">Conforms To</h3>"))
+        // External conformances (Decodable/Sendable) resolve to unresolvable refs:
+        // rendered as plain inline code, not links.
+        #expect(html.contains("<li><code>Swift.Decodable</code></li>"))
+        #expect(html.contains("<li><code>Swift.Sendable</code></li>"))
+        #expect(rendered.tableOfContents.contains { $0.id == "relationships" })
+    }
+
+    @Test("A default-implementation property renders its Default Implementations")
+    func rendersDefaultImplementations() throws {
+        let node = try node("Queues", "documentation/queues/anyjob/name.json")
+        let rendered = DocCRenderer().render(node)
+        let html = rendered.contentHTML
+
+        #expect(html.contains("<h2 id=\"default-implementations\">Default Implementations</h2>"))
+        #expect(html.contains("AnyJob Implementations"))
+        #expect(html.contains("<a class=\"docc-topic-link\" href=\"/documentation/queues/anyjob/name-1r2fj\">"))
+        #expect(rendered.tableOfContents.contains { $0.id == "default-implementations" })
+    }
+
+    @Test("See Also groups render as symbol cards")
+    func rendersSeeAlso() throws {
+        let node = try decode("""
+        {
+          "schemaVersion": {"major": 0, "minor": 3, "patch": 0},
+          "identifier": {"url": "doc://T/documentation/T/X", "interfaceLanguage": "swift"},
+          "kind": "symbol",
+          "metadata": {"title": "X", "symbolKind": "struct"},
+          "seeAlsoSections": [
+            {"title": "Related", "generated": false, "anchor": "Related",
+             "identifiers": ["doc://T/documentation/T/Queue"]}
+          ],
+          "references": {
+            "doc://T/documentation/T/Queue": {"type": "topic", "identifier": "doc://T/documentation/T/Queue",
+               "kind": "symbol", "title": "Queue", "url": "/documentation/t/queue",
+               "abstract": [{"type": "text", "text": "A queue."}]}
+          }
+        }
+        """)
+        let html = DocCRenderer().render(node).contentHTML
+        #expect(html.contains("<h2 id=\"see-also\">See Also</h2>"))
+        #expect(html.contains("<h3 id=\"Related\">Related</h3>"))
+        #expect(html.contains("<a class=\"docc-topic-link\" href=\"/documentation/t/queue\"><code>Queue</code></a>"))
+        #expect(html.contains("A queue."))
+    }
+
     @Test("An unresolvable inline reference degrades to its title, not a crash")
     func unresolvableReference() throws {
         let node = try decode("""

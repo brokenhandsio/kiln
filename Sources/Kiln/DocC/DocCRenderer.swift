@@ -66,6 +66,17 @@ public struct DocCRenderer: Sendable {
             }
         }
 
+        // Curated groups after the primary content, in DocC's order: Topics,
+        // Default Implementations, Relationships, See Also.
+        body += renderTopicGroups(node.topicSections ?? [], title: "Topics", id: "topics",
+                                  cssClass: "docc-topics", resolver: resolver, slugger: slugger, toc: &toc)
+        body += renderTopicGroups(node.defaultImplementationsSections ?? [], title: "Default Implementations",
+                                  id: "default-implementations", cssClass: "docc-default-implementations",
+                                  resolver: resolver, slugger: slugger, toc: &toc)
+        body += renderRelationships(node.relationshipsSections ?? [], resolver: resolver, slugger: slugger, toc: &toc)
+        body += renderTopicGroups(node.seeAlsoSections ?? [], title: "See Also", id: "see-also",
+                                  cssClass: "docc-see-also", resolver: resolver, slugger: slugger, toc: &toc)
+
         return RenderedDocC(
             title: node.metadata.title ?? "",
             roleHeading: node.metadata.roleHeading,
@@ -145,6 +156,109 @@ public struct DocCRenderer: Sendable {
         }
         out += "</dl>\n</section>\n"
         return out
+    }
+
+    // MARK: Topics / Default Implementations / See Also
+
+    /// Render a set of curated ``TopicGroup``s (Topics, Default Implementations,
+    /// or See Also) as heading + symbol-card lists. The section heading and each
+    /// named group heading are added to the page TOC.
+    private func renderTopicGroups(
+        _ groups: [TopicGroup],
+        title: String,
+        id: String,
+        cssClass: String,
+        resolver: DocCLinkResolver,
+        slugger: Slugger,
+        toc: inout [TOCEntry]
+    ) -> String {
+        let populated = groups.filter { !$0.identifiers.isEmpty }
+        guard !populated.isEmpty else { return "" }
+
+        toc.append(TOCEntry(level: 2, id: id, title: title))
+        var out = "<section class=\"\(cssClass)\">\n<h2 id=\"\(HTMLEscaping.attribute(id))\">\(HTMLEscaping.text(title))</h2>\n"
+        for group in populated {
+            if let groupTitle = group.title {
+                let groupID = group.anchor ?? slugger.slug(for: groupTitle)
+                toc.append(TOCEntry(level: 3, id: groupID, title: groupTitle))
+                out += "<h3 id=\"\(HTMLEscaping.attribute(groupID))\">\(HTMLEscaping.text(groupTitle))</h3>\n"
+            }
+            out += "<ul class=\"docc-topic-list\">\n"
+            for identifier in group.identifiers {
+                out += renderTopicCard(identifier, resolver: resolver)
+            }
+            out += "</ul>\n"
+        }
+        out += "</section>\n"
+        return out
+    }
+
+    /// One curated symbol card: the linked title (inline code for a symbol) plus
+    /// its abstract. Non-topic references are skipped.
+    private func renderTopicCard(_ identifier: String, resolver: DocCLinkResolver) -> String {
+        guard case .topic(let topic)? = resolver.reference(identifier) else { return "" }
+        let titleText = HTMLEscaping.text(topic.title ?? identifier)
+        let titleHTML = topic.kind == "symbol" ? "<code>\(titleText)</code>" : titleText
+
+        let link: String
+        if let url = topic.url {
+            link = "<a class=\"docc-topic-link\" href=\"\(HTMLEscaping.attribute(resolver.mapPath(url)))\">\(titleHTML)</a>"
+        } else {
+            link = "<span class=\"docc-topic-link\">\(titleHTML)</span>"
+        }
+
+        var card = "<li class=\"docc-topic\">\(link)"
+        if let abstract = topic.abstract, !abstract.isEmpty {
+            card += "<div class=\"docc-topic-abstract\">\(DocCInline.render(abstract, resolver: resolver))</div>"
+        }
+        card += "</li>\n"
+        return card
+    }
+
+    // MARK: Relationships
+
+    /// Render the relationships (conformances, sub/superclasses) as a single
+    /// "Relationships" section with a sub-list per relationship kind. Only the
+    /// section heading goes in the page TOC (matching DocC's on-page nav).
+    private func renderRelationships(
+        _ sections: [RelationshipsSection],
+        resolver: DocCLinkResolver,
+        slugger: Slugger,
+        toc: inout [TOCEntry]
+    ) -> String {
+        let populated = sections.filter { !$0.identifiers.isEmpty }
+        guard !populated.isEmpty else { return "" }
+
+        toc.append(TOCEntry(level: 2, id: "relationships", title: "Relationships"))
+        var out = "<section class=\"docc-relationships\">\n<h2 id=\"relationships\">Relationships</h2>\n"
+        for section in populated {
+            if let title = section.title {
+                let groupID = slugger.slug(for: title)
+                out += "<h3 id=\"\(HTMLEscaping.attribute(groupID))\">\(HTMLEscaping.text(title))</h3>\n"
+            }
+            out += "<ul class=\"docc-relationship-list\">\n"
+            for identifier in section.identifiers {
+                out += "<li>\(renderRelationshipMember(identifier, resolver: resolver))</li>\n"
+            }
+            out += "</ul>\n"
+        }
+        out += "</section>\n"
+        return out
+    }
+
+    /// One related symbol: a link when it's a documented topic, otherwise plain
+    /// inline code (external symbols like `Swift.Sendable` resolve to an
+    /// unresolvable reference carrying only a title).
+    private func renderRelationshipMember(_ identifier: String, resolver: DocCLinkResolver) -> String {
+        if let link = resolver.resolveTopic(identifier) {
+            let inner = link.isSymbol ? "<code>\(HTMLEscaping.text(link.title))</code>" : HTMLEscaping.text(link.title)
+            return "<a class=\"docc-symbol-link\" href=\"\(HTMLEscaping.attribute(link.href))\">\(inner)</a>"
+        }
+        if let title = resolver.title(for: identifier) {
+            return "<code>\(HTMLEscaping.text(title))</code>"
+        }
+        let fallback = identifier.split(separator: "/").last.map(String.init) ?? identifier
+        return "<code>\(HTMLEscaping.text(fallback))</code>"
     }
 }
 
