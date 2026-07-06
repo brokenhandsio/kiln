@@ -178,6 +178,21 @@ public struct SiteGenerator {
             sitemapEntries += try await renderBlog(blog, defaultBuild: defaultBuild, renderer: renderer, writer: writer, markdown: markdown)
         }
 
+        // DocC: an additive phase that renders each package/version/module's
+        // pre-built archive into themed pages (see DocCRenderPhase).
+        if let docc = site.docc {
+            let phase = DocCRenderPhase(
+                site: site, docc: docc, contentDirectory: contentDirectory,
+                outputDirectory: outputDirectory, basePath: basePath
+            )
+            let result = try await phase.run(renderer: renderer, writer: writer)
+            if !result.warnings.isEmpty {
+                var report = "[kiln] docc: \(result.warnings.count) warning(s):\n"
+                for warning in result.warnings { report += "  \(warning)\n" }
+                FileHandle.standardError.write(Data(report.utf8))
+            }
+        }
+
         // Theme assets once (identical across versions; referenced root-absolutely).
         try AssetCopier(outputDirectory: outputDirectory).copyThemeAssets(from: theme.assets)
 

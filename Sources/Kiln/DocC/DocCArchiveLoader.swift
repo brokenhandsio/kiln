@@ -107,8 +107,11 @@ public struct DocCArchiveLoader {
     /// e.g. `…/data/documentation/queues/queue.json` → `/documentation/queues/queue`.
     /// This matches the `url` DocC assigns the page for hosting and in references.
     static func relativePath(of file: URL, under dataDirectory: URL) -> String {
-        var path = file.path
-        let prefix = dataDirectory.path
+        // Resolve symlinks on both sides so the prefix strip is robust to e.g. a
+        // temp dir under `/var` (a symlink to `/private/var`) whose enumerated
+        // file paths would otherwise not share the unresolved base prefix.
+        var path = file.resolvingSymlinksInPath().path
+        let prefix = dataDirectory.resolvingSymlinksInPath().path
         if path.hasPrefix(prefix) { path.removeFirst(prefix.count) }
         if path.hasSuffix(".json") { path.removeLast(".json".count) }
         if !path.hasPrefix("/") { path = "/" + path }

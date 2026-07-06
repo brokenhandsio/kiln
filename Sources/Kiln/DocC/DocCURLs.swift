@@ -74,6 +74,15 @@ public struct DocCURLs: Sendable {
         return url
     }
 
+    /// The relative path from a page back to the site mount root (e.g. `../../`),
+    /// so asset/theme links resolve regardless of the page's depth.
+    public func baseURL(forDocCPath path: String) -> String {
+        var segments = [moduleSegment]
+        segments += versionSegment.split(separator: "/").map(String.init)
+        segments += suffix(forDocCPath: path).split(separator: "/").map(String.init)
+        return segments.isEmpty ? "./" : String(repeating: "../", count: segments.count)
+    }
+
     /// The on-disk directory this module+version is written into
     /// (`<output>/queues/` or `<output>/queues/5-alpha/`) — where its copied
     /// assets (images/videos/downloads) also land.
