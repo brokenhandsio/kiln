@@ -57,31 +57,47 @@ struct DocCRenderPhase {
         var result = Result()
 
         for package in docc.packages {
-            for version in package.versions {
-                for module in package.modules {
+            // Module switcher lists all modules; identical across a module's pages.
+            for module in package.modules {
+                // Load every version of this module up front, so the version
+                // switcher can resolve a symbol's URL in each version (or fall
+                // back to that version's landing).
+                var archivesByVersion: [String: DocCArchive] = [:]
+                for version in package.versions {
                     let archiveURL = Self.archiveURL(module: module, version: version, in: archivesBase)
                     guard FileManager.default.fileExists(atPath: archiveURL.path) else {
                         result.warnings.append("missing archive for \(module.name)@\(version.id) at \(archiveURL.path)")
                         continue
                     }
-
                     let diagnostics = DocCDiagnostics()
                     let archive = try loader.load(archiveURL: archiveURL, diagnostics: diagnostics)
+                    archivesByVersion[version.id] = archive
+                    let label = "\(module.name)@\(version.id)"
+                    for issue in archive.loadIssues { result.warnings.append("[\(label)] \(issue)") }
+                    for unknown in diagnostics.summary { result.warnings.append("[\(label)] unhandled \(unknown)") }
+                }
+                guard !archivesByVersion.isEmpty else { continue }
+
+                let pathsByVersion = archivesByVersion.mapValues { Set($0.pages.map(\.path)) }
+                let versionSwitcher = DocCVersionSwitcher(package: package, moduleName: module.name,
+                                                          basePath: basePath, pathsByVersion: pathsByVersion)
+                let moduleSwitcherHTML = switcher.renderHTML(currentModule: module.name)
+
+                for version in package.versions {
+                    guard let archive = archivesByVersion[version.id] else { continue }
                     let urls = DocCURLs(moduleName: module.name, version: version, basePath: basePath)
                     let contentRenderer = DocCRenderer(pathMapper: registry.linkMapper(current: urls, currentPackageRepo: package.repo))
-
-                    // The module's sidebar tree, parsed once; highlighted per page.
                     let navigationBuilder = DocCNavigationBuilder(urls: urls)
                     let navigationTree = navigationBuilder.build(archive.index)
-                    // Module switcher (same for every page of this module).
-                    let moduleSwitcherHTML = switcher.renderHTML(currentModule: module.name)
 
                     for page in archive.pages {
                         let rendered = contentRenderer.render(page.node)
                         let sidebar = navigationBuilder.renderHTML(navigationTree, currentPath: page.path)
+                        let versionSwitcherHTML = versionSwitcher.renderHTML(currentVersion: version, currentPath: page.path)
                         let html = try await renderPage(page: page, rendered: rendered, urls: urls,
                                                         sidebarHTML: sidebar,
                                                         moduleSwitcherHTML: moduleSwitcherHTML,
+                                                        versionSwitcherHTML: versionSwitcherHTML,
                                                         isDefaultVersion: version.isDefault,
                                                         language: language, renderer: renderer)
                         try writer.write(html, to: urls.outputFile(forDocCPath: page.path, in: outputDirectory))
@@ -94,14 +110,9 @@ struct DocCRenderPhase {
                         ))
                     }
 
-                    // Copy the archive's referenced assets into the module dir so
-                    // image/download references resolve.
+                    // Copy the archive's referenced assets into the module dir.
                     try AssetCopier(outputDirectory: outputDirectory)
                         .copyDocCAssets(from: archive.archiveURL, into: urls.moduleDirectory(in: outputDirectory))
-
-                    let label = "\(module.name)@\(version.id)"
-                    for issue in archive.loadIssues { result.warnings.append("[\(label)] \(issue)") }
-                    for unknown in diagnostics.summary { result.warnings.append("[\(label)] unhandled \(unknown)") }
                 }
             }
         }
@@ -144,8 +155,9 @@ struct DocCRenderPhase {
             pageTitle: site.name,
             contentHTML: body,
             tableOfContents: [],
-            // The landing owns its full-width layout — hide the doc nav/TOC rails.
-            frontMatter: FrontMatter(values: ["sidebar": "false", "toc": "false"]),
+            // Keep the sidebar (with the expanded module switcher) as a module
+            // navigator on the landing; there's no on-page TOC to show.
+            frontMatter: FrontMatter(values: ["toc": "false"]),
             pageURL: catalogURL,
             canonicalURL: absoluteURL(catalogURL),
             pageDescription: site.description,
@@ -169,6 +181,7 @@ struct DocCRenderPhase {
         urls: DocCURLs,
         sidebarHTML: String,
         moduleSwitcherHTML: String,
+        versionSwitcherHTML: String,
         isDefaultVersion: Bool,
         language: Language,
         renderer: TemplateRenderer
@@ -214,6 +227,7 @@ struct DocCRenderPhase {
             navigation: PageNavigation(nodes: [], previous: nil, next: nil),
             doccSidebarHTML: sidebarHTML.isEmpty ? nil : sidebarHTML,
             doccModuleSwitcherHTML: moduleSwitcherHTML.isEmpty ? nil : moduleSwitcherHTML,
+            doccVersionSwitcherHTML: versionSwitcherHTML.isEmpty ? nil : versionSwitcherHTML,
             version: versionContext
         )
         return try await renderer.render("page", context: context.leafData)

@@ -36,28 +36,18 @@ struct DocCModuleSwitcher: Sendable {
         }
     }
 
-    /// The switcher HTML: a `<details>` disclosure whose summary shows the current
+    /// The switcher HTML: a shared ``DocCSelect`` whose toggle shows the current
     /// module (or "Modules" on the catalog) and whose panel lists every module,
-    /// grouped. Rendered in Swift (like the sidebar nav) so every theme injects
-    /// the same markup; CSS styles it. Empty when there are no modules.
+    /// grouped. Empty when there are no modules.
     func renderHTML(currentModule moduleName: String?) -> String {
         let groups = groups(currentModule: moduleName)
-        guard !groups.isEmpty else { return "" }
         let label = groups.flatMap(\.modules).first(where: \.isCurrent)?.name ?? "Modules"
-
-        var out = "<details class=\"docc-module-switcher\">\n"
-        out += "<summary class=\"docc-module-current\" aria-label=\"Select module\">"
-        out += "<span class=\"docc-module-current-name\">\(HTMLEscaping.text(label))</span>"
-        out += "<span class=\"vapor-icon icon-chevron-down docc-module-chevron\" aria-hidden=\"true\"></span>"
-        out += "</summary>\n<div class=\"docc-module-menu\">\n"
-        for group in groups {
-            out += "<p class=\"docc-module-group\">\(HTMLEscaping.text(group.title))</p>\n"
-            for module in group.modules {
-                let currentClass = module.isCurrent ? " docc-current" : ""
-                out += "<a class=\"docc-module-link\(currentClass)\" href=\"\(HTMLEscaping.attribute(module.url))\">\(HTMLEscaping.text(module.name))</a>\n"
-            }
+        let sections = groups.map { group in
+            DocCSelect.Section(
+                title: group.title,
+                options: group.modules.map { DocCSelect.Option(label: $0.name, url: $0.url, isCurrent: $0.isCurrent) }
+            )
         }
-        out += "</div>\n</details>\n"
-        return out
+        return DocCSelect.render(label: label, sections: sections, sizeClass: "docc-select--module")
     }
 }

@@ -80,8 +80,12 @@ struct DocCRenderPhaseTests {
         #expect(index.contains("href=\"/queues/\""))
         #expect(index.contains("href=\"/xctqueues/\""))
         #expect(index.contains(">Queues</span>") || index.contains("Queues</span>"))
-        // Landing hides the doc rails.
-        #expect(index.contains("kiln-no-sidebar"))
+        // The landing keeps the sidebar with the module switcher (closed by
+        // default) and no on-page TOC.
+        #expect(index.contains("<details class=\"docc-select docc-select--module\">"))
+        #expect(!index.contains("docc-expanded"))
+        #expect(!index.contains("kiln-no-sidebar"))
+        #expect(index.contains("kiln-no-toc"))
     }
 
     @Test("Renders a symbol page with declaration, eyebrow, and TOC")
@@ -129,12 +133,14 @@ struct DocCRenderPhaseTests {
     func moduleSwitcher() async throws {
         let output = try await buildSite()
         let queue = try html(output, "queues/queue/index.html")
-        #expect(queue.contains("docc-module-switcher"))
-        // The current module is the summary label and flagged in the list.
-        #expect(queue.contains("<span class=\"docc-module-current-name\">Queues</span>"))
-        #expect(queue.contains("<a class=\"docc-module-link docc-current\" href=\"/queues/\">Queues</a>"))
+        #expect(queue.contains("docc-select--module"))
+        // The current module is the toggle label and flagged in the list.
+        #expect(queue.contains("<span class=\"docc-select-value\">Queues</span>"))
+        #expect(queue.contains("<a class=\"docc-select-option is-current\" href=\"/queues/\">Queues</a>"))
         // The sibling module is listed to switch to.
         #expect(queue.contains("href=\"/xctqueues/\">XCTQueues</a>"))
+        // Single-version package → no version switcher.
+        #expect(!queue.contains("docc-select--version"))
     }
 
     @Test("Every page carries the module sidebar, highlighting the current symbol")

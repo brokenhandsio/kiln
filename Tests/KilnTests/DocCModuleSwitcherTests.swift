@@ -26,22 +26,24 @@ struct DocCModuleSwitcherTests {
         #expect(all.first { $0.name == "FluentKit" }?.url == "/fluentkit/")
     }
 
-    @Test("Renders a details dropdown with the current module as the label")
+    @Test("Renders a shared docc-select with the current module as the label")
     func rendersHTML() {
         let html = DocCModuleSwitcher(docc: site(), basePath: "").renderHTML(currentModule: "FluentKit")
-        #expect(html.contains("<details class=\"docc-module-switcher\">"))
-        #expect(html.contains("<span class=\"docc-module-current-name\">FluentKit</span>"))
-        #expect(html.contains("<p class=\"docc-module-group\">Queues</p>"))
-        #expect(html.contains("<a class=\"docc-module-link\" href=\"/queues/\">Queues</a>"))
+        #expect(html.contains("<details class=\"docc-select docc-select--module\">"))
+        #expect(html.contains("<span class=\"docc-select-value\">FluentKit</span>"))
+        #expect(html.contains("<p class=\"docc-select-group\">Queues</p>"))
+        #expect(html.contains("<a class=\"docc-select-option\" href=\"/queues/\">Queues</a>"))
         // The current module is flagged.
-        #expect(html.contains("<a class=\"docc-module-link docc-current\" href=\"/fluentkit/\">FluentKit</a>"))
+        #expect(html.contains("<a class=\"docc-select-option is-current\" href=\"/fluentkit/\">FluentKit</a>"))
     }
 
     @Test("No current module → 'Modules' label, none flagged")
     func noCurrent() {
         let html = DocCModuleSwitcher(docc: site(), basePath: "").renderHTML(currentModule: nil)
-        #expect(html.contains("<span class=\"docc-module-current-name\">Modules</span>"))
-        #expect(!html.contains("docc-current"))
+        #expect(html.contains("<span class=\"docc-select-value\">Modules</span>"))
+        #expect(!html.contains("is-current"))
+        // Closed by default (no `open` attribute).
+        #expect(html.hasPrefix("<details class=\"docc-select docc-select--module\">"))
     }
 
     @Test("basePath prefixes the switcher URLs")
