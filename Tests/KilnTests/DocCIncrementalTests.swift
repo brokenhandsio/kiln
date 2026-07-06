@@ -57,6 +57,12 @@ struct DocCIncrementalTests {
         try await Task.sleep(nanoseconds: 1_100_000_000) // ensure a distinguishable mtime if rewritten
         try await build(content, output)
         #expect(mtime(queuePage) == firstMtime, "unchanged module's page should not be rewritten")
+
+        // Even though both modules were skipped, the regenerated sitemap still
+        // lists their pages (it's assembled from the persisted search fragments).
+        let sitemap = try String(contentsOf: output.appendingPathComponent("sitemap.xml"), encoding: .utf8)
+        #expect(sitemap.contains("<loc>https://api.example.com/queues/queue/</loc>"))
+        #expect(sitemap.contains("<loc>https://api.example.com/xctqueues/</loc>"))
     }
 
     @Test("Changing one archive re-renders only that module")

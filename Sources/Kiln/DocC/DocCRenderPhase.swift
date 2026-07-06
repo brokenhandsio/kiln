@@ -16,23 +16,18 @@ struct DocCRenderPhase {
     let outputDirectory: URL
     let basePath: String
 
-    /// A page written by the phase (for later sitemap/search integration).
-    struct WrittenPage: Sendable {
-        var url: String
-        var title: String
-        var abstract: String?
-        var moduleName: String
-        var noindex: Bool
-    }
-
     struct Result: Sendable {
-        var pages: [WrittenPage] = []
         var warnings: [String] = []
         /// The build manifest's per module-version entries (current + carried-over
         /// skipped ones), for the incremental build's manifest.
         var manifestModules: [String: DocCBuildManifest.Entry] = [:]
         /// Modules skipped this build (unchanged), for logging.
         var skipped: [String] = []
+        /// Site-relative locations of every indexable page (default-version
+        /// symbols + the catalog), for the sitemap. Sourced from the assembled
+        /// search index so it stays complete across incremental builds (skipped
+        /// modules keep their persisted fragments). Locations have no leading slash.
+        var indexableLocations: [String] = []
     }
 
     /// The archive location convention: `<archives>/<versionID>/<Module>.doccarchive`.
@@ -148,13 +143,6 @@ struct DocCRenderPhase {
                                                         isDefaultVersion: version.isDefault,
                                                         language: language, renderer: renderer)
                         try writer.write(html, to: urls.outputFile(forDocCPath: page.path, in: outputDirectory))
-                        result.pages.append(WrittenPage(
-                            url: urls.url(forDocCPath: page.path),
-                            title: rendered.title,
-                            abstract: rendered.abstractText,
-                            moduleName: module.name,
-                            noindex: !version.isDefault
-                        ))
                         // Only default versions are indexed (search.js prepends "/",
                         // so store the location without a leading slash).
                         if version.isDefault {
@@ -195,17 +183,15 @@ struct DocCRenderPhase {
         }
 
         // The catalog landing page (site root): links to every module.
-        let catalogURL = basePath.isEmpty ? "/" : basePath + "/"
         let catalogHTML = try await renderCatalog(language: language,
                                                   moduleSwitcherHTML: switcher.renderHTML(currentModule: nil),
                                                   renderer: renderer)
         try writer.write(catalogHTML, to: outputDirectory.appendingPathComponent("index.html"))
-        result.pages.append(WrittenPage(url: catalogURL, title: site.name, abstract: site.description,
-                                        moduleName: "", noindex: false))
 
         // Sitewide search index (default-version symbols from every module) and
-        // the AI/agent module index.
-        try assembleSearchIndex(writer: writer)
+        // the AI/agent module index. The assembled index doubles as the sitemap's
+        // page set — same "indexable pages" definition, complete under incremental.
+        result.indexableLocations = try assembleSearchIndex(writer: writer)
         if site.llmsText { try writeLLMSIndex(writer: writer) }
 
         return result
@@ -223,7 +209,10 @@ struct DocCRenderPhase {
     /// Assemble the sitewide search index from every module's fragment (plus the
     /// catalog), so search works from any page. Fragment-based so an incremental
     /// build that skips modules still ships a complete index.
-    private func assembleSearchIndex(writer: OutputWriter) throws {
+    ///
+    /// Returns every indexed page's site-relative location (no leading slash) for
+    /// the sitemap — the same "indexable pages" set, kept in sync for free.
+    private func assembleSearchIndex(writer: OutputWriter) throws -> [String] {
         var builder = SearchIndexBuilder()
         // The catalog / home page.
         builder.add(location: "", title: site.name, html: site.description ?? "")
@@ -239,6 +228,7 @@ struct DocCRenderPhase {
         }
         try writer.write(try builder.jsonData(),
                          to: outputDirectory.appendingPathComponent("search/search_index.json"))
+        return builder.documents.map(\.location)
     }
 
     /// Write a compact `llms.txt` listing every module (default versions), grouped

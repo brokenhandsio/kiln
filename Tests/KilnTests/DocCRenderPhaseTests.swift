@@ -114,6 +114,18 @@ struct DocCRenderPhaseTests {
         #expect(FileManager.default.fileExists(atPath: output.appendingPathComponent("_kiln/search/queues.json").path))
     }
 
+    @Test("The sitemap lists the catalog and every default-version DocC page")
+    func sitemap() async throws {
+        let output = try await buildSite()
+        let sitemap = try html(output, "sitemap.xml")
+        // The catalog (site root) and module landings/symbols are all listed,
+        // absolute against the site URL.
+        #expect(sitemap.contains("<loc>https://api.vapor.codes/</loc>"))
+        #expect(sitemap.contains("<loc>https://api.vapor.codes/queues/</loc>"))
+        #expect(sitemap.contains("<loc>https://api.vapor.codes/queues/queue/</loc>"))
+        #expect(sitemap.contains("<loc>https://api.vapor.codes/xctqueues/</loc>"))
+    }
+
     @Test("Symbol pages carry the OpenGraph social image")
     func ogImage() async throws {
         let output = try await buildSite()
@@ -162,6 +174,12 @@ struct DocCRenderPhaseTests {
         // Default (v4) symbols present at the module root; beta ones absent.
         #expect(index.docs.contains { $0.location == "queues/queue/" })
         #expect(!index.docs.contains { $0.location.hasPrefix("queues/5-beta/") })
+
+        // The sitemap mirrors this: default-version pages listed, the noindex
+        // beta version excluded.
+        let sitemap = try html(output, "sitemap.xml")
+        #expect(sitemap.contains("<loc>https://api.example.com/queues/queue/</loc>"))
+        #expect(!sitemap.contains("/queues/5-beta/"))
     }
 
     @Test("Renders a symbol page with declaration, eyebrow, and TOC")

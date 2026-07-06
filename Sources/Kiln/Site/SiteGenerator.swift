@@ -225,6 +225,13 @@ public struct SiteGenerator {
                 for warning in result.warnings { report += "  \(warning)\n" }
                 FileHandle.standardError.write(Data(report.utf8))
             }
+            // Add the DocC pages to the sitemap. Sourced from the assembled search
+            // index (default-version symbols + catalog) so it stays complete on
+            // incremental builds where unchanged modules aren't re-rendered.
+            // Locations are site-relative with the base path already applied.
+            for location in result.indexableLocations {
+                sitemapEntries.append(SitemapEntry(loc: absoluteURL(forLocation: location), alternates: []))
+            }
             // Persist the manifest for the next incremental build.
             try DocCBuildManifest(renderInputs: renderInputs, modules: result.manifestModules).write(to: outputDirectory)
         }
