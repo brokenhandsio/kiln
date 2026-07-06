@@ -57,6 +57,51 @@ struct VersioningTests {
         FileManager.default.fileExists(atPath: output.appendingPathComponent(path).path)
     }
 
+    @Test("#localise falls back to the version's default-language customStrings on non-default pages")
+    func versionedCustomStringsFallback() async throws {
+        // In a versioned site the language config (and its customStrings) lives on
+        // the version, not on KilnSite. A non-default-language page must still fall
+        // back to the version default's strings — regression: the fallback used the
+        // site-level default language, which carries no per-version strings, so
+        // `#localise` rendered the literal key on every non-default page.
+        let theme = FileManager.default.temporaryDirectory.appendingPathComponent("kiln-theme-\(UUID().uuidString)")
+        let partials = theme.appendingPathComponent("templates/partials")
+        try FileManager.default.createDirectory(at: partials, withIntermediateDirectories: true)
+        try "<footer>[#localise(\"greeting\")]</footer>"
+            .write(to: partials.appendingPathComponent("footer.leaf"), atomically: true, encoding: .utf8)
+
+        let content = FileManager.default.temporaryDirectory.appendingPathComponent("kiln-content-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: content.appendingPathComponent("main"), withIntermediateDirectories: true)
+        try "# Home\n\nHi.".write(to: content.appendingPathComponent("main/index.md"), atomically: true, encoding: .utf8)
+
+        let output = FileManager.default.temporaryDirectory.appendingPathComponent("kiln-out-\(UUID().uuidString)")
+        defer {
+            try? FileManager.default.removeItem(at: theme)
+            try? FileManager.default.removeItem(at: content)
+            try? FileManager.default.removeItem(at: output)
+        }
+
+        let site = KilnSite(
+            name: "V", url: "https://v.example.com",
+            theme: .custom(directory: theme.path),
+            versions: [
+                DocVersion(
+                    id: "main", name: "Main", isDefault: true, contentDirectory: "main",
+                    languages: [
+                        .init(.english, isDefault: true, customStrings: ["greeting": "HELLO-FALLBACK"]),
+                        .init(.german),
+                    ]
+                ) { Page("Home", "index.md") }
+            ]
+        )
+        try await Kiln.build(site, contentDirectory: content, outputDirectory: output, linkChecking: .off)
+
+        // The German page (a fallback) still resolves the string from the version default.
+        let german = try read(output.appendingPathComponent("de/index.html"))
+        #expect(german.contains("[HELLO-FALLBACK]"))
+        #expect(!german.contains("greeting"))
+    }
+
     @Test("Default version at root, others under /<id>/, with per-version structure")
     func layout() async throws {
         let output = try await buildVersioned()

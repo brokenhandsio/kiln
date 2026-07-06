@@ -75,6 +75,13 @@ struct VersionContext: Sendable {
 struct RenderContext {
     var site: KilnSite
     var language: Language
+    /// The default language of the page's version, used to seed fallbacks for
+    /// `customStrings` (and the default locale/direction). In a versioned site the
+    /// language configuration — including its custom strings — lives on the
+    /// version, so this is the *version's* default language, which is not
+    /// necessarily ``KilnSite/defaultLanguage`` (that one carries no per-version
+    /// strings). Using it fixes `#localise` fallbacks on non-default languages.
+    var defaultLanguage: Language
     var localisation: LocalisationConfiguration
     var alternates: [LanguageAlternate]
     var searchEnabled: Bool
@@ -219,8 +226,8 @@ struct RenderContext {
             // The default language's locale/direction, so templates can tag
             // fallback (untranslated) content with the original language and
             // direction — e.g. English content served LTR inside an RTL page.
-            "defaultLocale": .string(site.defaultLanguage.locale),
-            "defaultDir": .string(site.defaultLanguage.isRTL ? "rtl" : "ltr"),
+            "defaultLocale": .string(defaultLanguage.locale),
+            "defaultDir": .string(defaultLanguage.isRTL ? "rtl" : "ltr"),
         ]
         if let repository = site.repository {
             dict["repository"] = .dictionary([
@@ -315,7 +322,7 @@ struct RenderContext {
     /// `#localise("key")` tag, resolved with the default language's values as a
     /// fallback so an untranslated key still renders the default-language text.
     private var customStringsData: LeafData {
-        var merged = site.defaultLanguage.customStrings
+        var merged = defaultLanguage.customStrings
         for (key, value) in language.customStrings {
             merged[key] = value
         }
