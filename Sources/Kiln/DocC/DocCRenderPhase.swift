@@ -277,6 +277,9 @@ struct DocCRenderPhase {
         let context = RenderContext(
             site: site,
             language: language,
+            // DocC sites are single-language; the version's default language is
+            // the same one, so `#localise` fallbacks resolve against it.
+            defaultLanguage: language,
             localisation: language.localisation,
             alternates: [],
             searchEnabled: true,
@@ -337,6 +340,9 @@ struct DocCRenderPhase {
         let context = RenderContext(
             site: site,
             language: language,
+            // DocC sites are single-language; the version's default language is
+            // the same one, so `#localise` fallbacks resolve against it.
+            defaultLanguage: language,
             localisation: language.localisation,
             alternates: [],
             searchEnabled: true,
