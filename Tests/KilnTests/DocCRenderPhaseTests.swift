@@ -70,6 +70,20 @@ struct DocCRenderPhaseTests {
         #expect(xct.contains("<h1>XCTQueues</h1>"))
     }
 
+    @Test("Builds a catalog landing page at the site root")
+    func catalog() async throws {
+        let output = try await buildSite()
+        let index = try html(output, "index.html")
+        // The site title + a grouped card linking to each module's landing.
+        #expect(index.contains("<h1>Vapor API</h1>"))
+        #expect(index.contains("docc-catalog-card"))
+        #expect(index.contains("href=\"/queues/\""))
+        #expect(index.contains("href=\"/xctqueues/\""))
+        #expect(index.contains(">Queues</span>") || index.contains("Queues</span>"))
+        // Landing hides the doc rails.
+        #expect(index.contains("kiln-no-sidebar"))
+    }
+
     @Test("Renders a symbol page with declaration, eyebrow, and TOC")
     func symbolPage() async throws {
         let output = try await buildSite()

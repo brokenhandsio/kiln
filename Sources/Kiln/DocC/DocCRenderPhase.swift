@@ -101,7 +101,57 @@ struct DocCRenderPhase {
                 }
             }
         }
+
+        // The catalog landing page (site root): links to every module.
+        let catalogURL = basePath.isEmpty ? "/" : basePath + "/"
+        let catalogHTML = try await renderCatalog(language: language, renderer: renderer)
+        try writer.write(catalogHTML, to: outputDirectory.appendingPathComponent("index.html"))
+        result.pages.append(WrittenPage(url: catalogURL, title: site.name, abstract: site.description,
+                                        moduleName: "", noindex: false))
+
         return result
+    }
+
+    // MARK: Catalog
+
+    private func renderCatalog(language: Language, renderer: TemplateRenderer) async throws -> String {
+        let catalogURL = basePath.isEmpty ? "/" : basePath + "/"
+
+        var body = "<header class=\"docc-catalog-header\">\n<h1>\(HTMLEscaping.text(site.name))</h1>\n"
+        if let description = site.description, !description.isEmpty {
+            body += "<p class=\"docc-catalog-lead\">\(HTMLEscaping.text(description))</p>\n"
+        }
+        body += "</header>\n"
+        body += DocCCatalogBuilder(docc: docc, basePath: basePath).renderHTML()
+
+        let socialImage = site.image.map { absoluteURL(basePath + "/" + $0.drop(while: { $0 == "/" })) }
+        let context = RenderContext(
+            site: site,
+            language: language,
+            localisation: language.localisation,
+            alternates: [],
+            searchEnabled: true,
+            searchIndexURL: basePath + "/search/search_index.json",
+            markdownURL: nil,
+            baseURL: "./",
+            basePath: basePath,
+            pageTitle: site.name,
+            contentHTML: body,
+            tableOfContents: [],
+            // The landing owns its full-width layout — hide the doc nav/TOC rails.
+            frontMatter: FrontMatter(values: ["sidebar": "false", "toc": "false"]),
+            pageURL: catalogURL,
+            canonicalURL: absoluteURL(catalogURL),
+            pageDescription: site.description,
+            socialImageURL: socialImage,
+            editURL: nil,
+            sourcePath: "",
+            isHome: true,
+            isFallback: false,
+            navigation: PageNavigation(nodes: [], previous: nil, next: nil),
+            version: VersionContext()
+        )
+        return try await renderer.render("page", context: context.leafData)
     }
 
     // MARK: Page rendering
