@@ -1,8 +1,4 @@
-#if canImport(FoundationEssentials)
-import FoundationEssentials
-#else
 import Foundation
-#endif
 
 /// The additive build phase that renders a ``DocCSite``'s pre-built archives into
 /// themed Kiln pages — the DocC analogue of the blog phase.
