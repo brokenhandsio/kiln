@@ -81,7 +81,7 @@
                 #extend("partials/controls")
             </div>
             <nav class="kiln-nav" aria-label="Main navigation">
-                #extend("partials/nav-tree", nav)
+                #if(nav.doccHTML):#unsafeHTML(nav.doccHTML)#else:#extend("partials/nav-tree", nav)#endif
             </nav>
         </aside>
         #endif

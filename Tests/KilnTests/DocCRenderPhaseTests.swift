@@ -94,4 +94,16 @@ struct DocCRenderPhaseTests {
         // A curated member links to its stripped site URL.
         #expect(landing.contains("href=\"/queues/schedulebuilder/\""))
     }
+
+    @Test("Every page carries the module sidebar, highlighting the current symbol")
+    func sidebar() async throws {
+        let output = try await buildSite()
+        let queue = try html(output, "queues/queue/index.html")
+        // The DocC sidebar is injected (not the empty nav-tree).
+        #expect(queue.contains("docc-nav-list"))
+        #expect(queue.contains("<summary>Protocols</summary>"))
+        // The current page (Queue) is marked in the sidebar.
+        #expect(queue.contains("docc-current"))
+        #expect(queue.contains("aria-current=\"page\""))
+    }
 }

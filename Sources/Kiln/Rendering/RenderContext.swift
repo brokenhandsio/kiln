@@ -104,6 +104,10 @@ struct RenderContext {
     var isFallback: Bool
 
     var navigation: PageNavigation
+    /// Pre-rendered DocC sidebar HTML (arbitrary-depth symbol tree), or `nil` for
+    /// non-DocC pages. Surfaced as `nav.doccHTML`; when set the theme injects it in
+    /// place of the `nav-tree` partial.
+    var doccSidebarHTML: String? = nil
 
     /// Versioning data (neutral by default ⇒ no version markup for unversioned sites).
     var version: VersionContext = VersionContext()
@@ -451,6 +455,9 @@ struct RenderContext {
             // Alias so the recursive `nav-tree` partial can iterate `items`
             // uniformly whether it's given the root nav or a section node.
             "items": nodes,
+            // Pre-rendered DocC sidebar (`.trueNil` ⇒ `#if(nav.doccHTML)` false on
+            // every non-DocC page, so the standard nav-tree renders instead).
+            "doccHTML": doccSidebarHTML.map(LeafData.string) ?? .trueNil,
         ]
         if let previous = navigation.previous {
             dict["previous"] = .dictionary(["title": .string(previous.title), "url": .string(previous.url)])

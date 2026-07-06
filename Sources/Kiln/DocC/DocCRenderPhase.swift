@@ -69,9 +69,15 @@ struct DocCRenderPhase {
                     let urls = DocCURLs(moduleName: module.name, version: version, basePath: basePath)
                     let contentRenderer = DocCRenderer(pathMapper: registry.linkMapper(current: urls, currentPackageRepo: package.repo))
 
+                    // The module's sidebar tree, parsed once; highlighted per page.
+                    let navigationBuilder = DocCNavigationBuilder(urls: urls)
+                    let navigationTree = navigationBuilder.build(archive.index)
+
                     for page in archive.pages {
                         let rendered = contentRenderer.render(page.node)
+                        let sidebar = navigationBuilder.renderHTML(navigationTree, currentPath: page.path)
                         let html = try await renderPage(page: page, rendered: rendered, urls: urls,
+                                                        sidebarHTML: sidebar,
                                                         isDefaultVersion: version.isDefault,
                                                         language: language, renderer: renderer)
                         try writer.write(html, to: urls.outputFile(forDocCPath: page.path, in: outputDirectory))
@@ -99,6 +105,7 @@ struct DocCRenderPhase {
         page: DocCPage,
         rendered: RenderedDocC,
         urls: DocCURLs,
+        sidebarHTML: String,
         isDefaultVersion: Bool,
         language: Language,
         renderer: TemplateRenderer
@@ -142,6 +149,7 @@ struct DocCRenderPhase {
             isHome: false,
             isFallback: false,
             navigation: PageNavigation(nodes: [], previous: nil, next: nil),
+            doccSidebarHTML: sidebarHTML.isEmpty ? nil : sidebarHTML,
             version: versionContext
         )
         return try await renderer.render("page", context: context.leafData)
