@@ -80,6 +80,16 @@ public struct SiteGenerator {
         let markdown = MarkdownRenderer(options: site.markdown)
         let isVersioned = site.isVersioned
 
+        // The DocC archives directory (Kiln-managed input under the content dir),
+        // excluded from content-asset copying so its raw JSON never reaches output.
+        let doccArchivesDirectory: URL? = site.docc.map { docc in
+            var url = contentDirectory
+            for component in docc.archivesDirectory.split(separator: "/") {
+                url.appendPathComponent(String(component), isDirectory: true)
+            }
+            return url
+        }
+
         // Resolve every version's content/nav once, building the page registry
         // used for cross-version equivalence.
         var builds: [VersionBuild] = []
@@ -155,9 +165,12 @@ public struct SiteGenerator {
                     .appendingPathComponent("404.html"))
             }
 
-            // Content assets: default version → root, others → /<id>/.
+            // Content assets: default version → root, others → /<id>/. The DocC
+            // archives directory is Kiln-managed input, not a content asset, so
+            // it's excluded from the copy (otherwise the raw archive JSON would
+            // leak into the output).
             try AssetCopier(outputDirectory: outputDirectory)
-                .copyContentAssets(from: build.contentURL, into: version.urlPrefix)
+                .copyContentAssets(from: build.contentURL, into: version.urlPrefix, excluding: doccArchivesDirectory.map { [$0] } ?? [])
 
             // AI/agent output (per version, per language).
             if site.llmsText {

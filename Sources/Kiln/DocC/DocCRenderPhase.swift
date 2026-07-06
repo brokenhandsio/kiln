@@ -90,6 +90,11 @@ struct DocCRenderPhase {
                         ))
                     }
 
+                    // Copy the archive's referenced assets into the module dir so
+                    // image/download references resolve.
+                    try AssetCopier(outputDirectory: outputDirectory)
+                        .copyDocCAssets(from: archive.archiveURL, into: urls.moduleDirectory(in: outputDirectory))
+
                     let label = "\(module.name)@\(version.id)"
                     for issue in archive.loadIssues { result.warnings.append("[\(label)] \(issue)") }
                     for unknown in diagnostics.summary { result.warnings.append("[\(label)] unhandled \(unknown)") }

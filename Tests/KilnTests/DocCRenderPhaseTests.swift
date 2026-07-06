@@ -25,6 +25,11 @@ struct DocCRenderPhaseTests {
             try fm.copyItem(at: docc.appendingPathComponent("\(module).doccarchive"),
                             to: archives.appendingPathComponent("\(module).doccarchive"))
         }
+        // Add a referenced asset to the Queues archive to exercise asset copying
+        // (the trimmed fixtures carry no images/ of their own).
+        let images = archives.appendingPathComponent("Queues.doccarchive/images")
+        try fm.createDirectory(at: images, withIntermediateDirectories: true)
+        try Data("png".utf8).write(to: images.appendingPathComponent("diagram.png"))
 
         let output = fm.temporaryDirectory.appendingPathComponent("kiln-docc-output-\(UUID().uuidString)")
         let site = KilnSite(
@@ -93,6 +98,17 @@ struct DocCRenderPhaseTests {
         let landing = try html(output, "queues/index.html")
         // A curated member links to its stripped site URL.
         #expect(landing.contains("href=\"/queues/schedulebuilder/\""))
+    }
+
+    @Test("Archive assets are copied into the module dir; raw archives don't leak")
+    func assetsAndNoLeak() async throws {
+        let output = try await buildSite()
+        let fm = FileManager.default
+        // The archive's referenced asset lands under the module root
+        // (matching the /images/… → /queues/images/… link rewrite).
+        #expect(fm.fileExists(atPath: output.appendingPathComponent("queues/images/diagram.png").path))
+        // The raw DocC archives directory is NOT copied into the output.
+        #expect(!fm.fileExists(atPath: output.appendingPathComponent("archives").path))
     }
 
     @Test("Every page carries the module sidebar, highlighting the current symbol")

@@ -29,13 +29,15 @@ struct AssetCopier {
 
     /// Copy every non-markdown, non-hidden file from the content directory to the
     /// output (under `subdirectory`, empty for the default version), preserving
-    /// relative paths.
-    func copyContentAssets(from contentDirectory: URL, into subdirectory: String = "") throws {
+    /// relative paths. Directories in `excluding` are skipped wholesale — used to
+    /// keep Kiln-managed input (the DocC `archives/` directory) out of the output.
+    func copyContentAssets(from contentDirectory: URL, into subdirectory: String = "", excluding excludedDirectories: [URL] = []) throws {
         let fileManager = FileManager.default
         var destinationRoot = outputDirectory
         for component in subdirectory.split(separator: "/") {
             destinationRoot.appendPathComponent(String(component), isDirectory: true)
         }
+        let excludedPaths = Set(excludedDirectories.map { $0.resolvingSymlinksInPath().path })
         guard let enumerator = fileManager.enumerator(
             at: contentDirectory,
             includingPropertiesForKeys: [.isRegularFileKey],
@@ -43,6 +45,11 @@ struct AssetCopier {
         ) else { return }
 
         while let item = enumerator.nextObject() as? URL {
+            // Don't descend into (or copy) an excluded directory, e.g. archives/.
+            if !excludedPaths.isEmpty, excludedPaths.contains(item.resolvingSymlinksInPath().path) {
+                enumerator.skipDescendants()
+                continue
+            }
             let isRegularFile = (try? item.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) ?? false
             guard isRegularFile, item.pathExtension.lowercased() != "md" else { continue }
 
@@ -53,6 +60,18 @@ struct AssetCopier {
                 try fileManager.removeItem(at: destination)
             }
             try fileManager.copyItem(at: item, to: destination)
+        }
+    }
+
+    /// Copy a DocC archive's asset folders (`images`/`videos`/`downloads`) into a
+    /// module's output directory, preserving structure — so a page's reference to
+    /// `/images/foo.png` (rewritten to `<moduleRoot>images/foo.png`) resolves.
+    /// Missing folders are skipped.
+    func copyDocCAssets(from archiveDirectory: URL, into destination: URL) throws {
+        for folder in ["images", "videos", "downloads"] {
+            let source = archiveDirectory.appendingPathComponent(folder, isDirectory: true)
+            guard FileManager.default.fileExists(atPath: source.path) else { continue }
+            try copyContents(of: source, into: destination.appendingPathComponent(folder, isDirectory: true))
         }
     }
 
