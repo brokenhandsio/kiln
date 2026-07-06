@@ -382,6 +382,7 @@ public struct SiteGenerator {
         let context = RenderContext(
             site: site,
             language: language,
+            defaultLanguage: version.defaultLanguage,
             localisation: language.localisation,
             alternates: alternates(forLogicalPath: logicalPath, current: language, urls: urls, languages: version.buildableLanguages),
             searchEnabled: true,
@@ -485,6 +486,7 @@ public struct SiteGenerator {
             let context = RenderContext(
                 site: site,
                 language: language,
+                defaultLanguage: build.version.defaultLanguage,
                 localisation: language.localisation,
                 alternates: [],
                 searchEnabled: true,
@@ -780,6 +782,7 @@ public struct SiteGenerator {
         let context = RenderContext(
             site: site,
             language: language,
+            defaultLanguage: version.defaultLanguage,
             localisation: language.localisation,
             alternates: [],
             searchEnabled: true,
