@@ -34,6 +34,11 @@ struct SearchIndexBuilder {
         ))
     }
 
+    /// Add a pre-built document (e.g. merging a persisted search fragment).
+    mutating func add(document: SearchDocument) {
+        documents.append(document)
+    }
+
     func jsonData() throws -> Data {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.withoutEscapingSlashes]

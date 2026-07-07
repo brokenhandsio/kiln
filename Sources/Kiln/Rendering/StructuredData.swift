@@ -8,9 +8,14 @@ import Foundation
 /// profiles) plus a `WebSite`, which together establish the site's identity for
 /// search engines and AI agents. Returns `nil` when no organization is configured.
 /// One crumb in a breadcrumb trail (`url` is nil for sections without a landing page).
-struct BreadcrumbItem: Sendable {
-    let name: String
-    let url: String?
+public struct BreadcrumbItem: Sendable {
+    public let name: String
+    public let url: String?
+
+    public init(name: String, url: String?) {
+        self.name = name
+        self.url = url
+    }
 }
 
 /// One author of an article, rendered as a JSON-LD `Person`.

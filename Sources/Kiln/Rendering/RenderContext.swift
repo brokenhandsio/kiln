@@ -111,6 +111,17 @@ struct RenderContext {
     var isFallback: Bool
 
     var navigation: PageNavigation
+    /// Pre-rendered DocC sidebar HTML (arbitrary-depth symbol tree), or `nil` for
+    /// non-DocC pages. Surfaced as `nav.doccHTML`; when set the theme injects it in
+    /// place of the `nav-tree` partial.
+    var doccSidebarHTML: String? = nil
+    /// Pre-rendered module-switcher HTML (all hosted DocC modules, grouped), or
+    /// `nil` on non-DocC pages. Surfaced as `nav.moduleSwitcher`; the theme injects
+    /// it into the sidebar.
+    var doccModuleSwitcherHTML: String? = nil
+    /// Pre-rendered per-package version-switcher HTML, or `nil` (single-version
+    /// package or non-DocC page). Surfaced as `nav.versionSwitcher`.
+    var doccVersionSwitcherHTML: String? = nil
 
     /// Versioning data (neutral by default ⇒ no version markup for unversioned sites).
     var version: VersionContext = VersionContext()
@@ -409,6 +420,19 @@ struct RenderContext {
                 article: articleStructuredData,
                 profile: profileStructuredData
             ).map(LeafData.string) ?? .trueNil,
+            // The visible breadcrumb trail — populated only when a page supplies an
+            // explicit `breadcrumbOverride` (DocC symbol pages, blog posts), so
+            // nav-driven pages are unchanged (`.trueNil` ⇒ `#if(page.breadcrumb)`
+            // false). Each crumb: `name`, and `url` (`.trueNil` for the current,
+            // unlinked page). The nav-derived trail still feeds JSON-LD above.
+            "breadcrumb": breadcrumbOverride.map { crumbs in
+                LeafData.array(crumbs.map { crumb in
+                    LeafData.dictionary([
+                        "name": .string(crumb.name),
+                        "url": crumb.url.map(LeafData.string) ?? .trueNil,
+                    ])
+                })
+            } ?? .trueNil,
             "imageURL": .string(socialImageURL),
             // MIME type of the social image (from its extension), for
             // `<meta property="og:image:type">`. Nil when unknown/imageless.
@@ -458,6 +482,12 @@ struct RenderContext {
             // Alias so the recursive `nav-tree` partial can iterate `items`
             // uniformly whether it's given the root nav or a section node.
             "items": nodes,
+            // Pre-rendered DocC sidebar (`.trueNil` ⇒ `#if(nav.doccHTML)` false on
+            // every non-DocC page, so the standard nav-tree renders instead).
+            "doccHTML": doccSidebarHTML.map(LeafData.string) ?? .trueNil,
+            // Pre-rendered DocC module + version switchers (`.trueNil` off DocC).
+            "moduleSwitcher": doccModuleSwitcherHTML.map(LeafData.string) ?? .trueNil,
+            "versionSwitcher": doccVersionSwitcherHTML.map(LeafData.string) ?? .trueNil,
         ]
         if let previous = navigation.previous {
             dict["previous"] = .dictionary(["title": .string(previous.title), "url": .string(previous.url)])

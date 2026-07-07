@@ -95,6 +95,10 @@ public struct KilnSite: Sendable {
     /// pages plus generated listing pages (paginated index, per-tag pages) and
     /// an RSS feed. A site with a blog must be single-language and unversioned.
     public var blog: Blog?
+    /// An optional DocC API-reference site: Swift packages whose pre-built DocC
+    /// archives are ingested and rendered into the Kiln theme, with a module
+    /// switcher and a per-package version switcher. See ``DocCSite``.
+    public var docc: DocCSite?
     /// The navigation tree (used when the site is not versioned; otherwise each
     /// ``DocVersion`` carries its own navigation).
     public var navigation: [NavItem]
@@ -124,6 +128,7 @@ public struct KilnSite: Sendable {
         llmsText: Bool = true,
         indexFallbackPages: Bool = false,
         blog: Blog? = nil,
+        docc: DocCSite? = nil,
         versions: [DocVersion] = [],
         @NavBuilder navigation: () -> [NavItem] = { [] }
     ) {
@@ -147,6 +152,7 @@ public struct KilnSite: Sendable {
         self.llmsText = llmsText
         self.indexFallbackPages = indexFallbackPages
         self.blog = blog
+        self.docc = docc
         self.versions = versions
         self.navigation = navigation()
     }
@@ -236,6 +242,9 @@ extension KilnSite {
         if blog != nil, !versions.isEmpty || buildableLanguages.count != 1 {
             throw ConfigurationError.blogRequiresSingleUnversioned
         }
+        // The DocC API-reference site carries its own per-package versioning,
+        // independent of the markdown-content versions/languages above.
+        try docc?.validate()
         if versions.isEmpty {
             try Self.validateLanguages(languages)
         } else {

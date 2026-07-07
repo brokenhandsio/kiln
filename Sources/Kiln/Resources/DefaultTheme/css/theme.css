@@ -205,6 +205,34 @@ a:hover { text-decoration: underline; }
 /* Collapsed chevron points toward the content edge, so mirror it in RTL. */
 [dir="rtl"] .kiln-nav-section:not([open]) > .kiln-nav-summary::before { transform: scaleX(-1); }
 
+/* ---- Breadcrumb ---- */
+.kiln-breadcrumb {
+    max-width: 820px;
+    margin: 0 0 1rem;
+    font-size: 0.85rem;
+}
+.kiln-breadcrumb ol {
+    list-style: none;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4em;
+    margin: 0;
+    padding: 0;
+}
+/* Separator before every crumb except the first. */
+.kiln-breadcrumb li + li::before {
+    content: "/";
+    margin-inline-end: 0.4em;
+    color: var(--muted);
+}
+.kiln-breadcrumb a {
+    color: var(--muted);
+    text-decoration: none;
+}
+.kiln-breadcrumb a:hover { text-decoration: underline; }
+.kiln-breadcrumb [aria-current="page"] { color: var(--text); }
+
 /* ---- Article ---- */
 .kiln-article {
     max-width: 820px;

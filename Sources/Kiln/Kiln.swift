@@ -23,17 +23,23 @@ public enum Kiln {
     ///   - outputDirectory: directory to write the generated site into (created
     ///     fresh on each build).
     ///   - linkChecking: how to handle broken internal links (default `.warn`).
+    ///   - incremental: when `true`, a DocC build reuses the previous output for
+    ///     modules whose inputs are unchanged (see ``DocCBuildManifest``), instead
+    ///     of wiping the output and re-rendering everything. Safe to leave on for
+    ///     local iteration; a fresh checkout (no manifest) still does a full build.
     public static func build(
         _ site: KilnSite,
         contentDirectory: URL,
         outputDirectory: URL,
-        linkChecking: LinkChecking = .warn
+        linkChecking: LinkChecking = .warn,
+        incremental: Bool = false
     ) async throws {
         let generator = SiteGenerator(
             site: site,
             contentDirectory: contentDirectory,
             outputDirectory: outputDirectory,
-            linkChecking: linkChecking
+            linkChecking: linkChecking,
+            incremental: incremental
         )
         try await generator.build()
     }
@@ -44,13 +50,40 @@ public enum Kiln {
         _ site: KilnSite,
         contentDirectory: String,
         outputDirectory: String,
-        linkChecking: LinkChecking = .warn
+        linkChecking: LinkChecking = .warn,
+        incremental: Bool = false
     ) async throws {
         try await build(
             site,
             contentDirectory: URL(fileURLWithPath: contentDirectory),
             outputDirectory: URL(fileURLWithPath: outputDirectory),
-            linkChecking: linkChecking
+            linkChecking: linkChecking,
+            incremental: incremental
         )
+    }
+
+    /// Stage A: build the DocC `.doccarchive`s the render step reads, checking out
+    /// each package at its ref and running `swift package generate-documentation`.
+    /// No-op for a site without a ``KilnSite/docc`` configuration.
+    ///
+    /// This shells out to git and the Swift toolchain (the only part of Kiln that
+    /// does), so call it before ``build(_:contentDirectory:outputDirectory:linkChecking:incremental:)``
+    /// when you want a single command to produce archives *and* the site. CI can
+    /// instead restore cached archives and pass `rebuild:` to regenerate only what
+    /// changed.
+    @discardableResult
+    public static func buildDocCArchives(
+        _ site: KilnSite,
+        contentDirectory: String,
+        checkoutDirectory: String = ".build/docc-sources",
+        rebuild: DocCArchiveBuilder.Rebuild = .missing
+    ) throws -> [String] {
+        guard let docc = site.docc else { return [] }
+        let builder = DocCArchiveBuilder(
+            docc: docc,
+            contentDirectory: URL(fileURLWithPath: contentDirectory),
+            checkoutDirectory: URL(fileURLWithPath: checkoutDirectory)
+        )
+        return try builder.build(rebuild: rebuild)
     }
 }

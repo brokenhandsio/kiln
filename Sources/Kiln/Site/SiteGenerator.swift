@@ -27,12 +27,14 @@ public struct SiteGenerator {
     let contentDirectory: URL
     let outputDirectory: URL
     let linkChecking: LinkChecking
+    let incremental: Bool
 
-    public init(site: KilnSite, contentDirectory: URL, outputDirectory: URL, linkChecking: LinkChecking = .warn) {
+    public init(site: KilnSite, contentDirectory: URL, outputDirectory: URL, linkChecking: LinkChecking = .warn, incremental: Bool = false) {
         self.site = site
         self.contentDirectory = contentDirectory
         self.outputDirectory = outputDirectory
         self.linkChecking = linkChecking
+        self.incremental = incremental
     }
 
     /// The site's mount path, normalised (e.g. `"/docs"` or `""`).
@@ -75,10 +77,33 @@ public struct SiteGenerator {
     /// lifetime (and async shutdown) is managed by the caller.
     private func build(into renderer: TemplateRenderer, theme: (templates: [URL], assets: [URL])) async throws {
         let writer = OutputWriter(outputDirectory: outputDirectory)
-        try writer.reset()
+
+        // Incremental DocC: when the render inputs (executable + templates) match
+        // the previous build's manifest, reuse the output and skip re-rendering
+        // modules whose archives are unchanged. Otherwise do a clean full build.
+        let renderInputs = DocCFingerprint.renderInputs(templateDirectories: theme.templates)
+        let previousManifest = incremental ? DocCBuildManifest.load(from: outputDirectory) : nil
+        let doIncremental = incremental && site.docc != nil
+            && previousManifest?.renderInputs == renderInputs
+            && FileManager.default.fileExists(atPath: outputDirectory.path)
+        if doIncremental {
+            FileHandle.standardError.write(Data("[kiln] docc: incremental build (render inputs unchanged)\n".utf8))
+        } else {
+            try writer.reset()
+        }
 
         let markdown = MarkdownRenderer(options: site.markdown)
         let isVersioned = site.isVersioned
+
+        // The DocC archives directory (Kiln-managed input under the content dir),
+        // excluded from content-asset copying so its raw JSON never reaches output.
+        let doccArchivesDirectory: URL? = site.docc.map { docc in
+            var url = contentDirectory
+            for component in docc.archivesDirectory.split(separator: "/") {
+                url.appendPathComponent(String(component), isDirectory: true)
+            }
+            return url
+        }
 
         // Resolve every version's content/nav once, building the page registry
         // used for cross-version equivalence.
@@ -155,9 +180,12 @@ public struct SiteGenerator {
                     .appendingPathComponent("404.html"))
             }
 
-            // Content assets: default version → root, others → /<id>/.
+            // Content assets: default version → root, others → /<id>/. The DocC
+            // archives directory is Kiln-managed input, not a content asset, so
+            // it's excluded from the copy (otherwise the raw archive JSON would
+            // leak into the output).
             try AssetCopier(outputDirectory: outputDirectory)
-                .copyContentAssets(from: build.contentURL, into: version.urlPrefix)
+                .copyContentAssets(from: build.contentURL, into: version.urlPrefix, excluding: doccArchivesDirectory.map { [$0] } ?? [])
 
             // AI/agent output (per version, per language).
             if site.llmsText {
@@ -176,6 +204,38 @@ public struct SiteGenerator {
         // entries join the rest before the sitemap is written below.
         if let blog = site.blog {
             sitemapEntries += try await renderBlog(blog, defaultBuild: defaultBuild, renderer: renderer, writer: writer, markdown: markdown)
+        }
+
+        // DocC: an additive phase that renders each package/version/module's
+        // pre-built archive into themed pages (see DocCRenderPhase).
+        if let docc = site.docc {
+            let phase = DocCRenderPhase(
+                site: site, docc: docc, contentDirectory: contentDirectory,
+                outputDirectory: outputDirectory, basePath: basePath
+            )
+            let result = try await phase.run(
+                renderer: renderer, writer: writer,
+                incremental: doIncremental, previous: previousManifest?.modules ?? [:]
+            )
+            if !result.skipped.isEmpty {
+                FileHandle.standardError.write(Data("[kiln] docc: reused \(result.skipped.count) unchanged module(s): \(result.skipped.sorted().joined(separator: ", "))\n".utf8))
+            }
+            if !result.warnings.isEmpty {
+                var report = "[kiln] docc: \(result.warnings.count) warning(s):\n"
+                for warning in result.warnings { report += "  \(warning)\n" }
+                FileHandle.standardError.write(Data(report.utf8))
+            }
+            // Add the DocC pages to the sitemap. Sourced from the assembled search
+            // index (default-version symbols + catalog) so it stays complete on
+            // incremental builds where unchanged modules aren't re-rendered.
+            // Locations are site-relative with the base path already applied;
+            // <lastmod> is the owning module's archive build date.
+            for page in result.indexablePages {
+                sitemapEntries.append(SitemapEntry(loc: absoluteURL(forLocation: page.location),
+                                                   alternates: [], lastmod: page.lastmod))
+            }
+            // Persist the manifest for the next incremental build.
+            try DocCBuildManifest(renderInputs: renderInputs, modules: result.manifestModules).write(to: outputDirectory)
         }
 
         // Theme assets once (identical across versions; referenced root-absolutely).

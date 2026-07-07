@@ -80,8 +80,10 @@
             <div class="kiln-controls kiln-controls-drawer">
                 #extend("partials/controls")
             </div>
+            #if(nav.moduleSwitcher):#unsafeHTML(nav.moduleSwitcher)#endif
+            #if(nav.versionSwitcher):#unsafeHTML(nav.versionSwitcher)#endif
             <nav class="kiln-nav" aria-label="Main navigation">
-                #extend("partials/nav-tree", nav)
+                #if(nav.doccHTML):#unsafeHTML(nav.doccHTML)#else:#extend("partials/nav-tree", nav)#endif
             </nav>
         </aside>
         #endif
@@ -142,6 +144,7 @@
     <script>window.kilnSearchIndex = "#(searchIndexURL)"; window.kilnVersionBase = "#(basePath)#(versionBasePath)";</script>
     <script src="#(basePath)/_kiln/js/vendor/highlight.min.js"></script>
     <script src="#(basePath)/_kiln/js/theme.js"></script>
+    #if(nav.doccHTML):<script src="#(basePath)/_kiln/js/docc-nav.js"></script>#endif
     #if(site.searchEnabled):<script src="#(basePath)/_kiln/js/search.js"></script>#endif
     #for(src in site.extraJS):<script src="#(basePath)/#(src)"></script>
     #endfor
