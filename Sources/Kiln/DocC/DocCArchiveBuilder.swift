@@ -16,23 +16,57 @@ import Foundation
 /// separate manual step. CI layers caching (e.g. S3) *around* this — Kiln itself
 /// treats an already-present archive as done unless a rebuild is forced.
 public struct DocCArchiveBuilder: Sendable {
-    /// Which archives to (re)generate.
+    /// Which archives to (re)generate. Missing archives are always built; these
+    /// select what to *force*-rebuild on top of that.
     public enum Rebuild: Sendable, Equatable {
-        /// Build only archives that don't already exist on disk (the default —
-        /// cheap once populated, and the good local first-run experience).
+        /// Build only archives that don't already exist (the default).
         case missing
-        /// Force-rebuild these modules (matched case-insensitively by name),
-        /// plus any that are missing. Everything else is left as-is.
-        case modules(Set<String>)
-        /// Force-rebuild every configured archive from scratch.
+        /// Force-rebuild every configured archive.
         case all
+        /// Force-rebuild the selected packages (see ``Target``).
+        case targets([Target])
 
-        func forces(_ module: Module) -> Bool {
+        /// A `--rebuild` selector: a package by repo (`jwt-kit` or its full
+        /// `vapor/jwt-kit`), optionally pinned to one ref (`routing-kit@main`). A
+        /// bare repo forces all the package's versions; `repo@ref` forces only the
+        /// version(s) built from that ref.
+        public struct Target: Sendable, Equatable {
+            public var repo: String
+            public var ref: String?
+
+            public init(repo: String, ref: String? = nil) {
+                self.repo = repo
+                self.ref = ref
+            }
+
+            public init(_ spec: String) {
+                if let at = spec.firstIndex(of: "@") {
+                    self.init(repo: String(spec[..<at]), ref: String(spec[spec.index(after: at)...]))
+                } else {
+                    self.init(repo: spec, ref: nil)
+                }
+            }
+        }
+
+        public static func rebuilding(_ specs: [String]) -> Rebuild {
+            .targets(specs.map(Target.init))
+        }
+
+        func forces(package: APIPackage, version: PackageVersion) -> Bool {
             switch self {
             case .missing: return false
             case .all: return true
-            case .modules(let names): return names.contains(module.name.lowercased())
+            case .targets(let targets):
+                return targets.contains { target in
+                    Self.matches(selector: target.repo, repo: package.repo)
+                        && (target.ref == nil || target.ref == version.ref)
+                }
             }
+        }
+
+        private static func matches(selector: String, repo: String) -> Bool {
+            let selector = selector.lowercased(), repo = repo.lowercased()
+            return repo == selector || repo.hasSuffix("/" + selector)
         }
     }
 
@@ -100,10 +134,10 @@ public struct DocCArchiveBuilder: Sendable {
             // Which (version, module) pairs actually need generating?
             var work: [(version: PackageVersion, modules: [Module])] = []
             for version in package.versions {
+                let forced = rebuild.forces(package: package, version: version)
                 let modules = package.modules.filter { module in
                     let archive = DocCRenderPhase.archiveURL(module: module, version: version, in: archivesBase)
-                    let exists = fileManager.fileExists(atPath: archive.path)
-                    return rebuild.forces(module) || !exists
+                    return forced || !fileManager.fileExists(atPath: archive.path)
                 }
                 if !modules.isEmpty { work.append((version, modules)) }
             }
@@ -127,21 +161,18 @@ public struct DocCArchiveBuilder: Sendable {
 
     // MARK: Steps
 
-    /// Clone (or fetch) the repo and hard-check-out `ref`.
+    /// Clone (or reuse) the repo and hard-check-out the latest of `ref`. Fetching
+    /// the ref and detaching onto `FETCH_HEAD` means a reused checkout always picks
+    /// up new commits on a branch (and works identically for a tag).
     private func checkoutRepo(_ repo: String, ref: String, into checkout: URL, log: Log) throws {
         let fileManager = FileManager.default
-        let gitDir = checkout.appendingPathComponent(".git")
-        if fileManager.fileExists(atPath: gitDir.path) {
-            try git(["fetch", "--force", "--tags", "origin"], in: checkout, repo: repo, ref: ref, log: log)
-        } else {
+        if !fileManager.fileExists(atPath: checkout.appendingPathComponent(".git").path) {
             try? fileManager.removeItem(at: checkout)
             try fileManager.createDirectory(at: checkout, withIntermediateDirectories: true)
             try git(["clone", "\(gitHost)/\(repo).git", "."], in: checkout, repo: repo, ref: ref, log: log)
         }
-        // Resolve the ref (branch or tag) and detach onto it; clean any stray state.
-        try git(["checkout", "--force", ref], in: checkout, repo: repo, ref: ref, log: log)
-        try? git(["reset", "--hard", "HEAD"], in: checkout, repo: repo, ref: ref, log: log)
-        try? git(["clean", "-fdx", "Package.swift", "Package@swift-*.swift"], in: checkout, repo: repo, ref: ref, log: log)
+        try git(["fetch", "--force", "--tags", "origin", ref], in: checkout, repo: repo, ref: ref, log: log)
+        try git(["checkout", "--force", "--detach", "FETCH_HEAD"], in: checkout, repo: repo, ref: ref, log: log)
     }
 
     /// Inject the swift-docc-plugin into every Swift manifest variant that lacks
@@ -179,8 +210,7 @@ public struct DocCArchiveBuilder: Sendable {
 
         // No DOCC_HTML_DIR / --transform-for-static-hosting → the output is the
         // archive Kiln reads. Indexing stays ON so `index/index.json` (the sidebar
-        // nav) is produced. `--enable-experimental-mentioned-in` populates the
-        // "Mentioned in" sections Kiln now renders.
+        // nav) is produced.
         let args = [
             "package",
             "--allow-writing-to-directory", archive.deletingLastPathComponent().path,
@@ -189,7 +219,6 @@ public struct DocCArchiveBuilder: Sendable {
             "--experimental-skip-synthesized-symbols",
             "--enable-inherited-docs",
             "--enable-experimental-overloaded-symbol-presentation",
-            "--enable-experimental-mentioned-in",
             "--output-path", archive.path,
         ]
         let status = try run("swift", args, in: checkout, log: log)

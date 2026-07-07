@@ -4,14 +4,29 @@ import Foundation
 
 @Suite("DocC archive builder")
 struct DocCArchiveBuilderTests {
-    @Test("Rebuild selects the right modules to force")
+    @Test("Rebuild targets select the right package/version to force")
     func rebuildForces() {
-        let jwtKit = Module("JWTKit")
-        #expect(DocCArchiveBuilder.Rebuild.missing.forces(jwtKit) == false)
-        #expect(DocCArchiveBuilder.Rebuild.all.forces(jwtKit) == true)
-        // Matched case-insensitively (CLI passes lowercased names).
-        #expect(DocCArchiveBuilder.Rebuild.modules(["jwtkit"]).forces(jwtKit) == true)
-        #expect(DocCArchiveBuilder.Rebuild.modules(["queues"]).forces(jwtKit) == false)
+        let routingKit = APIPackage("vapor/routing-kit", modules: [Module("RoutingKit")], versions: [
+            PackageVersion("4", ref: "v4", isDefault: true),
+            PackageVersion("5-beta", ref: "main", isPrerelease: true),
+        ])
+        let v4 = routingKit.versions[0], main = routingKit.versions[1]
+        let jwt = APIPackage("vapor/jwt", ref: "main", modules: [Module("JWT")])
+
+        #expect(DocCArchiveBuilder.Rebuild.missing.forces(package: routingKit, version: v4) == false)
+        #expect(DocCArchiveBuilder.Rebuild.all.forces(package: routingKit, version: v4) == true)
+
+        // Bare repo (short or full) → all versions.
+        let allVersions = DocCArchiveBuilder.Rebuild.rebuilding(["routing-kit"])
+        #expect(allVersions.forces(package: routingKit, version: v4) == true)
+        #expect(allVersions.forces(package: routingKit, version: main) == true)
+        #expect(DocCArchiveBuilder.Rebuild.rebuilding(["vapor/routing-kit"]).forces(package: routingKit, version: v4) == true)
+        #expect(allVersions.forces(package: jwt, version: jwt.versions[0]) == false)
+
+        // repo@ref → only the version built from that ref.
+        let onlyMain = DocCArchiveBuilder.Rebuild.rebuilding(["routing-kit@main"])
+        #expect(onlyMain.forces(package: routingKit, version: main) == true)
+        #expect(onlyMain.forces(package: routingKit, version: v4) == false)
     }
 
     @Test("Building archives for a site without DocC is a no-op")
