@@ -43,10 +43,10 @@ struct DocCRenderPhaseTests {
             image: "assets/api-og.png",
             llmsText: true,
             docc: DocCSite(packages: [
-                APIPackage("vapor/queues", ref: "main", group: "Core", modules: [
+                APIPackage("vapor/queues", group: "Core", versions: [.single(ref: "main", modules: [
                     Module("Queues"),
                     Module("XCTQueues", group: "Testing"),
-                ]),
+                ])]),
             ])
         )
         try await Kiln.build(site, contentDirectory: content, outputDirectory: output, linkChecking: .off)
@@ -191,9 +191,9 @@ struct DocCRenderPhaseTests {
         }
         let output = fm.temporaryDirectory.appendingPathComponent("kiln-docc-2v-out-\(UUID().uuidString)")
         let site = KilnSite(name: "API", url: "https://api.example.com", llmsText: false,
-                            docc: DocCSite(packages: [APIPackage("vapor/queues", group: "Core", modules: [Module("Queues")], versions: [
-                                PackageVersion("4", ref: "v4", isDefault: true),
-                                PackageVersion("5-beta", ref: "main", isPrerelease: true),
+                            docc: DocCSite(packages: [APIPackage("vapor/queues", group: "Core", versions: [
+                                PackageVersion("4", ref: "v4", isDefault: true, modules: [Module("Queues")]),
+                                PackageVersion("5-beta", ref: "main", isPrerelease: true, modules: [Module("Queues")]),
                             ])]))
         try await Kiln.build(site, contentDirectory: content, outputDirectory: output, linkChecking: .off)
 

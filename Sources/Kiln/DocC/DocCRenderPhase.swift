@@ -73,12 +73,13 @@ struct DocCRenderPhase {
 
         let fileManager = FileManager.default
         for package in docc.packages {
-            // Module switcher lists all modules; identical across a module's pages.
-            for module in package.modules {
+            // A module may exist in only some versions (a target added in a new
+            // major), so pair each module with the versions that actually emit it.
+            for (module, moduleVersions) in package.modulesAcrossVersions {
                 // Per-version archive state (cheap fingerprints; no decode yet).
                 struct VersionState { let version: PackageVersion; let archiveURL: URL; let key: String; let fingerprint: String; let relativeDir: String }
                 var states: [VersionState] = []
-                for version in package.versions {
+                for version in moduleVersions {
                     let archiveURL = Self.archiveURL(module: module, version: version, in: archivesBase)
                     guard fileManager.fileExists(atPath: archiveURL.path) else {
                         result.warnings.append("missing archive for \(module.name)@\(version.id) at \(archiveURL.path)")

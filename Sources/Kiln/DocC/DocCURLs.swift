@@ -131,7 +131,7 @@ public struct DocCModuleRegistry: Sendable {
         var modules: [String: DocCHostedModule] = [:]
         for package in site.packages {
             let defaultVersionSegment = package.defaultVersion.urlSegment
-            for module in package.modules {
+            for module in package.defaultModules {
                 let segment = module.name.lowercased()
                 modules[segment] = DocCHostedModule(
                     moduleSegment: segment,

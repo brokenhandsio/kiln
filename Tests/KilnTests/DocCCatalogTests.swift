@@ -5,17 +5,18 @@ import Foundation
 @Suite("DocC catalog")
 struct DocCCatalogTests {
     private func site() -> DocCSite {
-        DocCSite(
+        let vapor = Module("Vapor", description: "Core web framework")
+        let xctVapor = Module("XCTVapor", group: "Testing")
+        return DocCSite(
             packages: [
-                APIPackage("vapor/vapor", group: "Core", modules: [
-                    Module("Vapor", description: "Core web framework"),
-                    Module("XCTVapor", group: "Testing"),
-                ], versions: [
-                    PackageVersion("4", ref: "vapor-4", isDefault: true),
-                    PackageVersion("5-alpha", ref: "main", isPrerelease: true),
+                APIPackage("vapor/vapor", group: "Core", versions: [
+                    PackageVersion("4", ref: "vapor-4", isDefault: true, modules: [vapor, xctVapor]),
+                    PackageVersion("5-alpha", ref: "main", isPrerelease: true, modules: [vapor, xctVapor]),
                 ]),
-                APIPackage("vapor/fluent-kit", ref: "main", group: "Database", modules: [Module("FluentKit")]),
-                APIPackage("vapor/leaf-kit", ref: "main", modules: [Module("LeafKit")]), // no group → Other
+                APIPackage("vapor/fluent-kit", group: "Database",
+                           versions: [.single(ref: "main", modules: [Module("FluentKit")])]),
+                APIPackage("vapor/leaf-kit",
+                           versions: [.single(ref: "main", modules: [Module("LeafKit")])]), // no group → Other
             ],
             groupOrder: ["Core", "Database"]
         )

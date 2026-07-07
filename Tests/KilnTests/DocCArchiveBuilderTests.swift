@@ -6,12 +6,12 @@ import Foundation
 struct DocCArchiveBuilderTests {
     @Test("Rebuild targets select the right package/version to force")
     func rebuildForces() {
-        let routingKit = APIPackage("vapor/routing-kit", modules: [Module("RoutingKit")], versions: [
-            PackageVersion("4", ref: "v4", isDefault: true),
-            PackageVersion("5-beta", ref: "main", isPrerelease: true),
+        let routingKit = APIPackage("vapor/routing-kit", versions: [
+            PackageVersion("4", ref: "v4", isDefault: true, modules: [Module("RoutingKit")]),
+            PackageVersion("5-beta", ref: "main", isPrerelease: true, modules: [Module("RoutingKit")]),
         ])
         let v4 = routingKit.versions[0], main = routingKit.versions[1]
-        let jwt = APIPackage("vapor/jwt", ref: "main", modules: [Module("JWT")])
+        let jwt = APIPackage("vapor/jwt", versions: [.single(ref: "main", modules: [Module("JWT")])])
 
         #expect(DocCArchiveBuilder.Rebuild.missing.forces(package: routingKit, version: v4) == false)
         #expect(DocCArchiveBuilder.Rebuild.all.forces(package: routingKit, version: v4) == true)

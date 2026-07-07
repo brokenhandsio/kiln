@@ -28,7 +28,7 @@ struct DocCIncrementalTests {
     private func site() -> KilnSite {
         KilnSite(name: "API", url: "https://api.example.com", llmsText: false,
                  docc: DocCSite(packages: [
-                    APIPackage("vapor/queues", ref: "main", modules: [Module("Queues"), Module("XCTQueues")]),
+                    APIPackage("vapor/queues", versions: [.single(ref: "main", modules: [Module("Queues"), Module("XCTQueues")])]),
                  ]))
     }
 
@@ -93,7 +93,7 @@ struct DocCIncrementalTests {
 
         // Rebuild with only Queues configured.
         let trimmed = KilnSite(name: "API", url: "https://api.example.com", llmsText: false,
-                               docc: DocCSite(packages: [APIPackage("vapor/queues", ref: "main", modules: [Module("Queues")])]))
+                               docc: DocCSite(packages: [APIPackage("vapor/queues", versions: [.single(ref: "main", modules: [Module("Queues")])])]))
         try await Kiln.build(trimmed, contentDirectory: content, outputDirectory: output, linkChecking: .off, incremental: true)
         #expect(!FileManager.default.fileExists(atPath: output.appendingPathComponent("xctqueues").path),
                 "dropped module's output should be removed")

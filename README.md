@@ -520,10 +520,15 @@ The raw archives are read at build time and are **not** copied into the output
 ### Configuration
 
 Set `KilnSite.docc` to a `DocCSite`. Each `APIPackage` is one git repository (the
-checkout unit) that emits one or more `Module`s and owns an independent set of
-`PackageVersion`s:
+checkout unit) that owns an independent set of `PackageVersion`s, each declaring
+the `Module`s it ships. A package's target set can change across major versions,
+so modules live on the version — extract them into variables and reuse them
+across the versions that share them:
 
 ```swift
+let myLib = Module("MyLib", description: "The core library.")
+let myLibTesting = Module("MyLibTesting", title: "Testing", group: "Testing")
+
 let site = KilnSite(
     name: "MyLib API Docs",
     url: "https://api.mylib.dev",
@@ -531,24 +536,21 @@ let site = KilnSite(
     theme: .default(palette: .autoLightDark(primary: .black, accent: .blue)),
     docc: DocCSite(
         packages: [
-            // A package with two version lines → a version switcher.
+            // A package with two version lines → a version switcher. v6 drops the
+            // testing target, so it lists a different module set.
             APIPackage(
                 "me/mylib",
                 group: "Core",
-                modules: [
-                    Module("MyLib", description: "The core library."),
-                    Module("MyLibTesting", title: "Testing", group: "Testing"),
-                ],
                 versions: [
-                    PackageVersion("5", name: "5.x", ref: "main", isDefault: true),
-                    PackageVersion("4", name: "4.x", ref: "release/4.x"),
-                    PackageVersion("6-alpha", name: "6.0 (alpha)", ref: "future", isPrerelease: true),
+                    PackageVersion("5", name: "5.x", ref: "main", isDefault: true, modules: [myLib, myLibTesting]),
+                    PackageVersion("4", name: "4.x", ref: "release/4.x", modules: [myLib, myLibTesting]),
+                    PackageVersion("6-alpha", name: "6.0 (alpha)", ref: "future", isPrerelease: true, modules: [myLib]),
                 ]
             ),
-            // Single-version shorthand: pass `ref:` and Kiln synthesises the
-            // default version (id `default`, served at the module root).
-            APIPackage("me/mylib-extras", ref: "main", group: "Core", modules: [
-                Module("MyLibExtras", description: "Optional add-ons."),
+            // Single-version shorthand: `PackageVersion.single(ref:modules:)`
+            // builds one default version served at the module root.
+            APIPackage("me/mylib-extras", group: "Core", versions: [
+                .single(ref: "main", modules: [Module("MyLibExtras", description: "Optional add-ons.")]),
             ]),
         ],
         // Order of the section groups on the catalog page and in the switcher.
@@ -560,8 +562,8 @@ let site = KilnSite(
 | Type / field | Notes |
 | --- | --- |
 | `DocCSite(packages:groupOrder:archivesDirectory:)` | The API-reference site. `groupOrder` orders the catalog/switcher sections (unlisted groups sort after; ungrouped modules fall into `Other`). `archivesDirectory` defaults to `archives`. |
-| `APIPackage(_ repo, group:, modules:, versions:)` | One git repo. `repo` is `"owner/name"`. `group` is a default group for its modules. Shorthand `APIPackage(_ repo, ref:, group:, modules:)` synthesises a single default version. |
-| `PackageVersion(_ id, name:, ref:, isDefault:, isPrerelease:, deprecated:)` | A version line. `id` is the URL segment (URL-safe, unique per package); `name` is the switcher label; `ref` is the git branch/tag Stage A builds. Exactly one version per package is the default and it must not be a pre-release. |
+| `APIPackage(_ repo, group:, versions:)` | One git repo. `repo` is `"owner/name"`. `group` is a default group for its modules. Modules are declared per `PackageVersion`, not on the package. |
+| `PackageVersion(_ id, name:, ref:, isDefault:, isPrerelease:, deprecated:, modules:)` | A version line and the `Module`s it ships. `id` is the URL segment (URL-safe, unique per package); `name` is the switcher label; `ref` is the git branch/tag Stage A builds. Exactly one version per package is the default and it must not be a pre-release. `PackageVersion.single(ref:modules:)` is shorthand for a lone default version. |
 | `Module(_ name, title:, group:, description:)` | A DocC target. `name` keys the archive and the URL and must be unique across the whole site; `title` overrides the display name; `group` overrides the package group; `description` is the catalog-card blurb. |
 
 The configuration is validated at build time (unique repos, unique module names

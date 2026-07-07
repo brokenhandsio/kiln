@@ -39,7 +39,7 @@ public struct DocCCatalogBuilder: Sendable {
         var byGroup: [String: [Entry]] = [:]
 
         for package in docc.packages {
-            for module in package.modules {
+            for module in package.defaultModules {
                 let groupName = package.group(for: module) ?? "Other"
                 if byGroup[groupName] == nil {
                     appearance.append(groupName)

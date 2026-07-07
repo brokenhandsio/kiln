@@ -4,8 +4,8 @@ import Foundation
 
 @Suite("DocC URL scheme")
 struct DocCURLsTests {
-    private let defaultVersion = PackageVersion("v1", ref: "main", isDefault: true)
-    private let preVersion = PackageVersion("5-alpha", ref: "main", isPrerelease: true)
+    private let defaultVersion = PackageVersion("v1", ref: "main", isDefault: true, modules: [])
+    private let preVersion = PackageVersion("5-alpha", ref: "main", isPrerelease: true, modules: [])
 
     // MARK: DocCURLs
 
@@ -51,11 +51,12 @@ struct DocCURLsTests {
     /// A two-package site: `vapor/queues` (Queues + XCTQueues, single version) and
     /// `vapor/vapor` (Vapor, default v4 + prerelease v5-alpha).
     private func site() -> DocCSite {
-        DocCSite(packages: [
-            APIPackage("vapor/queues", ref: "main", modules: [Module("Queues"), Module("XCTQueues")]),
-            APIPackage("vapor/vapor", modules: [Module("Vapor")], versions: [
-                PackageVersion("4", ref: "vapor-4", isDefault: true),
-                PackageVersion("5-alpha", ref: "main", isPrerelease: true),
+        let vapor = Module("Vapor")
+        return DocCSite(packages: [
+            APIPackage("vapor/queues", versions: [.single(ref: "main", modules: [Module("Queues"), Module("XCTQueues")])]),
+            APIPackage("vapor/vapor", versions: [
+                PackageVersion("4", ref: "vapor-4", isDefault: true, modules: [vapor]),
+                PackageVersion("5-alpha", ref: "main", isPrerelease: true, modules: [vapor]),
             ]),
         ])
     }
@@ -83,7 +84,7 @@ struct DocCURLsTests {
         #expect(fromVaporPre("/documentation/queues/queue") == "/queues/queue/")
 
         // Rendering a Queues page (default version).
-        let queues = DocCURLs(moduleName: "Queues", version: PackageVersion("default", ref: "main", isDefault: true))
+        let queues = DocCURLs(moduleName: "Queues", version: PackageVersion("default", ref: "main", isDefault: true, modules: []))
         let fromQueues = registry.linkMapper(current: queues, currentPackageRepo: "vapor/queues")
         // Sibling module in the same package (Queues→XCTQueues), same (default) version.
         #expect(fromQueues("/documentation/xctqueues/foo") == "/xctqueues/foo/")
@@ -94,7 +95,7 @@ struct DocCURLsTests {
     @Test("Asset paths mount under the current module; unhosted and external pass sensibly")
     func assetAndExternalMapping() {
         let registry = DocCModuleRegistry(site: site())
-        let queues = DocCURLs(moduleName: "Queues", version: PackageVersion("default", ref: "main", isDefault: true))
+        let queues = DocCURLs(moduleName: "Queues", version: PackageVersion("default", ref: "main", isDefault: true, modules: []))
         let map = registry.linkMapper(current: queues, currentPackageRepo: "vapor/queues")
 
         // Asset under the current module's root.
@@ -109,7 +110,7 @@ struct DocCURLsTests {
     @Test("The mapper is usable as a DocCLinkResolver path mapper")
     func integratesWithResolver() {
         let registry = DocCModuleRegistry(site: site())
-        let queues = DocCURLs(moduleName: "Queues", version: PackageVersion("default", ref: "main", isDefault: true))
+        let queues = DocCURLs(moduleName: "Queues", version: PackageVersion("default", ref: "main", isDefault: true, modules: []))
         let resolver = DocCLinkResolver(
             references: [
                 "doc://Q/documentation/Queues/Queue": .topic(TopicReferenceFixture.make(

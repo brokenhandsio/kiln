@@ -3,13 +3,11 @@ import Testing
 
 @Suite("DocC version switcher")
 struct DocCVersionSwitcherTests {
-    private let v4 = PackageVersion("4", name: "4.x", ref: "v4", isDefault: true)
-    private let v5 = PackageVersion("5-beta", name: "5.0 (beta)", ref: "main", isPrerelease: true)
+    private let v4 = PackageVersion("4", name: "4.x", ref: "v4", isDefault: true, modules: [Module("RoutingKit")])
+    private let v5 = PackageVersion("5-beta", name: "5.0 (beta)", ref: "main", isPrerelease: true, modules: [Module("RoutingKit")])
 
     private func package() -> APIPackage {
-        APIPackage("vapor/routing-kit", group: "Core",
-                   modules: [Module("RoutingKit")],
-                   versions: [v4, v5])
+        APIPackage("vapor/routing-kit", group: "Core", versions: [v4, v5])
     }
 
     /// v4 has /documentation/routingkit + /documentation/routingkit/router;
@@ -66,7 +64,7 @@ struct DocCVersionSwitcherTests {
 
     @Test("A single-version package renders no version switcher")
     func singleVersion() {
-        let single = APIPackage("vapor/queues", ref: "main", modules: [Module("Queues")])
+        let single = APIPackage("vapor/queues", versions: [.single(ref: "main", modules: [Module("Queues")])])
         let sw = DocCVersionSwitcher(package: single, moduleName: "Queues", basePath: "",
                                      pathsByVersion: ["default": ["/documentation/queues"]])
         #expect(sw.renderHTML(currentVersion: single.defaultVersion, currentPath: "/documentation/queues").isEmpty)

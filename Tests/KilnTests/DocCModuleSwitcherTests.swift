@@ -6,11 +6,12 @@ struct DocCModuleSwitcherTests {
     private func site() -> DocCSite {
         DocCSite(
             packages: [
-                APIPackage("vapor/queues", ref: "main", group: "Queues", modules: [
+                APIPackage("vapor/queues", group: "Queues", versions: [.single(ref: "main", modules: [
                     Module("Queues"),
                     Module("XCTQueues", group: "Testing"),
-                ]),
-                APIPackage("vapor/fluent-kit", ref: "main", group: "Database", modules: [Module("FluentKit")]),
+                ])]),
+                APIPackage("vapor/fluent-kit", group: "Database",
+                           versions: [.single(ref: "main", modules: [Module("FluentKit")])]),
             ],
             groupOrder: ["Queues", "Database", "Testing"]
         )
