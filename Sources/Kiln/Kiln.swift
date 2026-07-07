@@ -61,4 +61,29 @@ public enum Kiln {
             incremental: incremental
         )
     }
+
+    /// Stage A: build the DocC `.doccarchive`s the render step reads, checking out
+    /// each package at its ref and running `swift package generate-documentation`.
+    /// No-op for a site without a ``KilnSite/docc`` configuration.
+    ///
+    /// This shells out to git and the Swift toolchain (the only part of Kiln that
+    /// does), so call it before ``build(_:contentDirectory:outputDirectory:linkChecking:incremental:)``
+    /// when you want a single command to produce archives *and* the site. CI can
+    /// instead restore cached archives and pass `rebuild:` to regenerate only what
+    /// changed.
+    @discardableResult
+    public static func buildDocCArchives(
+        _ site: KilnSite,
+        contentDirectory: String,
+        checkoutDirectory: String = ".build/docc-sources",
+        rebuild: DocCArchiveBuilder.Rebuild = .missing
+    ) throws -> [String] {
+        guard let docc = site.docc else { return [] }
+        let builder = DocCArchiveBuilder(
+            docc: docc,
+            contentDirectory: URL(fileURLWithPath: contentDirectory),
+            checkoutDirectory: URL(fileURLWithPath: checkoutDirectory)
+        )
+        return try builder.build(rebuild: rebuild)
+    }
 }
