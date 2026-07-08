@@ -62,10 +62,16 @@ struct DocCConfigurationTests {
         #expect(across[0].versions.map(\.id) == ["4", "5-beta"])   // ConsoleKit in both
         #expect(across[1].versions.map(\.id) == ["5-beta"])         // ConsoleLogger beta-only
 
-        // The catalog/switcher list only default-version modules; the same module
-        // name across versions is one module, so validation passes.
+        // Surfaced version: ConsoleKit at its default (v4); ConsoleLogger, absent
+        // from the default, at the beta so it stays discoverable.
+        let surfaced = package.surfacedModules
+        #expect(surfaced.map(\.module.name) == ["ConsoleKit", "ConsoleLogger"])
+        #expect(surfaced.map(\.version.id) == ["4", "5-beta"])
+
+        // The catalog/switcher list every surfaced module (beta-only included);
+        // the same module name across versions is one module, so validation passes.
         let site = DocCSite(packages: [package])
-        #expect(site.allModules.map(\.module.name) == ["ConsoleKit"])
+        #expect(site.allModules.map(\.module.name) == ["ConsoleKit", "ConsoleLogger"])
         try site.validate()
     }
 

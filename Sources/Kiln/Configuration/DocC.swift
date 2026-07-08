@@ -60,10 +60,12 @@ public struct DocCSite: Sendable {
         self.archivesDirectory = archivesDirectory
     }
 
-    /// Every default-version module across every package, paired with its owning
-    /// package — the set the catalog and module switcher list at module roots.
+    /// Every module the site hosts, paired with its owning package — the set the
+    /// catalog and module switcher list. Includes modules that only exist in a
+    /// non-default version (surfaced at that version); see
+    /// ``APIPackage/surfacedModules``.
     public var allModules: [(package: APIPackage, module: Module)] {
-        packages.flatMap { package in package.defaultModules.map { (package, $0) } }
+        packages.flatMap { package in package.surfacedModules.map { (package, $0.module) } }
     }
 }
 
@@ -116,6 +118,19 @@ public struct APIPackage: Sendable {
     /// The default version's modules — what the catalog and switcher list.
     public var defaultModules: [Module] {
         defaultVersion.modules
+    }
+
+    /// Every distinct module the package hosts, paired with the version at which
+    /// it's surfaced in navigation (catalog, module switcher, cross-module links):
+    /// the default version if it ships the module, otherwise the first version
+    /// that does — its newest, given the usual default-first ordering. This keeps
+    /// a module added only in a pre-release (e.g. a new target on the 5.0 line)
+    /// discoverable, linking to that pre-release rather than a URL that 404s.
+    public var surfacedModules: [(module: Module, version: PackageVersion)] {
+        modulesAcrossVersions.map { entry in
+            let version = entry.versions.first(where: { $0.isDefault }) ?? entry.versions[0]
+            return (entry.module, version)
+        }
     }
 
     /// Every distinct module across all versions (by name, in first-seen order),

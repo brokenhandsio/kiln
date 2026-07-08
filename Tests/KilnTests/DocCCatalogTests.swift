@@ -48,6 +48,32 @@ struct DocCCatalogTests {
         #expect(other?.entries.map(\.title) == ["LeafKit"])
     }
 
+    @Test("A pre-release-only module surfaces at its pre-release, badged")
+    func prereleaseOnlyModule() throws {
+        let consoleKit = Module("ConsoleKit")
+        let consoleLogger = Module("ConsoleLogger", description: "Console log handler.")
+        let site = DocCSite(packages: [
+            APIPackage("vapor/console-kit", group: "Core", versions: [
+                PackageVersion("4", ref: "v4", isDefault: true, modules: [consoleKit]),
+                PackageVersion("5-beta", ref: "main", isPrerelease: true, modules: [consoleKit, consoleLogger]),
+            ]),
+        ])
+        let core = try #require(DocCCatalogBuilder(docc: site).groups().first { $0.title == "Core" })
+
+        let ck = core.entries.first { $0.title == "ConsoleKit" }
+        #expect(ck?.url == "/consolekit/")   // default version, no badge
+        #expect(ck?.badge == nil)
+
+        // ConsoleLogger only exists in the beta → surfaced there, with a badge.
+        let cl = core.entries.first { $0.title == "ConsoleLogger" }
+        #expect(cl?.url == "/consolelogger/5-beta/")
+        #expect(cl?.badge == "beta")
+
+        let html = DocCCatalogBuilder(docc: site).renderHTML()
+        #expect(html.contains("<a class=\"docc-catalog-card\" href=\"/consolelogger/5-beta/\">"))
+        #expect(html.contains("<span class=\"docc-catalog-card-badge\">beta</span>"))
+    }
+
     @Test("basePath prefixes card URLs")
     func basePath() {
         let groups = DocCCatalogBuilder(docc: site(), basePath: "/api").groups()
