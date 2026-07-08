@@ -25,7 +25,7 @@ struct DocCVersionSwitcher: Sendable {
                 label: version.name,
                 url: hasPage ? urls.url(forDocCPath: currentPath) : urls.moduleRootURL,
                 isCurrent: version.id == currentVersion.id,
-                badge: version.isPrerelease ? "beta" : nil
+                badge: version.badge
             )
         }
     }

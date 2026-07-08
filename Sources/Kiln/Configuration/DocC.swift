@@ -181,6 +181,11 @@ public struct PackageVersion: Sendable {
     public var isPrerelease: Bool
     /// Whether this version is deprecated (used for switcher styling/labelling).
     public var deprecated: Bool
+    /// An explicit badge label for a pre-release version (e.g. `"alpha"`, `"beta"`,
+    /// `"rc"`), shown in the version/module switchers and on catalog cards. When
+    /// `nil`, ``badge`` infers it from the ``id``/``name`` (falling back to
+    /// `"beta"`); ignored for stable versions.
+    public var prereleaseLabel: String?
     /// The modules this version ships. A package's target set can differ across
     /// major versions, so each version declares its own; reuse ``Module`` values
     /// across versions to avoid duplication.
@@ -193,6 +198,7 @@ public struct PackageVersion: Sendable {
         isDefault: Bool = false,
         isPrerelease: Bool = false,
         deprecated: Bool = false,
+        prereleaseLabel: String? = nil,
         modules: [Module]
     ) {
         self.id = id
@@ -201,6 +207,7 @@ public struct PackageVersion: Sendable {
         self.isDefault = isDefault
         self.isPrerelease = isPrerelease
         self.deprecated = deprecated
+        self.prereleaseLabel = prereleaseLabel
         self.modules = modules
     }
 
@@ -215,6 +222,16 @@ public struct PackageVersion: Sendable {
     /// otherwise `"<id>/"`.
     public var urlSegment: String {
         isDefault ? "" : id + "/"
+    }
+
+    /// The switcher/catalog badge for this version, or `nil` for a stable one: the
+    /// explicit ``prereleaseLabel`` if set, else the pre-release kind inferred from
+    /// the ``id``/``name`` (`"alpha"`, `"beta"`, or `"rc"`), else `"beta"`.
+    public var badge: String? {
+        guard isPrerelease else { return nil }
+        if let prereleaseLabel { return prereleaseLabel }
+        let haystack = "\(id) \(name)".lowercased()
+        return ["alpha", "beta", "rc"].first(where: haystack.contains) ?? "beta"
     }
 }
 

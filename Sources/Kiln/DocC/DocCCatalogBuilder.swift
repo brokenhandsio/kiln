@@ -56,7 +56,7 @@ public struct DocCCatalogBuilder: Sendable {
                     title: module.displayTitle,
                     description: module.description,
                     url: urls.moduleRootURL,
-                    badge: version.isPrerelease ? "beta" : nil
+                    badge: version.badge
                 ))
             }
         }

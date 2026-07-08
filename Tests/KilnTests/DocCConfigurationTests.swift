@@ -75,6 +75,25 @@ struct DocCConfigurationTests {
         try site.validate()
     }
 
+    @Test("Pre-release badge is inferred from id/name and overridable")
+    func prereleaseBadge() {
+        func version(_ id: String, name: String? = nil, prerelease: Bool = true, label: String? = nil) -> PackageVersion {
+            PackageVersion(id, name: name, ref: "main", isPrerelease: prerelease, prereleaseLabel: label, modules: [])
+        }
+        // Inferred from the id …
+        #expect(version("5-alpha").badge == "alpha")
+        #expect(version("5-beta").badge == "beta")
+        #expect(version("6-rc").badge == "rc")
+        // … or the name when the id doesn't say.
+        #expect(version("5", name: "5.0 (alpha)").badge == "alpha")
+        // Pre-release with no hint falls back to "beta".
+        #expect(version("next").badge == "beta")
+        // Explicit label wins.
+        #expect(version("5-beta", label: "preview").badge == "preview")
+        // Stable versions carry no badge.
+        #expect(version("4", prerelease: false).badge == nil)
+    }
+
     @Test("Non-default version carries an id URL segment")
     func nonDefaultUrlSegment() {
         let version = PackageVersion("5-alpha", ref: "main", isPrerelease: true, modules: [Module("X")])
