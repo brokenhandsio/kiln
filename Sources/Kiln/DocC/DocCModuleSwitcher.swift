@@ -50,6 +50,6 @@ struct DocCModuleSwitcher: Sendable {
                 options: group.modules.map { DocCSelect.Option(label: $0.name, url: $0.url, isCurrent: $0.isCurrent, badge: $0.badge) }
             )
         }
-        return DocCSelect.render(label: label, sections: sections, sizeClass: "docc-select--module")
+        return DocCSelect.render(label: label, sections: sections, sizeClass: "docc-select--module", accessibleLabel: "Select module")
     }
 }

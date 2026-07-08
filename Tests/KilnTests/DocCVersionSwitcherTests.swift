@@ -60,6 +60,8 @@ struct DocCVersionSwitcherTests {
         #expect(html.contains("<span class=\"docc-select-value\">4.x</span>"))
         #expect(html.contains("<a class=\"docc-select-option is-current\" href=\"/routingkit/router/\">4.x</a>"))
         #expect(html.contains("5.0 (beta) <span class=\"docc-select-badge\">beta</span>"))
+        // Purpose-stating accessible name that includes the visible value (WCAG 2.5.3).
+        #expect(html.contains("<summary class=\"docc-select-toggle\" aria-label=\"Select version: 4.x\">"))
     }
 
     @Test("A single-version package renders no version switcher")
