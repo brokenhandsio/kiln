@@ -2,10 +2,12 @@
 public struct DocCModuleLink: Sendable, Equatable {
     /// Display title.
     public var name: String
-    /// Site URL of the module's default-version landing page.
+    /// Site URL of the module's surfaced-version landing page.
     public var url: String
     /// Whether this is the module currently being viewed.
     public var isCurrent: Bool
+    /// A pill label when the module is surfaced at a pre-release, else `nil`.
+    public var badge: String?
 }
 
 /// A titled group of modules in the switcher (same grouping as the catalog).
@@ -30,7 +32,7 @@ struct DocCModuleSwitcher: Sendable {
             DocCModuleGroup(
                 title: group.title,
                 modules: group.entries.map { entry in
-                    DocCModuleLink(name: entry.title, url: entry.url, isCurrent: entry.name == currentModule)
+                    DocCModuleLink(name: entry.title, url: entry.url, isCurrent: entry.name == currentModule, badge: entry.badge)
                 }
             )
         }
@@ -45,7 +47,7 @@ struct DocCModuleSwitcher: Sendable {
         let sections = groups.map { group in
             DocCSelect.Section(
                 title: group.title,
-                options: group.modules.map { DocCSelect.Option(label: $0.name, url: $0.url, isCurrent: $0.isCurrent) }
+                options: group.modules.map { DocCSelect.Option(label: $0.name, url: $0.url, isCurrent: $0.isCurrent, badge: $0.badge) }
             )
         }
         return DocCSelect.render(label: label, sections: sections, sizeClass: "docc-select--module")

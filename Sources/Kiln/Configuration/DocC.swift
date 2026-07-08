@@ -10,26 +10,26 @@
 /// decoupled from the Swift toolchain — the only coupling is DocC's render JSON
 /// schema, which is versioned and additive.
 ///
+/// Modules belong to a ``PackageVersion``, not to the package as a whole, because
+/// a package's target set can change across major versions. Extract each ``Module``
+/// into a variable and reuse it across the versions that ship it, so unchanged
+/// modules aren't duplicated:
+///
 /// ```swift
+/// let vapor = Module("Vapor", group: "Core", description: "Core web framework")
+/// let xctVapor = Module("XCTVapor", group: "Testing")
+/// let leafKit = Module("LeafKit", group: "Templating")
+///
 /// let site = KilnSite(
 ///     name: "Vapor API Docs",
 ///     url: "https://api.vapor.codes",
 ///     docc: DocCSite(
 ///         packages: [
-///             APIPackage(
-///                 "vapor/vapor",
-///                 modules: [
-///                     Module("Vapor", group: "Core", description: "Core web framework"),
-///                     Module("XCTVapor", group: "Testing"),
-///                 ],
-///                 versions: [
-///                     PackageVersion("4", name: "4.x", ref: "vapor-4", isDefault: true),
-///                     PackageVersion("5-alpha", name: "5.0 (alpha)", ref: "main", isPrerelease: true),
-///                 ]
-///             ),
-///             APIPackage("vapor/leaf-kit", ref: "main", modules: [
-///                 Module("LeafKit", group: "Templating"),
+///             APIPackage("vapor/vapor", versions: [
+///                 PackageVersion("4", name: "4.x", ref: "vapor-4", isDefault: true, modules: [vapor, xctVapor]),
+///                 PackageVersion("5-alpha", name: "5.0 (alpha)", ref: "main", isPrerelease: true, modules: [vapor, xctVapor]),
 ///             ]),
+///             APIPackage("vapor/leaf-kit", versions: [.single(ref: "main", modules: [leafKit])]),
 ///         ],
 ///         groupOrder: ["Core", "Templating", "Testing"]
 ///     )
@@ -60,18 +60,25 @@ public struct DocCSite: Sendable {
         self.archivesDirectory = archivesDirectory
     }
 
-    /// Every module across every package, paired with its owning package.
+    /// Every module the site hosts, paired with its owning package — the set the
+    /// catalog and module switcher list. Includes modules that only exist in a
+    /// non-default version (surfaced at that version); see
+    /// ``APIPackage/surfacedModules``.
     public var allModules: [(package: APIPackage, module: Module)] {
-        packages.flatMap { package in package.modules.map { (package, $0) } }
+        packages.flatMap { package in package.surfacedModules.map { (package, $0.module) } }
     }
 }
 
 /// A single Swift package (git repository) whose DocC documentation is hosted.
 ///
 /// A package is the *checkout unit*: one repository, built at one git ref at a
-/// time, emitting all of its ``modules`` together. Because of that, a git ref is
-/// a property of the package (via ``PackageVersion``), not of an individual
-/// module — you cannot build two modules of the same package at different refs.
+/// time, emitting its modules together. Because of that, a git ref is a property
+/// of the package (via ``PackageVersion``), not of an individual module — you
+/// cannot build two modules of the same package at different refs.
+///
+/// Modules belong to each ``PackageVersion`` rather than to the package, because a
+/// package's target set can change across major versions. Extract shared modules
+/// into variables and reuse them across the versions that ship them.
 ///
 /// Each package owns an independent set of ``versions``: Vapor's `4.x`/`5.0-alpha`
 /// lines have nothing to do with, say, FluentKit's versioning, so there is no
@@ -86,47 +93,61 @@ public struct APIPackage: Sendable {
     /// doesn't set its own (packages usually sit in a single group, so this
     /// avoids repeating it on every module).
     public var group: String?
-    /// The DocC targets this package emits. Built together from one checkout, so
-    /// they share this package's ``versions``.
-    public var modules: [Module]
-    /// This package's independent version lines. Exactly one must be the default
-    /// (served without a version segment in the URL).
+    /// This package's independent version lines, each carrying the modules it
+    /// ships. Exactly one must be the default (served without a version segment in
+    /// the URL). For a package with no version switcher, use
+    /// ``PackageVersion/single(ref:modules:)``.
     public var versions: [PackageVersion]
 
-    /// Create a package with an explicit set of versions.
     public init(
         _ repo: String,
         group: String? = nil,
-        modules: [Module],
         versions: [PackageVersion]
     ) {
         self.repo = repo
         self.group = group
-        self.modules = modules
         self.versions = versions
-    }
-
-    /// Create a single-version package. Synthesises one default
-    /// ``PackageVersion`` built from `ref`, for the common case of a package with
-    /// no version switcher.
-    public init(
-        _ repo: String,
-        ref: String,
-        group: String? = nil,
-        modules: [Module]
-    ) {
-        self.init(
-            repo,
-            group: group,
-            modules: modules,
-            versions: [PackageVersion("default", ref: ref, isDefault: true)]
-        )
     }
 
     /// The package's default version (served at the module root). Falls back to
     /// the first version if none is flagged (validation rejects that case).
     public var defaultVersion: PackageVersion {
         versions.first(where: { $0.isDefault }) ?? versions[0]
+    }
+
+    /// The default version's modules — what the catalog and switcher list.
+    public var defaultModules: [Module] {
+        defaultVersion.modules
+    }
+
+    /// Every distinct module the package hosts, paired with the version at which
+    /// it's surfaced in navigation (catalog, module switcher, cross-module links):
+    /// the default version if it ships the module, otherwise the first version
+    /// that does — its newest, given the usual default-first ordering. This keeps
+    /// a module added only in a pre-release (e.g. a new target on the 5.0 line)
+    /// discoverable, linking to that pre-release rather than a URL that 404s.
+    public var surfacedModules: [(module: Module, version: PackageVersion)] {
+        modulesAcrossVersions.map { entry in
+            let version = entry.versions.first(where: { $0.isDefault }) ?? entry.versions[0]
+            return (entry.module, version)
+        }
+    }
+
+    /// Every distinct module across all versions (by name, in first-seen order),
+    /// each paired with the versions that emit it.
+    public var modulesAcrossVersions: [(module: Module, versions: [PackageVersion])] {
+        var order: [String] = []
+        var byName: [String: (module: Module, versions: [PackageVersion])] = [:]
+        for version in versions {
+            for module in version.modules {
+                if byName[module.name] == nil {
+                    order.append(module.name)
+                    byName[module.name] = (module, [])
+                }
+                byName[module.name]?.versions.append(version)
+            }
+        }
+        return order.compactMap { byName[$0] }
     }
 
     /// The effective group for a module in this package: the module's own group,
@@ -160,6 +181,15 @@ public struct PackageVersion: Sendable {
     public var isPrerelease: Bool
     /// Whether this version is deprecated (used for switcher styling/labelling).
     public var deprecated: Bool
+    /// An explicit badge label for a pre-release version (e.g. `"alpha"`, `"beta"`,
+    /// `"rc"`), shown in the version/module switchers and on catalog cards. When
+    /// `nil`, ``badge`` infers it from the ``id``/``name`` (falling back to
+    /// `"beta"`); ignored for stable versions.
+    public var prereleaseLabel: String?
+    /// The modules this version ships. A package's target set can differ across
+    /// major versions, so each version declares its own; reuse ``Module`` values
+    /// across versions to avoid duplication.
+    public var modules: [Module]
 
     public init(
         _ id: String,
@@ -167,7 +197,9 @@ public struct PackageVersion: Sendable {
         ref: String,
         isDefault: Bool = false,
         isPrerelease: Bool = false,
-        deprecated: Bool = false
+        deprecated: Bool = false,
+        prereleaseLabel: String? = nil,
+        modules: [Module]
     ) {
         self.id = id
         self.name = name ?? id
@@ -175,12 +207,31 @@ public struct PackageVersion: Sendable {
         self.isDefault = isDefault
         self.isPrerelease = isPrerelease
         self.deprecated = deprecated
+        self.prereleaseLabel = prereleaseLabel
+        self.modules = modules
+    }
+
+    /// The single default version for a package with no version switcher. Built
+    /// from `ref`, with an internal id (never shown, since it's served at the
+    /// module root).
+    public static func single(ref: String, modules: [Module]) -> PackageVersion {
+        PackageVersion("default", ref: ref, isDefault: true, modules: modules)
     }
 
     /// The URL/output segment for this version: `""` for the default version,
     /// otherwise `"<id>/"`.
     public var urlSegment: String {
         isDefault ? "" : id + "/"
+    }
+
+    /// The switcher/catalog badge for this version, or `nil` for a stable one: the
+    /// explicit ``prereleaseLabel`` if set, else the pre-release kind inferred from
+    /// the ``id``/``name`` (`"alpha"`, `"beta"`, or `"rc"`), else `"beta"`.
+    public var badge: String? {
+        guard isPrerelease else { return nil }
+        if let prereleaseLabel { return prereleaseLabel }
+        let haystack = "\(id) \(name)".lowercased()
+        return ["alpha", "beta", "rc"].first(where: haystack.contains) ?? "beta"
     }
 }
 
@@ -277,12 +328,15 @@ extension DocCSite {
             if !seenRepos.insert(package.repo).inserted {
                 throw DocCConfigurationError.duplicatePackageRepo(package.repo)
             }
-            if package.modules.isEmpty {
+            // Module names are unique across the whole site (they key the URL and
+            // archive); the same name across a package's own versions is one module.
+            let moduleNames = package.modulesAcrossVersions.map(\.module.name)
+            if moduleNames.isEmpty {
                 throw DocCConfigurationError.packageHasNoModules(repo: package.repo)
             }
-            for module in package.modules {
-                if !seenModules.insert(module.name).inserted {
-                    throw DocCConfigurationError.duplicateModuleName(module.name)
+            for name in moduleNames {
+                if !seenModules.insert(name).inserted {
+                    throw DocCConfigurationError.duplicateModuleName(name)
                 }
             }
             try validateVersions(package)

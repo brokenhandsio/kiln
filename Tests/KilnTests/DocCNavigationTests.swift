@@ -13,7 +13,7 @@ struct DocCNavigationTests {
     }
 
     private var urls: DocCURLs {
-        DocCURLs(moduleName: "Queues", version: PackageVersion("default", ref: "main", isDefault: true))
+        DocCURLs(moduleName: "Queues", version: PackageVersion("default", ref: "main", isDefault: true, modules: []))
     }
 
     @Test("Builds the sidebar tree from the module's children (groups + symbols)")

@@ -109,8 +109,10 @@ public struct DocCHostedModule: Sendable {
     public var moduleSegment: String
     /// The repo of the package this module belongs to (identifies "same package").
     public var packageRepo: String
-    /// The URL segment of this module's package default version (`""` for default).
-    public var defaultVersionSegment: String
+    /// The URL segment of the version this module is surfaced at (`""` for a
+    /// default-version module, `"5-beta/"` for a pre-release-only one) — the
+    /// target a cross-package link lands on.
+    public var canonicalVersionSegment: String
 }
 
 /// The registry of every module a ``DocCSite`` hosts, plus the link-mapping logic
@@ -119,7 +121,8 @@ public struct DocCHostedModule: Sendable {
 /// Cross-module link targeting follows the per-package versioning rule: a link
 /// from a page to another module in the **same package** stays on the current
 /// version; a link to a module in a **different package** goes to that module's
-/// default version (versions are independent across packages).
+/// surfaced version — its default, or a pre-release if it only exists there
+/// (versions are independent across packages).
 public struct DocCModuleRegistry: Sendable {
     /// Hosted modules keyed by their DocC namespace (the lower-cased module name).
     public let modules: [String: DocCHostedModule]
@@ -130,13 +133,12 @@ public struct DocCModuleRegistry: Sendable {
         self.basePath = SiteURLs.normaliseBasePath(basePath)
         var modules: [String: DocCHostedModule] = [:]
         for package in site.packages {
-            let defaultVersionSegment = package.defaultVersion.urlSegment
-            for module in package.modules {
+            for (module, version) in package.surfacedModules {
                 let segment = module.name.lowercased()
                 modules[segment] = DocCHostedModule(
                     moduleSegment: segment,
                     packageRepo: package.repo,
-                    defaultVersionSegment: defaultVersionSegment
+                    canonicalVersionSegment: version.urlSegment
                 )
             }
         }
@@ -160,9 +162,9 @@ public struct DocCModuleRegistry: Sendable {
         guard let namespace = parts.first.map(String.init), let hosted = modules[namespace] else { return nil }
 
         let suffix = parts.count > 1 ? String(parts[1]).trimmingSlashes() : ""
-        // Same package → keep the current version; otherwise the target module's
-        // package default version.
-        let versionSegment = hosted.packageRepo == currentPackageRepo ? currentVersionSegment : hosted.defaultVersionSegment
+        // Same package → keep the current version; otherwise the version the target
+        // module is surfaced at (its default, or a pre-release if it only exists there).
+        let versionSegment = hosted.packageRepo == currentPackageRepo ? currentVersionSegment : hosted.canonicalVersionSegment
         let tail = suffix.isEmpty ? "" : suffix + "/"
         return basePath + "/" + hosted.moduleSegment + "/" + versionSegment + tail
     }

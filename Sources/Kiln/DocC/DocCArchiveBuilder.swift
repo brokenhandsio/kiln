@@ -135,7 +135,7 @@ public struct DocCArchiveBuilder: Sendable {
             var work: [(version: PackageVersion, modules: [Module])] = []
             for version in package.versions {
                 let forced = rebuild.forces(package: package, version: version)
-                let modules = package.modules.filter { module in
+                let modules = version.modules.filter { module in
                     let archive = DocCRenderPhase.archiveURL(module: module, version: version, in: archivesBase)
                     return forced || !fileManager.fileExists(atPath: archive.path)
                 }

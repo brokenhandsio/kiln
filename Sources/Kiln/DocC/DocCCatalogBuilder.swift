@@ -2,9 +2,10 @@
 /// module, grouped by ``Module/group`` (with the package-level default applied),
 /// ordered by ``DocCSite/groupOrder``.
 ///
-/// Each module card links to the module's **default-version** landing page. The
-/// catalog is English-only (single language) and rendered to HTML in Swift, like
-/// the rest of the DocC output.
+/// Each module card links to the module's surfaced version — its default version,
+/// or, for a module that only exists in a pre-release, that pre-release (flagged
+/// with a badge). See ``APIPackage/surfacedModules``. The catalog is English-only
+/// (single language) and rendered to HTML in Swift, like the rest of the output.
 public struct DocCCatalogBuilder: Sendable {
     private let docc: DocCSite
     private let basePath: String
@@ -21,8 +22,12 @@ public struct DocCCatalogBuilder: Sendable {
         /// The display title (``Module/displayTitle``).
         public var title: String
         public var description: String?
-        /// Site URL of the module's default-version landing page (e.g. `/queues/`).
+        /// Site URL of the module's surfaced-version landing page (e.g. `/queues/`,
+        /// or `/consolelogger/5-beta/` for a pre-release-only module).
         public var url: String
+        /// A pill label when the module is surfaced at a pre-release (e.g. `"beta"`),
+        /// else `nil`.
+        public var badge: String?
     }
 
     /// A titled group of module cards.
@@ -39,18 +44,19 @@ public struct DocCCatalogBuilder: Sendable {
         var byGroup: [String: [Entry]] = [:]
 
         for package in docc.packages {
-            for module in package.modules {
+            for (module, version) in package.surfacedModules {
                 let groupName = package.group(for: module) ?? "Other"
                 if byGroup[groupName] == nil {
                     appearance.append(groupName)
                     byGroup[groupName] = []
                 }
-                let urls = DocCURLs(moduleName: module.name, version: package.defaultVersion, basePath: basePath)
+                let urls = DocCURLs(moduleName: module.name, version: version, basePath: basePath)
                 byGroup[groupName]?.append(Entry(
                     name: module.name,
                     title: module.displayTitle,
                     description: module.description,
-                    url: urls.moduleRootURL
+                    url: urls.moduleRootURL,
+                    badge: version.badge
                 ))
             }
         }
@@ -72,7 +78,11 @@ public struct DocCCatalogBuilder: Sendable {
             out += "<div class=\"docc-catalog-cards\">\n"
             for entry in group.entries {
                 out += "<a class=\"docc-catalog-card\" href=\"\(HTMLEscaping.attribute(entry.url))\">\n"
-                out += "<span class=\"docc-catalog-card-title\">\(HTMLEscaping.text(entry.title))</span>\n"
+                out += "<span class=\"docc-catalog-card-title\">\(HTMLEscaping.text(entry.title))"
+                if let badge = entry.badge {
+                    out += " <span class=\"docc-catalog-card-badge\">\(HTMLEscaping.text(badge))</span>"
+                }
+                out += "</span>\n"
                 if let description = entry.description, !description.isEmpty {
                     out += "<span class=\"docc-catalog-card-desc\">\(HTMLEscaping.text(description))</span>\n"
                 }

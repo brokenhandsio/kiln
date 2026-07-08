@@ -5,22 +5,19 @@ import Testing
 struct DocCConfigurationTests {
     /// A representative multi-package config used across the happy-path tests.
     private func sampleSite() -> DocCSite {
-        DocCSite(
+        let vapor = Module("Vapor", group: "Core", description: "Core web framework")
+        let xctVapor = Module("XCTVapor", group: "Testing")
+        return DocCSite(
             packages: [
                 APIPackage(
                     "vapor/vapor",
-                    modules: [
-                        Module("Vapor", group: "Core", description: "Core web framework"),
-                        Module("XCTVapor", group: "Testing"),
-                    ],
                     versions: [
-                        PackageVersion("4", name: "4.x", ref: "vapor-4", isDefault: true),
-                        PackageVersion("5-alpha", name: "5.0 (alpha)", ref: "main", isPrerelease: true),
+                        PackageVersion("4", name: "4.x", ref: "vapor-4", isDefault: true, modules: [vapor, xctVapor]),
+                        PackageVersion("5-alpha", name: "5.0 (alpha)", ref: "main", isPrerelease: true, modules: [vapor, xctVapor]),
                     ]
                 ),
-                APIPackage("vapor/leaf-kit", ref: "main", group: "Templating", modules: [
-                    Module("LeafKit"),
-                ]),
+                APIPackage("vapor/leaf-kit", group: "Templating",
+                           versions: [.single(ref: "main", modules: [Module("LeafKit")])]),
             ],
             groupOrder: ["Core", "Templating", "Testing"]
         )
@@ -36,38 +33,91 @@ struct DocCConfigurationTests {
 
     @Test("Single-version shorthand synthesises one default version")
     func shorthandDefaultVersion() {
-        let package = APIPackage("vapor/leaf-kit", ref: "main", modules: [Module("LeafKit")])
+        let package = APIPackage("vapor/leaf-kit", versions: [.single(ref: "main", modules: [Module("LeafKit")])])
         #expect(package.versions.count == 1)
         #expect(package.defaultVersion.isDefault)
         #expect(package.defaultVersion.ref == "main")
         #expect(package.defaultVersion.urlSegment == "")
     }
 
+    @Test("Versions can ship different module sets")
+    func perVersionModules() throws {
+        let consoleKit = Module("ConsoleKit")
+        let consoleLogger = Module("ConsoleLogger")
+        let package = APIPackage("vapor/console-kit", group: "Core",
+            versions: [
+                PackageVersion("4", ref: "v4", isDefault: true, modules: [consoleKit]),
+                PackageVersion("5-beta", ref: "main", isPrerelease: true, modules: [consoleKit, consoleLogger]),
+            ])
+        let v4 = package.versions[0], beta = package.versions[1]
+
+        // v4 ships [ConsoleKit]; the beta adds ConsoleLogger.
+        #expect(v4.modules.map(\.name) == ["ConsoleKit"])
+        #expect(beta.modules.map(\.name) == ["ConsoleKit", "ConsoleLogger"])
+        #expect(package.defaultModules.map(\.name) == ["ConsoleKit"])
+
+        // Distinct modules pair with the versions that emit them.
+        let across = package.modulesAcrossVersions
+        #expect(across.map(\.module.name) == ["ConsoleKit", "ConsoleLogger"])
+        #expect(across[0].versions.map(\.id) == ["4", "5-beta"])   // ConsoleKit in both
+        #expect(across[1].versions.map(\.id) == ["5-beta"])         // ConsoleLogger beta-only
+
+        // Surfaced version: ConsoleKit at its default (v4); ConsoleLogger, absent
+        // from the default, at the beta so it stays discoverable.
+        let surfaced = package.surfacedModules
+        #expect(surfaced.map(\.module.name) == ["ConsoleKit", "ConsoleLogger"])
+        #expect(surfaced.map(\.version.id) == ["4", "5-beta"])
+
+        // The catalog/switcher list every surfaced module (beta-only included);
+        // the same module name across versions is one module, so validation passes.
+        let site = DocCSite(packages: [package])
+        #expect(site.allModules.map(\.module.name) == ["ConsoleKit", "ConsoleLogger"])
+        try site.validate()
+    }
+
+    @Test("Pre-release badge is inferred from id/name and overridable")
+    func prereleaseBadge() {
+        func version(_ id: String, name: String? = nil, prerelease: Bool = true, label: String? = nil) -> PackageVersion {
+            PackageVersion(id, name: name, ref: "main", isPrerelease: prerelease, prereleaseLabel: label, modules: [])
+        }
+        // Inferred from the id …
+        #expect(version("5-alpha").badge == "alpha")
+        #expect(version("5-beta").badge == "beta")
+        #expect(version("6-rc").badge == "rc")
+        // … or the name when the id doesn't say.
+        #expect(version("5", name: "5.0 (alpha)").badge == "alpha")
+        // Pre-release with no hint falls back to "beta".
+        #expect(version("next").badge == "beta")
+        // Explicit label wins.
+        #expect(version("5-beta", label: "preview").badge == "preview")
+        // Stable versions carry no badge.
+        #expect(version("4", prerelease: false).badge == nil)
+    }
+
     @Test("Non-default version carries an id URL segment")
     func nonDefaultUrlSegment() {
-        let version = PackageVersion("5-alpha", ref: "main", isPrerelease: true)
+        let version = PackageVersion("5-alpha", ref: "main", isPrerelease: true, modules: [Module("X")])
         #expect(version.urlSegment == "5-alpha/")
         #expect(version.name == "5-alpha") // name falls back to id
     }
 
     @Test("Group falls back from module to package to nil")
     func groupInheritance() {
+        let vapor = Module("Vapor")                     // inherits package group
+        let xctVapor = Module("XCTVapor", group: "Testing") // own group wins
+        let ungrouped = Module("Ungrouped")             // inherits package group too
         let package = APIPackage(
             "vapor/vapor",
             group: "Core",
-            modules: [
-                Module("Vapor"),                    // inherits package group
-                Module("XCTVapor", group: "Testing"), // own group wins
-                Module("Ungrouped"),                 // inherits package group too
-            ],
-            versions: [PackageVersion("1", ref: "main", isDefault: true)]
+            versions: [PackageVersion("1", ref: "main", isDefault: true, modules: [vapor, xctVapor, ungrouped])]
         )
-        #expect(package.group(for: package.modules[0]) == "Core")
-        #expect(package.group(for: package.modules[1]) == "Testing")
-        #expect(package.group(for: package.modules[2]) == "Core")
+        #expect(package.group(for: vapor) == "Core")
+        #expect(package.group(for: xctVapor) == "Testing")
+        #expect(package.group(for: ungrouped) == "Core")
 
-        let noGroup = APIPackage("x/y", ref: "main", modules: [Module("Z")])
-        #expect(noGroup.group(for: noGroup.modules[0]) == nil)
+        let z = Module("Z")
+        let noGroup = APIPackage("x/y", versions: [.single(ref: "main", modules: [z])])
+        #expect(noGroup.group(for: z) == nil)
     }
 
     @Test("Module display title defaults to the target name")
@@ -85,7 +135,7 @@ struct DocCConfigurationTests {
     @Test("A package with no modules is rejected")
     func packageWithNoModules() {
         let docc = DocCSite(packages: [
-            APIPackage("x/y", modules: [], versions: [PackageVersion("1", ref: "main", isDefault: true)]),
+            APIPackage("x/y", versions: [PackageVersion("1", ref: "main", isDefault: true, modules: [])]),
         ])
         #expect(throws: DocCConfigurationError.self) { try docc.validate() }
     }
@@ -93,8 +143,8 @@ struct DocCConfigurationTests {
     @Test("Duplicate module names across packages are rejected")
     func duplicateModuleNames() {
         let docc = DocCSite(packages: [
-            APIPackage("a/one", ref: "main", modules: [Module("Shared")]),
-            APIPackage("b/two", ref: "main", modules: [Module("Shared")]),
+            APIPackage("a/one", versions: [.single(ref: "main", modules: [Module("Shared")])]),
+            APIPackage("b/two", versions: [.single(ref: "main", modules: [Module("Shared")])]),
         ])
         #expect(throws: DocCConfigurationError.self) { try docc.validate() }
     }
@@ -102,8 +152,8 @@ struct DocCConfigurationTests {
     @Test("Duplicate package repos are rejected")
     func duplicateRepos() {
         let docc = DocCSite(packages: [
-            APIPackage("vapor/vapor", ref: "main", modules: [Module("A")]),
-            APIPackage("vapor/vapor", ref: "vapor-4", modules: [Module("B")]),
+            APIPackage("vapor/vapor", versions: [.single(ref: "main", modules: [Module("A")])]),
+            APIPackage("vapor/vapor", versions: [.single(ref: "vapor-4", modules: [Module("B")])]),
         ])
         #expect(throws: DocCConfigurationError.self) { try docc.validate() }
     }
@@ -111,8 +161,8 @@ struct DocCConfigurationTests {
     @Test("A package with no default version is rejected")
     func noDefaultVersion() {
         let docc = DocCSite(packages: [
-            APIPackage("x/y", modules: [Module("Z")], versions: [
-                PackageVersion("1", ref: "main"),
+            APIPackage("x/y", versions: [
+                PackageVersion("1", ref: "main", modules: [Module("Z")]),
             ]),
         ])
         #expect(throws: DocCConfigurationError.self) { try docc.validate() }
@@ -121,9 +171,9 @@ struct DocCConfigurationTests {
     @Test("Multiple default versions are rejected")
     func multipleDefaultVersions() {
         let docc = DocCSite(packages: [
-            APIPackage("x/y", modules: [Module("Z")], versions: [
-                PackageVersion("1", ref: "main", isDefault: true),
-                PackageVersion("2", ref: "dev", isDefault: true),
+            APIPackage("x/y", versions: [
+                PackageVersion("1", ref: "main", isDefault: true, modules: [Module("Z")]),
+                PackageVersion("2", ref: "dev", isDefault: true, modules: [Module("Z")]),
             ]),
         ])
         #expect(throws: DocCConfigurationError.self) { try docc.validate() }
@@ -132,8 +182,8 @@ struct DocCConfigurationTests {
     @Test("A pre-release default version is rejected")
     func prereleaseDefault() {
         let docc = DocCSite(packages: [
-            APIPackage("x/y", modules: [Module("Z")], versions: [
-                PackageVersion("1", ref: "main", isDefault: true, isPrerelease: true),
+            APIPackage("x/y", versions: [
+                PackageVersion("1", ref: "main", isDefault: true, isPrerelease: true, modules: [Module("Z")]),
             ]),
         ])
         #expect(throws: DocCConfigurationError.self) { try docc.validate() }
@@ -143,8 +193,8 @@ struct DocCConfigurationTests {
     func invalidVersionIDs() {
         for bad in ["a/b", "a b", ""] {
             let docc = DocCSite(packages: [
-                APIPackage("x/y", modules: [Module("Z")], versions: [
-                    PackageVersion(bad, ref: "main", isDefault: true),
+                APIPackage("x/y", versions: [
+                    PackageVersion(bad, ref: "main", isDefault: true, modules: [Module("Z")]),
                 ]),
             ])
             #expect(throws: DocCConfigurationError.self) { try docc.validate() }
@@ -155,17 +205,17 @@ struct DocCConfigurationTests {
     func versionIDScope() throws {
         // Duplicate within a package → rejected.
         let dup = DocCSite(packages: [
-            APIPackage("x/y", modules: [Module("Z")], versions: [
-                PackageVersion("2", ref: "main", isDefault: true),
-                PackageVersion("2", ref: "dev"),
+            APIPackage("x/y", versions: [
+                PackageVersion("2", ref: "main", isDefault: true, modules: [Module("Z")]),
+                PackageVersion("2", ref: "dev", modules: [Module("Z")]),
             ]),
         ])
         #expect(throws: DocCConfigurationError.self) { try dup.validate() }
 
         // Same id "2" in two different packages → allowed.
         let shared = DocCSite(packages: [
-            APIPackage("a/one", modules: [Module("A")], versions: [PackageVersion("2", ref: "main", isDefault: true)]),
-            APIPackage("b/two", modules: [Module("B")], versions: [PackageVersion("2", ref: "main", isDefault: true)]),
+            APIPackage("a/one", versions: [PackageVersion("2", ref: "main", isDefault: true, modules: [Module("A")])]),
+            APIPackage("b/two", versions: [PackageVersion("2", ref: "main", isDefault: true, modules: [Module("B")])]),
         ])
         try shared.validate()
     }

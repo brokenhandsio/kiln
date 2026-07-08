@@ -5,17 +5,18 @@ import Foundation
 @Suite("DocC catalog")
 struct DocCCatalogTests {
     private func site() -> DocCSite {
-        DocCSite(
+        let vapor = Module("Vapor", description: "Core web framework")
+        let xctVapor = Module("XCTVapor", group: "Testing")
+        return DocCSite(
             packages: [
-                APIPackage("vapor/vapor", group: "Core", modules: [
-                    Module("Vapor", description: "Core web framework"),
-                    Module("XCTVapor", group: "Testing"),
-                ], versions: [
-                    PackageVersion("4", ref: "vapor-4", isDefault: true),
-                    PackageVersion("5-alpha", ref: "main", isPrerelease: true),
+                APIPackage("vapor/vapor", group: "Core", versions: [
+                    PackageVersion("4", ref: "vapor-4", isDefault: true, modules: [vapor, xctVapor]),
+                    PackageVersion("5-alpha", ref: "main", isPrerelease: true, modules: [vapor, xctVapor]),
                 ]),
-                APIPackage("vapor/fluent-kit", ref: "main", group: "Database", modules: [Module("FluentKit")]),
-                APIPackage("vapor/leaf-kit", ref: "main", modules: [Module("LeafKit")]), // no group → Other
+                APIPackage("vapor/fluent-kit", group: "Database",
+                           versions: [.single(ref: "main", modules: [Module("FluentKit")])]),
+                APIPackage("vapor/leaf-kit",
+                           versions: [.single(ref: "main", modules: [Module("LeafKit")])]), // no group → Other
             ],
             groupOrder: ["Core", "Database"]
         )
@@ -45,6 +46,32 @@ struct DocCCatalogTests {
         // Ungrouped module falls into Other.
         let other = groups.first { $0.title == "Other" }
         #expect(other?.entries.map(\.title) == ["LeafKit"])
+    }
+
+    @Test("A pre-release-only module surfaces at its pre-release, badged")
+    func prereleaseOnlyModule() throws {
+        let consoleKit = Module("ConsoleKit")
+        let consoleLogger = Module("ConsoleLogger", description: "Console log handler.")
+        let site = DocCSite(packages: [
+            APIPackage("vapor/console-kit", group: "Core", versions: [
+                PackageVersion("4", ref: "v4", isDefault: true, modules: [consoleKit]),
+                PackageVersion("5-beta", ref: "main", isPrerelease: true, modules: [consoleKit, consoleLogger]),
+            ]),
+        ])
+        let core = try #require(DocCCatalogBuilder(docc: site).groups().first { $0.title == "Core" })
+
+        let ck = core.entries.first { $0.title == "ConsoleKit" }
+        #expect(ck?.url == "/consolekit/")   // default version, no badge
+        #expect(ck?.badge == nil)
+
+        // ConsoleLogger only exists in the beta → surfaced there, with a badge.
+        let cl = core.entries.first { $0.title == "ConsoleLogger" }
+        #expect(cl?.url == "/consolelogger/5-beta/")
+        #expect(cl?.badge == "beta")
+
+        let html = DocCCatalogBuilder(docc: site).renderHTML()
+        #expect(html.contains("<a class=\"docc-catalog-card\" href=\"/consolelogger/5-beta/\">"))
+        #expect(html.contains("<span class=\"docc-catalog-card-badge\">beta</span>"))
     }
 
     @Test("basePath prefixes card URLs")
