@@ -3,6 +3,7 @@ public import FoundationEssentials
 #else
 public import Foundation
 #endif
+public import LeafKit
 
 /// Kiln generates a static documentation website from a Swift-defined
 /// ``KilnSite`` configuration and a directory of markdown content.
@@ -27,19 +28,23 @@ public enum Kiln {
     ///     modules whose inputs are unchanged (see ``DocCBuildManifest``), instead
     ///     of wiping the output and re-rendering everything. Safe to leave on for
     ///     local iteration; a fresh checkout (no manifest) still does a full build.
+    ///   - leafTags: custom Leaf tags, merged over Kiln's built-ins (a caller tag
+    ///     wins a name clash).
     public static func build(
         _ site: KilnSite,
         contentDirectory: URL,
         outputDirectory: URL,
         linkChecking: LinkChecking = .warn,
-        incremental: Bool = false
+        incremental: Bool = false,
+        leafTags: [String: any LeafTag] = [:]
     ) async throws {
         let generator = SiteGenerator(
             site: site,
             contentDirectory: contentDirectory,
             outputDirectory: outputDirectory,
             linkChecking: linkChecking,
-            incremental: incremental
+            incremental: incremental,
+            leafTags: leafTags
         )
         try await generator.build()
     }
@@ -51,14 +56,16 @@ public enum Kiln {
         contentDirectory: String,
         outputDirectory: String,
         linkChecking: LinkChecking = .warn,
-        incremental: Bool = false
+        incremental: Bool = false,
+        leafTags: [String: any LeafTag] = [:]
     ) async throws {
         try await build(
             site,
             contentDirectory: URL(fileURLWithPath: contentDirectory),
             outputDirectory: URL(fileURLWithPath: outputDirectory),
             linkChecking: linkChecking,
-            incremental: incremental
+            incremental: incremental,
+            leafTags: leafTags
         )
     }
 
@@ -67,7 +74,7 @@ public enum Kiln {
     /// No-op for a site without a ``KilnSite/docc`` configuration.
     ///
     /// This shells out to git and the Swift toolchain (the only part of Kiln that
-    /// does), so call it before ``build(_:contentDirectory:outputDirectory:linkChecking:incremental:)``
+    /// does), so call it before ``build(_:contentDirectory:outputDirectory:linkChecking:incremental:leafTags:)``
     /// when you want a single command to produce archives *and* the site. CI can
     /// instead restore cached archives and pass `rebuild:` to regenerate only what
     /// changed.

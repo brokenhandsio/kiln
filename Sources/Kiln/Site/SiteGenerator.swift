@@ -1,5 +1,5 @@
 public import Foundation
-import LeafKit
+public import LeafKit
 
 /// Errors thrown while resolving the theme.
 public enum ThemeError: Error, CustomStringConvertible {
@@ -28,13 +28,22 @@ public struct SiteGenerator {
     let outputDirectory: URL
     let linkChecking: LinkChecking
     let incremental: Bool
+    let leafTags: [String: any LeafTag]
 
-    public init(site: KilnSite, contentDirectory: URL, outputDirectory: URL, linkChecking: LinkChecking = .warn, incremental: Bool = false) {
+    public init(
+        site: KilnSite,
+        contentDirectory: URL,
+        outputDirectory: URL,
+        linkChecking: LinkChecking = .warn,
+        incremental: Bool = false,
+        leafTags: [String: any LeafTag] = [:]
+    ) {
         self.site = site
         self.contentDirectory = contentDirectory
         self.outputDirectory = outputDirectory
         self.linkChecking = linkChecking
         self.incremental = incremental
+        self.leafTags = leafTags
     }
 
     /// The site's mount path, normalised (e.g. `"/docs"` or `""`).
@@ -61,7 +70,7 @@ public struct SiteGenerator {
         try site.validate()
 
         let theme = try resolveTheme()
-        let renderer = TemplateRenderer(templateDirectories: theme.templates)
+        let renderer = TemplateRenderer(templateDirectories: theme.templates, leafTags: leafTags)
         // `shutdown()` is async (it must not block — see TemplateRenderer), so we
         // can't use `defer`; await it on both the success and error paths instead.
         do {
