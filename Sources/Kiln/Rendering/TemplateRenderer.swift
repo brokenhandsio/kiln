@@ -25,7 +25,7 @@ final class TemplateRenderer {
     private var didShutdown = false
 
     /// - Parameter templateDirectories: ordered highest-priority first.
-    init(templateDirectories: [URL]) {
+    init(templateDirectories: [URL], leafTags: [String: any LeafTag] = [:]) {
         let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         let pool = NIOThreadPool(numberOfThreads: 2)
         pool.start()
@@ -50,10 +50,11 @@ final class TemplateRenderer {
         self.threadPool = pool
         self.renderer = LeafRenderer(
             configuration: LeafConfiguration(rootDirectory: rootDirectory),
-            // Kiln's custom tags layered on top of Leaf's built-ins:
-            // `#localise("key")` resolves theme-defined localised strings (see
-            // ``LocaliseTag``).
-            tags: defaultTags.merging(["localise": LocaliseTag()]) { _, new in new },
+            // Leaf's built-ins, then Kiln's `#localise`, then caller tags on top
+            // (a caller tag wins a name clash).
+            tags: defaultTags
+                .merging(["localise": LocaliseTag()]) { _, new in new }
+                .merging(leafTags) { _, new in new },
             cache: DefaultLeafCache(),
             sources: .singleSource(layered),
             eventLoop: group.next()
