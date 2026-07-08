@@ -207,6 +207,14 @@ struct BuildTests {
         // English page uses the built-in defaults.
         let englishHome = try read(output.appendingPathComponent("index.html"))
         #expect(englishHome.contains("placeholder=\"Search\""))
+
+        // Search exposes the accessible combobox/listbox wiring and a live-region
+        // result count (falling back to English when unset).
+        #expect(englishHome.contains("role=\"combobox\""))
+        #expect(englishHome.contains("aria-controls=\"kiln-search-results\""))
+        #expect(englishHome.contains("id=\"kiln-search-results\" role=\"listbox\""))
+        #expect(englishHome.contains("id=\"kiln-search-status\""))
+        #expect(englishHome.contains("data-results-count=\"{count} results available\""))
     }
 
     @Test("Carbon ads slot is emitted when configured")

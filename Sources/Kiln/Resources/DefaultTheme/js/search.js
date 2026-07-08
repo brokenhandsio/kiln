@@ -18,6 +18,10 @@
 
     var container = document.getElementById("kiln-search");
     var noResultsText = (container && container.getAttribute("data-no-results")) || "No results found";
+    // Polite live region + localised "{count} results available" template, used
+    // to announce result changes to screen readers.
+    var status = document.getElementById("kiln-search-status");
+    var resultsCountText = (container && container.getAttribute("data-results-count")) || "{count} results available";
 
     // Han (incl. extension A & compatibility) + hiragana/katakana (incl.
     // halfwidth). Deliberately excludes Hangul, which is space-separated.
@@ -166,25 +170,44 @@
         if (!matches.length) {
             results.innerHTML = '<div class="kiln-search-empty">' + escapeHTML(noResultsText) + '</div>';
             results.hidden = false;
+            input.setAttribute("aria-expanded", "true");
+            input.removeAttribute("aria-activedescendant");
+            activeIndex = -1;
+            announce(noResultsText);
             return;
         }
         var html = "";
-        matches.forEach(function (match) {
+        matches.forEach(function (match, index) {
             var location = match.doc.location ? "/" + match.doc.location : "/";
-            html += '<a class="kiln-search-result" href="' + location + '">' +
+            html += '<a class="kiln-search-result" role="option" id="kiln-search-option-' + index + '" href="' + location + '">' +
                 '<span class="kiln-search-result-title">' + highlightRange(match.doc.title, queryUnits) + "</span>" +
                 '<span class="kiln-search-result-context">' + snippet(match.doc, queryUnits) + "</span>" +
                 "</a>";
         });
         results.innerHTML = html;
         results.hidden = false;
+        input.setAttribute("aria-expanded", "true");
+        input.removeAttribute("aria-activedescendant");
         activeIndex = -1;
+        announce(resultsCountText.replace("{count}", matches.length));
     }
 
     function hide() {
         results.hidden = true;
         results.innerHTML = "";
         activeIndex = -1;
+        input.setAttribute("aria-expanded", "false");
+        input.removeAttribute("aria-activedescendant");
+        if (status) status.textContent = "";
+    }
+
+    // Announce a message in the polite live region. Clearing first, then setting
+    // on the next tick, guarantees assistive tech re-announces even when the text
+    // is unchanged (e.g. the same result count for a refined query).
+    function announce(message) {
+        if (!status) return;
+        status.textContent = "";
+        window.setTimeout(function () { status.textContent = message; }, 30);
     }
 
     // Live list of result anchors (empty for the no-results / prompt states).
@@ -196,14 +219,20 @@
     // view. Drives the `.kiln-active` style the theme already defines for hover.
     function setActive(index) {
         var links = resultLinks();
-        if (!links.length) { activeIndex = -1; return; }
+        if (!links.length) { activeIndex = -1; input.removeAttribute("aria-activedescendant"); return; }
         if (index < 0) index = links.length - 1;
         else if (index >= links.length) index = 0;
         activeIndex = index;
         for (var i = 0; i < links.length; i++) {
             var on = i === activeIndex;
             links[i].classList.toggle("kiln-active", on);
-            if (on) links[i].scrollIntoView({ block: "nearest" });
+            links[i].setAttribute("aria-selected", on ? "true" : "false");
+            if (on) {
+                links[i].scrollIntoView({ block: "nearest" });
+                // Point the combobox at the active option so screen readers
+                // announce it while DOM focus stays in the input.
+                input.setAttribute("aria-activedescendant", links[i].id);
+            }
         }
     }
 
