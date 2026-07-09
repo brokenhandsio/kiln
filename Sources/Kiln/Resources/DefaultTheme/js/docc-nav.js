@@ -1,10 +1,31 @@
-// Highlights the current page in the DocC symbol sidebar and opens its ancestor
-// disclosures. The sidebar tree is rendered once per module (server-side) with
-// no current-page state — so this runs per page instead of re-rendering the
-// whole tree N times during the build (O(N) instead of O(N²)).
+// Highlights the current page in the DocC symbol sidebar, opens its ancestor
+// disclosures, and wires the branch expand/collapse buttons. The tree is
+// rendered once per module (server-side) with no current-page state — so this
+// runs per page instead of re-rendering the whole tree N times (O(N), not O(N²)).
 (function () {
   var nav = document.querySelector(".docc-nav-list");
   if (!nav) return;
+
+  // Reveal a branch's children: un-hide the list and mark its toggle expanded.
+  function expand(list) {
+    if (!list) return;
+    list.hidden = false;
+    var toggle = nav.querySelector('.docc-nav-toggle[aria-controls="' + (window.CSS && CSS.escape ? CSS.escape(list.id) : list.id) + '"]');
+    if (toggle) toggle.setAttribute("aria-expanded", "true");
+  }
+
+  // Expand/collapse buttons. Each controls a sibling list via aria-controls.
+  var toggles = nav.querySelectorAll(".docc-nav-toggle");
+  for (var t = 0; t < toggles.length; t++) {
+    toggles[t].addEventListener("click", function () {
+      var id = this.getAttribute("aria-controls");
+      var list = id && document.getElementById(id);
+      if (!list) return;
+      var open = this.getAttribute("aria-expanded") === "true";
+      this.setAttribute("aria-expanded", open ? "false" : "true");
+      list.hidden = open;
+    });
+  }
 
   var here = location.pathname;
   var hereAlt = here.charAt(here.length - 1) === "/" ? here.slice(0, -1) : here + "/";
@@ -19,12 +40,26 @@
 
   current.classList.add("docc-current");
   current.setAttribute("aria-current", "page");
+  // For a branch, mark the row too so its guide bar (not just the link text)
+  // highlights blue. Leaves carry the guide on the link itself.
+  var currentRow = current.closest(".docc-nav-row");
+  if (currentRow) currentRow.classList.add("docc-current");
 
-  // Open every <details> ancestor so the current symbol is visible.
+  // Open every ancestor disclosure so the current symbol is visible. Symbol
+  // branches are a hidden <ul id> controlled by a button; group markers are
+  // native <details>.
   var el = current.parentElement;
   while (el && el !== nav) {
-    if (el.tagName === "DETAILS") el.open = true;
+    if (el.tagName === "UL" && el.id) expand(el);
+    else if (el.tagName === "DETAILS") el.open = true;
     el = el.parentElement;
+  }
+
+  // If the current symbol itself has children, open them too.
+  var currentItem = current.closest(".docc-nav-item");
+  if (currentItem) {
+    var ownList = currentItem.querySelector(":scope > ul.docc-nav-list[id]");
+    if (ownList) expand(ownList);
   }
 
   if (current.scrollIntoView) current.scrollIntoView({ block: "center" });
