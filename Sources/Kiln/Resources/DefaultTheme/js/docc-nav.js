@@ -40,10 +40,6 @@
 
   current.classList.add("docc-current");
   current.setAttribute("aria-current", "page");
-  // For a branch, mark the row too so its guide bar (not just the link text)
-  // highlights blue. Leaves carry the guide on the link itself.
-  var currentRow = current.closest(".docc-nav-row");
-  if (currentRow) currentRow.classList.add("docc-current");
 
   // Open every ancestor disclosure so the current symbol is visible. Symbol
   // branches are a hidden <ul id> controlled by a button; group markers are
