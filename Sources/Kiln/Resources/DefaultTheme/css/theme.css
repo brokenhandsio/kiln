@@ -14,6 +14,21 @@
     --kiln-max-width: 1500px;
 }
 
+/* Visually hidden, but still available to assistive tech (e.g. the search
+ * status live region). A class rather than an inline style so sites can serve
+ * a Content-Security-Policy without style-src 'unsafe-inline'. */
+.kiln-visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
 /* ---- Colour schemes ---- */
 [data-palette="light"] {
     --bg: #ffffff;
