@@ -215,6 +215,7 @@ struct BuildTests {
         #expect(englishHome.contains("id=\"kiln-search-results\" role=\"listbox\""))
         #expect(englishHome.contains("id=\"kiln-search-status\""))
         #expect(englishHome.contains("data-results-count=\"{count} results available\""))
+        #expect(englishHome.contains("data-prompt=\"Enter your search…\""))
     }
 
     @Test("Carbon ads slot is emitted when configured")
