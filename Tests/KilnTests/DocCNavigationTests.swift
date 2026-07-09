@@ -38,9 +38,14 @@ struct DocCNavigationTests {
         // A leaf symbol links to its site URL with an icon kind class.
         #expect(html.contains("docc-kind-protocol"))
         #expect(html.contains("href=\"/queues/queue/\""))
-        // ScheduleBuilder (a class with members) is an expandable branch, rendered
-        // closed — the browser (docc-nav.js) opens the current trail.
-        #expect(html.contains("<details class=\"docc-nav-branch\">"))
+        // ScheduleBuilder (a class with members) is an expandable branch: its
+        // link is paired with a separate disclosure button controlling a hidden
+        // child list, rendered collapsed — the browser (docc-nav.js) opens the
+        // current trail. (A link inside a <summary> would be invalid.)
+        #expect(html.contains("<div class=\"docc-nav-row\">"))
+        #expect(html.contains("<button class=\"docc-nav-toggle\" type=\"button\" aria-expanded=\"false\""))
+        #expect(html.contains("aria-label=\"Toggle ScheduleBuilder\""))
+        #expect(html.contains("<ul class=\"docc-nav-list\" id=\"docc-nav-"))
         #expect(html.contains("href=\"/queues/schedulebuilder/\""))
     }
 
@@ -50,10 +55,12 @@ struct DocCNavigationTests {
         let tree = builder.build(try queuesIndex())
         let html = builder.renderHTML(tree)
         // Highlighting is applied client-side, so the static HTML carries no
-        // current markers and symbol branches are closed.
+        // current markers and symbol branches are collapsed (toggles not expanded,
+        // child lists hidden).
         #expect(!html.contains("aria-current"))
         #expect(!html.contains("docc-current"))
-        #expect(!html.contains("docc-nav-branch\" open"))
+        #expect(!html.contains("aria-expanded=\"true\""))
+        #expect(html.contains("<ul class=\"docc-nav-list\" id=\"docc-nav-1\" hidden>"))
     }
 
     @Test("A nil index yields an empty sidebar")

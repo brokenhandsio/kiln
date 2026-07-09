@@ -36,6 +36,9 @@ struct DocCModuleSwitcherTests {
         #expect(html.contains("<a class=\"docc-select-option\" href=\"/queues/\">Queues</a>"))
         // The current module is flagged.
         #expect(html.contains("<a class=\"docc-select-option is-current\" href=\"/fluentkit/\">FluentKit</a>"))
+        // The toggle's accessible name states its purpose and includes the
+        // visible value (WCAG 2.5.3 Label in Name).
+        #expect(html.contains("<summary class=\"docc-select-toggle\" aria-label=\"Select module: FluentKit\">"))
     }
 
     @Test("No current module → 'Modules' label, none flagged")

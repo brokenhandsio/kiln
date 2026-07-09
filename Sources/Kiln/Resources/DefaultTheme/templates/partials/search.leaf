@@ -1,5 +1,6 @@
-<div class="kiln-search" id="kiln-search" data-no-results="#(strings.searchNoResults)">
-    <svg class="kiln-search-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.5" y2="16.5"/></svg>
-    <input type="search" id="kiln-search-input" class="kiln-search-input" placeholder="#(strings.searchPlaceholder)" autocomplete="off" spellcheck="false" aria-label="#(strings.searchPlaceholder)">
-    <div class="kiln-search-results" id="kiln-search-results" hidden></div>
+<div class="kiln-search" id="kiln-search" data-no-results="#(strings.searchNoResults)" data-results-count="#(strings.searchResultsCount)" data-prompt="#(strings.searchPrompt)">
+    <svg class="kiln-search-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.5" y2="16.5"/></svg>
+    <input type="search" id="kiln-search-input" class="kiln-search-input" placeholder="#(strings.searchPlaceholder)" autocomplete="off" spellcheck="false" aria-label="#(strings.searchPlaceholder)" role="combobox" aria-expanded="false" aria-controls="kiln-search-results" aria-autocomplete="list">
+    <div class="kiln-search-results" id="kiln-search-results" role="listbox" hidden></div>
+    <div id="kiln-search-status" role="status" aria-live="polite" style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0"></div>
 </div>

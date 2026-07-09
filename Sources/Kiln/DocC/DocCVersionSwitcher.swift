@@ -34,6 +34,6 @@ struct DocCVersionSwitcher: Sendable {
     func renderHTML(currentVersion: PackageVersion, currentPath: String) -> String {
         guard package.versions.count > 1 else { return "" }
         let section = DocCSelect.Section(title: nil, options: options(currentVersion: currentVersion, currentPath: currentPath))
-        return DocCSelect.render(label: currentVersion.name, sections: [section], sizeClass: "docc-select--version")
+        return DocCSelect.render(label: currentVersion.name, sections: [section], sizeClass: "docc-select--version", accessibleLabel: "Select version")
     }
 }

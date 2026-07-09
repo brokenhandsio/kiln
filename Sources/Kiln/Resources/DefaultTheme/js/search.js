@@ -18,6 +18,12 @@
 
     var container = document.getElementById("kiln-search");
     var noResultsText = (container && container.getAttribute("data-no-results")) || "No results found";
+    // Polite live region + localised "{count} results available" template, used
+    // to announce result changes to screen readers.
+    var status = document.getElementById("kiln-search-status");
+    var resultsCountText = (container && container.getAttribute("data-results-count")) || "{count} results available";
+    // Hint shown in the panel before a query is entered (on focus / empty box).
+    var promptText = (container && container.getAttribute("data-prompt")) || "Enter your search…";
 
     // Han (incl. extension A & compatibility) + hiragana/katakana (incl.
     // halfwidth). Deliberately excludes Hangul, which is space-separated.
@@ -166,25 +172,56 @@
         if (!matches.length) {
             results.innerHTML = '<div class="kiln-search-empty">' + escapeHTML(noResultsText) + '</div>';
             results.hidden = false;
+            input.setAttribute("aria-expanded", "true");
+            input.removeAttribute("aria-activedescendant");
+            activeIndex = -1;
+            announce(noResultsText);
             return;
         }
         var html = "";
-        matches.forEach(function (match) {
+        matches.forEach(function (match, index) {
             var location = match.doc.location ? "/" + match.doc.location : "/";
-            html += '<a class="kiln-search-result" href="' + location + '">' +
+            html += '<a class="kiln-search-result" role="option" id="kiln-search-option-' + index + '" href="' + location + '">' +
                 '<span class="kiln-search-result-title">' + highlightRange(match.doc.title, queryUnits) + "</span>" +
                 '<span class="kiln-search-result-context">' + snippet(match.doc, queryUnits) + "</span>" +
                 "</a>";
         });
         results.innerHTML = html;
         results.hidden = false;
+        input.setAttribute("aria-expanded", "true");
+        input.removeAttribute("aria-activedescendant");
         activeIndex = -1;
+        announce(resultsCountText.replace("{count}", matches.length));
     }
 
     function hide() {
         results.hidden = true;
         results.innerHTML = "";
         activeIndex = -1;
+        input.setAttribute("aria-expanded", "false");
+        input.removeAttribute("aria-activedescendant");
+        if (status) status.textContent = "";
+    }
+
+    // Show the pre-search hint in the panel (focus / empty box). The popup is
+    // visible but holds no options, so mark the combobox expanded with no active
+    // descendant. No live-region announcement — this isn't a result change.
+    function showPrompt() {
+        if (input.value.trim()) return;
+        results.innerHTML = '<div class="kiln-search-empty kiln-search-prompt">' + escapeHTML(promptText) + "</div>";
+        results.hidden = false;
+        input.setAttribute("aria-expanded", "true");
+        input.removeAttribute("aria-activedescendant");
+        activeIndex = -1;
+    }
+
+    // Announce a message in the polite live region. Clearing first, then setting
+    // on the next tick, guarantees assistive tech re-announces even when the text
+    // is unchanged (e.g. the same result count for a refined query).
+    function announce(message) {
+        if (!status) return;
+        status.textContent = "";
+        window.setTimeout(function () { status.textContent = message; }, 30);
     }
 
     // Live list of result anchors (empty for the no-results / prompt states).
@@ -196,21 +233,27 @@
     // view. Drives the `.kiln-active` style the theme already defines for hover.
     function setActive(index) {
         var links = resultLinks();
-        if (!links.length) { activeIndex = -1; return; }
+        if (!links.length) { activeIndex = -1; input.removeAttribute("aria-activedescendant"); return; }
         if (index < 0) index = links.length - 1;
         else if (index >= links.length) index = 0;
         activeIndex = index;
         for (var i = 0; i < links.length; i++) {
             var on = i === activeIndex;
             links[i].classList.toggle("kiln-active", on);
-            if (on) links[i].scrollIntoView({ block: "nearest" });
+            links[i].setAttribute("aria-selected", on ? "true" : "false");
+            if (on) {
+                links[i].scrollIntoView({ block: "nearest" });
+                // Point the combobox at the active option so screen readers
+                // announce it while DOM focus stays in the input.
+                input.setAttribute("aria-activedescendant", links[i].id);
+            }
         }
     }
 
-    input.addEventListener("focus", loadIndex);
+    input.addEventListener("focus", function () { loadIndex(); showPrompt(); });
     input.addEventListener("input", function () {
         var query = input.value.trim();
-        if (!query) { hide(); return; }
+        if (!query) { showPrompt(); return; }
         if (loaded) run(query); else loadIndex();
     });
     input.addEventListener("keydown", function (event) {
@@ -234,5 +277,38 @@
     });
     document.addEventListener("click", function (event) {
         if (!event.target.closest(".kiln-search")) hide();
+    });
+
+    // Discoverability: on desktop (precise pointer + room) append the keyboard
+    // shortcut to the placeholder, with the platform-correct modifier (⌘ on
+    // Apple, Ctrl elsewhere). The base text stays localised; the combo is
+    // universal. Hidden on touch / small screens, where there's no keyboard.
+    var basePlaceholder = input.getAttribute("placeholder") || "";
+    var uaData = navigator.userAgentData;
+    var platform = (uaData && uaData.platform) || navigator.platform || navigator.userAgent || "";
+    var shortcutHint = /mac|iphone|ipad|ipod/i.test(platform) ? "⌘K" : "Ctrl+K";
+    var desktopQuery = window.matchMedia("(min-width: 800px) and (pointer: fine)");
+    function syncPlaceholder() {
+        input.setAttribute("placeholder", desktopQuery.matches ? basePlaceholder + " (" + shortcutHint + ")" : basePlaceholder);
+    }
+    syncPlaceholder();
+    desktopQuery.addEventListener("change", syncPlaceholder);
+
+    // Global shortcuts: ⌘K / Ctrl+K from anywhere, and "/" when not already
+    // typing, focus the search and show the prompt. (Escape is handled on the
+    // input above.)
+    document.addEventListener("keydown", function (event) {
+        var active = document.activeElement;
+        var typing = !!active && (/^(INPUT|TEXTAREA|SELECT)$/.test(active.tagName) || active.isContentEditable);
+        if ((event.key === "k" || event.key === "K") && (event.metaKey || event.ctrlKey)) {
+            event.preventDefault();
+            input.focus();
+            input.select();
+            showPrompt();
+        } else if (event.key === "/" && !typing) {
+            event.preventDefault();
+            input.focus();
+            showPrompt();
+        }
     });
 })();

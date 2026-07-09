@@ -284,6 +284,8 @@ struct RenderContext {
         return .dictionary([
             "searchPlaceholder": .string(s.searchPlaceholder),
             "searchNoResults": .string(s.searchNoResults),
+            "searchResultsCount": .string(s.searchResultsCount),
+            "searchPrompt": .string(s.searchPrompt),
             "tableOfContentsTitle": .string(s.tableOfContentsTitle),
             "previousPage": .string(s.previousPage),
             "nextPage": .string(s.nextPage),

@@ -28,12 +28,23 @@ enum DocCSelect {
     ///   - label: the current value shown on the toggle (e.g. the module name).
     ///   - sections: grouped or flat options.
     ///   - sizeClass: extra class(es) on the root (e.g. `"docc-select--sidebar"`).
-    static func render(label: String, sections: [Section], sizeClass: String = "") -> String {
+    ///   - accessibleLabel: describes the control's purpose (e.g. "Select
+    ///     module"). Composed with the current value into the toggle's accessible
+    ///     name (e.g. "Select module: Vapor") so it stays descriptive while still
+    ///     containing the visible value (WCAG 2.5.3 Label in Name). When `nil`,
+    ///     the toggle is named by its visible value alone.
+    static func render(label: String, sections: [Section], sizeClass: String = "", accessibleLabel: String? = nil) -> String {
         guard sections.contains(where: { !$0.options.isEmpty }) else { return "" }
         let rootClass = sizeClass.isEmpty ? "docc-select" : "docc-select \(sizeClass)"
 
         var out = "<details class=\"\(rootClass)\">\n"
-        out += "<summary class=\"docc-select-toggle\" aria-label=\"Select\">"
+        // Only set aria-label when a purpose is given; the value it contains must
+        // include the visible label so the accessible name matches what's shown.
+        if let accessibleLabel {
+            out += "<summary class=\"docc-select-toggle\" aria-label=\"\(HTMLEscaping.attribute("\(accessibleLabel): \(label)"))\">"
+        } else {
+            out += "<summary class=\"docc-select-toggle\">"
+        }
         out += "<span class=\"docc-select-value\">\(HTMLEscaping.text(label))</span>"
         // Self-contained chevron (doesn't depend on the theme's icon set); the
         // CSS rotates it when the disclosure is open.

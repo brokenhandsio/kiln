@@ -15,6 +15,13 @@ public struct LocalisationConfiguration: Sendable {
     public var searchPlaceholder: String?
     /// Shown when a search returns nothing. Default: `"No results found"`.
     public var searchNoResults: String?
+    /// Screen-reader announcement when search results appear, read from a polite
+    /// live region. `{count}` is replaced with the number of results. Default:
+    /// `"{count} results available"`.
+    public var searchResultsCount: String?
+    /// Hint shown in the results panel before a query is entered (on focus / when
+    /// the box is empty). Default: `"Enter your search…"`.
+    public var searchPrompt: String?
     /// Heading above the on-page table of contents. Default: `"On this page"`.
     public var tableOfContentsTitle: String?
     /// Label on the "previous page" link. Default: `"Previous"`.
@@ -92,6 +99,8 @@ public struct LocalisationConfiguration: Sendable {
     public init(
         searchPlaceholder: String? = nil,
         searchNoResults: String? = nil,
+        searchResultsCount: String? = nil,
+        searchPrompt: String? = nil,
         tableOfContentsTitle: String? = nil,
         previousPage: String? = nil,
         nextPage: String? = nil,
@@ -126,6 +135,8 @@ public struct LocalisationConfiguration: Sendable {
     ) {
         self.searchPlaceholder = searchPlaceholder
         self.searchNoResults = searchNoResults
+        self.searchResultsCount = searchResultsCount
+        self.searchPrompt = searchPrompt
         self.tableOfContentsTitle = tableOfContentsTitle
         self.previousPage = previousPage
         self.nextPage = nextPage
@@ -166,6 +177,8 @@ extension LocalisationConfiguration {
     struct Resolved: Sendable {
         var searchPlaceholder: String
         var searchNoResults: String
+        var searchResultsCount: String
+        var searchPrompt: String
         var tableOfContentsTitle: String
         var previousPage: String
         var nextPage: String
@@ -203,6 +216,8 @@ extension LocalisationConfiguration {
         Resolved(
             searchPlaceholder: searchPlaceholder ?? "Search",
             searchNoResults: searchNoResults ?? "No results found",
+            searchResultsCount: searchResultsCount ?? "{count} results available",
+            searchPrompt: searchPrompt ?? "Enter your search…",
             tableOfContentsTitle: tableOfContentsTitle ?? "On this page",
             previousPage: previousPage ?? "Previous",
             nextPage: nextPage ?? "Next",
