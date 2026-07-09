@@ -58,5 +58,15 @@
     if (ownList) expand(ownList);
   }
 
-  if (current.scrollIntoView) current.scrollIntoView({ block: "center" });
+  // Centre the current symbol within the sidebar's own scroll area. Note we
+  // scroll the nav container directly rather than calling
+  // current.scrollIntoView({block:"center"}) — that also scrolls the page to
+  // centre the item in the viewport, which pushes a non-sticky navbar off-screen.
+  var scroller = current.closest(".kiln-nav");
+  if (scroller && scroller.scrollHeight > scroller.clientHeight) {
+    var offset = current.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
+    scroller.scrollTop += offset - (scroller.clientHeight - current.offsetHeight) / 2;
+  } else if (current.scrollIntoView) {
+    current.scrollIntoView({ block: "nearest" });
+  }
 })();
