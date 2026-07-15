@@ -150,7 +150,7 @@ struct DocCRenderPhase {
                     // The sidebar tree is identical for every page of this module,
                     // so render it once; the current page is highlighted in the
                     // browser (docc-nav.js).
-                    let sidebar = navigationBuilder.renderHTML(navigationBuilder.build(archive.index))
+                    let sidebar = navigationBuilder.renderHTML(navigationBuilder.build(archive.index), moduleTitle: module.displayTitle)
 
                     for page in archive.pages {
                         let rendered = contentRenderer.render(page.node)
@@ -329,6 +329,7 @@ struct DocCRenderPhase {
         rendered: RenderedDocC,
         urls: DocCURLs,
         moduleTitle: String,
+        moduleImageURL: String?,
         sidebarHTML: String,
         moduleSwitcherHTML: String,
         versionSwitcherHTML: String,
@@ -349,6 +350,10 @@ struct DocCRenderPhase {
         // page.leaf emits page.content verbatim, so the DocC body carries its own
         // header (role eyebrow + <h1>) — the render node deliberately omits it.
         var body = "<header class=\"docc-header\">\n"
+        // The module's logo, if configured, sits at the top of its landing page.
+        if isModuleLanding, let image = moduleImageURL {
+            body += "<img class=\"docc-module-image\" src=\"\(HTMLEscaping.attribute(image))\" alt=\"\" loading=\"lazy\">\n"
+        }
         if let role = rendered.roleHeading, !role.isEmpty {
             body += "<p class=\"docc-eyebrow\">\(HTMLEscaping.text(role))</p>\n"
         }

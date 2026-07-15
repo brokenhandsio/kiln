@@ -55,10 +55,18 @@ public struct DocCNavigationBuilder: Sendable {
     /// current page's highlighting and ancestor expansion are applied per page in
     /// the browser (`docc-nav.js`) by matching the link href to the URL, so the
     /// tree is built once per module instead of re-rendered for every page.
-    func renderHTML(_ nodes: [Node]) -> String {
+    ///
+    /// - Parameter moduleTitle: the module's display name; rendered as a header
+    ///   link to the module landing page at the top of the tree, so a reader can
+    ///   return to the module home from any symbol without opening the module
+    ///   switcher.
+    func renderHTML(_ nodes: [Node], moduleTitle: String) -> String {
         guard !nodes.isEmpty else { return "" }
+        var out = "<a class=\"docc-nav-home\" href=\"\(HTMLEscaping.attribute(urls.moduleRootURL))\">"
+        out += HTMLEscaping.text(moduleTitle)
+        out += "</a>\n"
         var idCounter = 0
-        var out = "<ul class=\"docc-nav-list\">\n"
+        out += "<ul class=\"docc-nav-list\">\n"
         for node in nodes { out += render(node, idCounter: &idCounter) }
         out += "</ul>\n"
         return out
