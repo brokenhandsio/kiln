@@ -157,6 +157,7 @@ struct DocCRenderPhase {
                         let versionSwitcherHTML = versionSwitcher.renderHTML(currentVersion: version, currentPath: page.path)
                         let html = try await renderPage(page: page, rendered: rendered, urls: urls,
                                                         moduleTitle: module.displayTitle,
+                                                        moduleImageURL: Self.resolveModuleImage(module.image, basePath: basePath),
                                                         sidebarHTML: sidebar,
                                                         moduleSwitcherHTML: moduleSwitcherHTML,
                                                         versionSwitcherHTML: versionSwitcherHTML,
@@ -421,5 +422,16 @@ struct DocCRenderPhase {
     /// the site default), for `<meta property="og:image">`.
     private func socialImageURL(for language: Language) -> String? {
         (language.image ?? site.image).map { absoluteURL(basePath + "/" + $0.drop(while: { $0 == "/" })) }
+    }
+
+    /// Resolve a ``Module/image`` for the module landing page: an absolute
+    /// `http(s)`/protocol-relative URL passes through; anything else is a
+    /// site-relative asset resolved root-absolutely against the mount path.
+    static func resolveModuleImage(_ image: String?, basePath: String) -> String? {
+        guard let image, !image.isEmpty else { return nil }
+        if image.hasPrefix("http://") || image.hasPrefix("https://") || image.hasPrefix("//") {
+            return image
+        }
+        return basePath + "/" + image.drop(while: { $0 == "/" })
     }
 }
