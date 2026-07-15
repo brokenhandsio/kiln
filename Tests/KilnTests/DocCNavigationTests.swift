@@ -30,8 +30,10 @@ struct DocCNavigationTests {
     func rendersHTML() throws {
         let builder = DocCNavigationBuilder(urls: urls)
         let tree = builder.build(try queuesIndex())
-        let html = builder.renderHTML(tree)
+        let html = builder.renderHTML(tree, moduleTitle: "Queues")
 
+        // A module-home header links back to the module landing from any page.
+        #expect(html.contains("<a class=\"docc-nav-home\" href=\"/queues/\">Queues</a>"))
         // Group markers are always-open disclosures with a plain summary.
         #expect(html.contains("<details class=\"docc-nav-group\" open>"))
         #expect(html.contains("<summary>Classes</summary>"))
@@ -53,7 +55,7 @@ struct DocCNavigationTests {
     func staticTree() throws {
         let builder = DocCNavigationBuilder(urls: urls)
         let tree = builder.build(try queuesIndex())
-        let html = builder.renderHTML(tree)
+        let html = builder.renderHTML(tree, moduleTitle: "Queues")
         // Highlighting is applied client-side, so the static HTML carries no
         // current markers and symbol branches are collapsed (toggles not expanded,
         // child lists hidden).
@@ -67,6 +69,6 @@ struct DocCNavigationTests {
     func emptyIndex() {
         let builder = DocCNavigationBuilder(urls: urls)
         #expect(builder.build(nil).isEmpty)
-        #expect(builder.renderHTML([]).isEmpty)
+        #expect(builder.renderHTML([], moduleTitle: "Queues").isEmpty)
     }
 }

@@ -200,8 +200,9 @@ struct DocCRendererTests {
         #expect(html.contains("<h2 id=\"topics\">Topics</h2>"))
         // A curated group heading (DocC's own anchor).
         #expect(html.contains("<h3 id=\"Classes\">Classes</h3>"))
-        // A symbol card: code-styled link to the member + its abstract.
-        #expect(html.contains("<a class=\"docc-topic-link\" href=\"/documentation/queues/schedulebuilder\"><code>ScheduleBuilder</code></a>"))
+        // A symbol card: code-styled link to the member showing its abbreviated
+        // declaration fragments (kind + name), plus its abstract.
+        #expect(html.contains("<a class=\"docc-topic-link\" href=\"/documentation/queues/schedulebuilder\"><code><span class=\"token-keyword\">class</span><span class=\"token-text\"> </span><span class=\"token-identifier\">ScheduleBuilder</span></code></a>"))
         #expect(html.contains("<div class=\"docc-topic-abstract\">"))
 
         // Topics + its groups are in the TOC (h2 with h3 children).

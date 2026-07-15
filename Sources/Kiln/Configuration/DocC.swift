@@ -252,17 +252,23 @@ public struct Module: Sendable {
     public var group: String?
     /// A short blurb shown on the module's catalog card.
     public var description: String?
+    /// An optional logo/image shown on the module's catalog card. A site-relative
+    /// asset path (e.g. `"assets/logos/routing-kit.png"`, resolved against the
+    /// site's mount path) or an absolute `http(s)` URL. `nil` renders no image.
+    public var image: String?
 
     public init(
         _ name: String,
         title: String? = nil,
         group: String? = nil,
-        description: String? = nil
+        description: String? = nil,
+        image: String? = nil
     ) {
         self.name = name
         self.title = title
         self.group = group
         self.description = description
+        self.image = image
     }
 
     /// The title shown in the catalog and switcher (``title`` or ``name``).

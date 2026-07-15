@@ -236,8 +236,22 @@ public struct DocCRenderer: Sendable {
     /// its abstract. Non-topic references are skipped.
     private func renderTopicCard(_ identifier: String, resolver: DocCLinkResolver) -> String {
         guard case .topic(let topic)? = resolver.reference(identifier) else { return "" }
-        let titleText = HTMLEscaping.text(topic.title ?? identifier)
-        let titleHTML = topic.kind == "symbol" ? "<code>\(titleText)</code>" : titleText
+
+        // A symbol card shows its abbreviated declaration fragments (kind + name +
+        // types, e.g. `var subquery: SQLUnionSubquery`) like Xcode/DocC, so the
+        // reader sees func/var and the return/property types at a glance. The
+        // fragments render as unlinked token spans — the whole card is already a
+        // link, so per-token <a>s would nest. Falls back to the plain title.
+        let titleHTML: String
+        if topic.kind == "symbol", let fragments = topic.fragments, !fragments.isEmpty {
+            let tokens = fragments.map {
+                "<span class=\"token-\($0.kind)\">\(HTMLEscaping.text($0.text))</span>"
+            }.joined()
+            titleHTML = "<code>\(tokens)</code>"
+        } else {
+            let titleText = HTMLEscaping.text(topic.title ?? identifier)
+            titleHTML = topic.kind == "symbol" ? "<code>\(titleText)</code>" : titleText
+        }
 
         let link: String
         if let url = topic.url {

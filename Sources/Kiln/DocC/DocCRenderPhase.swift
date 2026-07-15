@@ -150,13 +150,14 @@ struct DocCRenderPhase {
                     // The sidebar tree is identical for every page of this module,
                     // so render it once; the current page is highlighted in the
                     // browser (docc-nav.js).
-                    let sidebar = navigationBuilder.renderHTML(navigationBuilder.build(archive.index))
+                    let sidebar = navigationBuilder.renderHTML(navigationBuilder.build(archive.index), moduleTitle: module.displayTitle)
 
                     for page in archive.pages {
                         let rendered = contentRenderer.render(page.node)
                         let versionSwitcherHTML = versionSwitcher.renderHTML(currentVersion: version, currentPath: page.path)
                         let html = try await renderPage(page: page, rendered: rendered, urls: urls,
                                                         moduleTitle: module.displayTitle,
+                                                        moduleImageURL: Self.resolveModuleImage(module.image, basePath: basePath),
                                                         sidebarHTML: sidebar,
                                                         moduleSwitcherHTML: moduleSwitcherHTML,
                                                         versionSwitcherHTML: versionSwitcherHTML,
@@ -329,6 +330,7 @@ struct DocCRenderPhase {
         rendered: RenderedDocC,
         urls: DocCURLs,
         moduleTitle: String,
+        moduleImageURL: String?,
         sidebarHTML: String,
         moduleSwitcherHTML: String,
         versionSwitcherHTML: String,
@@ -349,6 +351,10 @@ struct DocCRenderPhase {
         // page.leaf emits page.content verbatim, so the DocC body carries its own
         // header (role eyebrow + <h1>) — the render node deliberately omits it.
         var body = "<header class=\"docc-header\">\n"
+        // The module's logo, if configured, sits at the top of its landing page.
+        if isModuleLanding, let image = moduleImageURL {
+            body += "<img class=\"docc-module-image\" src=\"\(HTMLEscaping.attribute(image))\" alt=\"\" loading=\"lazy\">\n"
+        }
         if let role = rendered.roleHeading, !role.isEmpty {
             body += "<p class=\"docc-eyebrow\">\(HTMLEscaping.text(role))</p>\n"
         }
@@ -416,5 +422,16 @@ struct DocCRenderPhase {
     /// the site default), for `<meta property="og:image">`.
     private func socialImageURL(for language: Language) -> String? {
         (language.image ?? site.image).map { absoluteURL(basePath + "/" + $0.drop(while: { $0 == "/" })) }
+    }
+
+    /// Resolve a ``Module/image`` for the module landing page: an absolute
+    /// `http(s)`/protocol-relative URL passes through; anything else is a
+    /// site-relative asset resolved root-absolutely against the mount path.
+    static func resolveModuleImage(_ image: String?, basePath: String) -> String? {
+        guard let image, !image.isEmpty else { return nil }
+        if image.hasPrefix("http://") || image.hasPrefix("https://") || image.hasPrefix("//") {
+            return image
+        }
+        return basePath + "/" + image.drop(while: { $0 == "/" })
     }
 }

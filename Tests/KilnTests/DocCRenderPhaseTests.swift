@@ -44,7 +44,7 @@ struct DocCRenderPhaseTests {
             llmsText: true,
             docc: DocCSite(packages: [
                 APIPackage("vapor/queues", group: "Core", versions: [.single(ref: "main", modules: [
-                    Module("Queues"),
+                    Module("Queues", image: "assets/logos/queues.png"),
                     Module("XCTQueues", group: "Testing"),
                 ])]),
             ])
@@ -71,9 +71,16 @@ struct DocCRenderPhaseTests {
         #expect(queues.contains("<!DOCTYPE html>") || queues.lowercased().contains("<html"))
         // Discussion from the module landing.
         #expect(queues.contains("Sending emails outside of the main request thread"))
+        // The configured module image is shown on the landing (root-absolute path).
+        #expect(queues.contains("<img class=\"docc-module-image\" src=\"/assets/logos/queues.png\" alt=\"\" loading=\"lazy\">"))
+        // …but not on a symbol page within the module.
+        let queue = try html(output, "queues/queue/index.html")
+        #expect(!queue.contains("docc-module-image"))
 
         let xct = try html(output, "xctqueues/index.html")
         #expect(xct.contains("<h1>XCTQueues</h1>"))
+        // A module without a configured image renders none.
+        #expect(!xct.contains("docc-module-image"))
     }
 
     @Test("Builds a catalog landing page at the site root")
