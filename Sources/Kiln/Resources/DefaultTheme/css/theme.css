@@ -466,7 +466,222 @@ details.admonition > summary.admonition-title::-webkit-details-marker { display:
 /* "Viewing an older version" notice */
 .kiln-version-notice { margin-bottom: 1.5rem; }
 
-/* ---- Footer ---- */
+/* ---- DocC (API reference) ---- */
+
+/* Select component — the sidebar module/version switchers. A native <details>
+   pill whose menu drops over the nav below it. */
+.docc-select { position: relative; margin: 0 0 10px; }
+.docc-select-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+    color: var(--text);
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    list-style: none;
+}
+.docc-select-toggle::-webkit-details-marker { display: none; }
+.docc-select-toggle:hover { border-color: var(--accent); }
+.docc-select-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.docc-select-chevron { display: inline-flex; flex: none; color: var(--muted); }
+.docc-select-chevron svg { width: 16px; height: 16px; transition: transform 0.15s ease; }
+.docc-select[open] .docc-select-chevron svg { transform: rotate(180deg); }
+.docc-select-menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    inset-inline: 0;
+    z-index: 70;
+    max-height: 60vh;
+    overflow-y: auto;
+    padding: 6px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--kiln-radius);
+    box-shadow: var(--shadow);
+}
+.docc-select-group {
+    margin: 10px 8px 2px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+}
+.docc-select-group:first-child { margin-top: 4px; }
+.docc-select-option { display: block; padding: 7px 10px; border-radius: 7px; color: var(--text); font-size: 0.88rem; }
+.docc-select-option:hover { background: var(--surface); text-decoration: none; }
+.docc-select-option.is-current { color: var(--accent); font-weight: 600; }
+
+/* Pre-release / deprecated pill on switcher options and catalog cards. */
+.docc-select-badge, .docc-catalog-card-badge {
+    display: inline-block;
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--accent) 15%, transparent);
+    color: var(--accent);
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    vertical-align: middle;
+}
+
+/* Symbol sidebar: the module-home link and the navigator tree. */
+.docc-nav-home {
+    display: block;
+    padding: 6px 12px;
+    margin: 2px 0 4px;
+    border-radius: 7px;
+    color: var(--text);
+    font-weight: 700;
+    font-size: 0.95rem;
+}
+.docc-nav-home:hover { background: var(--surface); text-decoration: none; }
+
+.docc-nav-list { list-style: none; margin: 0; padding: 0; }
+.docc-nav-list .docc-nav-list {
+    margin-inline-start: 14px;
+    border-inline-start: 1px solid var(--border);
+    padding-inline-start: 6px;
+}
+/* A group marker's children are a top-level run, not a nested branch. */
+.docc-nav-group > .docc-nav-list { margin-inline-start: 0; border-inline-start: none; padding-inline-start: 0; }
+
+.docc-nav-item { margin: 1px 0; }
+.docc-nav-row { display: flex; align-items: center; gap: 2px; }
+.docc-nav-row .docc-nav-link { flex: 1; min-width: 0; }
+/* Leaf links reserve the toggle's width so titles align across siblings. */
+.docc-nav-item > .docc-nav-link { padding-inline-start: 34px; }
+
+.docc-nav-link {
+    display: block;
+    padding: 5px 10px;
+    border-radius: 7px;
+    color: var(--muted);
+    font-size: 0.88rem;
+    overflow-wrap: anywhere;
+}
+.docc-nav-link:hover { background: var(--surface); color: var(--text); text-decoration: none; }
+.docc-nav-link.docc-current {
+    background: color-mix(in srgb, var(--accent) 14%, transparent);
+    color: var(--accent);
+    font-weight: 600;
+}
+
+.docc-nav-toggle {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    background: transparent;
+    border: none;
+    border-radius: 5px;
+    color: var(--muted);
+    cursor: pointer;
+}
+.docc-nav-toggle:hover { background: var(--surface-2); color: var(--text); }
+.docc-nav-chevron { display: inline-flex; }
+.docc-nav-chevron svg { width: 14px; height: 14px; transition: transform 0.15s ease; }
+.docc-nav-toggle[aria-expanded="true"] .docc-nav-chevron svg { transform: rotate(90deg); }
+/* Collapsed chevron points toward the content edge, so mirror it in RTL. */
+[dir="rtl"] .docc-nav-toggle[aria-expanded="false"] .docc-nav-chevron svg { transform: scaleX(-1); }
+
+.docc-nav-group > summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 10px 10px 4px;
+    font-weight: 700;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text);
+}
+.docc-nav-group > summary::-webkit-details-marker { display: none; }
+
+/* Catalog landing page: the grouped module cards. */
+.docc-catalog-lead { font-size: 1.15rem; color: var(--muted); margin: -0.2em 0 0; }
+.docc-catalog-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 16px;
+    margin-top: 1em;
+}
+.docc-catalog-card {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 18px;
+    border: 1px solid var(--border);
+    border-radius: var(--kiln-radius);
+    background: var(--surface);
+    color: var(--text);
+}
+.docc-catalog-card:hover { border-color: var(--accent); text-decoration: none; }
+.docc-catalog-card-title { font-weight: 700; font-size: 1.05rem; }
+.docc-catalog-card-desc { font-size: 0.9rem; color: var(--muted); line-height: 1.5; }
+
+/* Symbol/article page header: optional module logo, role eyebrow, title. */
+.docc-header { margin-bottom: 1.6em; }
+.docc-module-image { display: block; max-height: 80px; width: auto; margin-bottom: 14px; }
+.docc-eyebrow {
+    margin: 0 0 0.4em;
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--accent);
+}
+.docc-header h1 { margin-bottom: 0; overflow-wrap: anywhere; }
+h1.docc-symbol-title { font-family: var(--kiln-font-code); font-size: 1.65rem; font-weight: 600; }
+
+/* The lead abstract under the title. Inline content only, so style the box. */
+.docc-abstract { font-size: 1.12rem; color: var(--muted); line-height: 1.6; margin: 0 0 1.4em; }
+
+/* Declaration block. Long signatures wrap rather than scroll (matching
+   DocC's own rendering). Tokens are coloured below to match the highlight.js
+   palette used in code listings; linked tokens keep their token colour. */
+.docc-declaration pre { margin: 1.2em 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.docc-declaration a:hover { text-decoration: underline; }
+
+[data-palette="light"] .token-keyword, [data-palette="light"] .token-attribute { color: #d73a49; }
+[data-palette="light"] .token-typeIdentifier { color: #6f42c1; }
+[data-palette="light"] .token-genericParameter { color: #e36209; }
+[data-palette="light"] .token-number { color: #005cc5; }
+[data-palette="light"] .token-string { color: #032f62; }
+[data-palette="light"] .token-internalParam { color: #6a737d; }
+
+[data-palette="dark"] .token-keyword, [data-palette="dark"] .token-attribute { color: #ff7b72; }
+[data-palette="dark"] .token-typeIdentifier { color: #d2a8ff; }
+[data-palette="dark"] .token-genericParameter { color: #ffa657; }
+[data-palette="dark"] .token-number { color: #79c0ff; }
+[data-palette="dark"] .token-string { color: #a5d6ff; }
+[data-palette="dark"] .token-internalParam { color: #8b949e; }
+
+/* Parameters / Possible Values definition lists. */
+.docc-parameter-list { margin: 1em 0; }
+.docc-parameter-name { margin-top: 1.1em; font-weight: 600; }
+.docc-parameter-name code { background: none; padding: 0; font-size: 0.95em; }
+.docc-parameter-description { margin: 0.2em 0 0; margin-inline-start: 1.5em; }
+.docc-parameter-description > :first-child { margin-top: 0; }
+.docc-parameter-description > :last-child { margin-bottom: 0; }
+
+/* Topics / Default Implementations / See Also symbol cards: the linked
+   declaration fragments with the abstract underneath. */
+.docc-topic-list { list-style: none; margin: 1em 0; padding: 0; }
+.docc-topic { margin: 0 0 14px; padding-inline-start: 14px; border-inline-start: 2px solid var(--border); }
+.docc-topic-link { overflow-wrap: anywhere; }
+.docc-topic-link code { background: none; padding: 0; }
+.docc-topic-abstract { margin-top: 2px; font-size: 0.92rem; color: var(--muted); }
+.docc-topic-abstract code { font-size: 0.85em; }
 .kiln-footer { border-top: 1px solid var(--border); margin-top: 40px; }
 .kiln-footer-inner { max-width: var(--kiln-max-width); margin: 0 auto; padding: 28px 24px; display: flex; flex-direction: column; gap: 10px; align-items: center; text-align: center; }
 .kiln-social { display: flex; gap: 14px; }
