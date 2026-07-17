@@ -144,6 +144,58 @@ struct DocCRendererTests {
         #expect(html.contains("<a href=\"https://api.vapor.codes\">Vapor API docs</a>"))
     }
 
+    @Test("Availability badges and a deprecation callout render")
+    func rendersAvailabilityAndDeprecation() throws {
+        let node = try decode("""
+        {
+          "schemaVersion": {"major": 0, "minor": 3, "patch": 0},
+          "identifier": {"url": "doc://T/documentation/T/X", "interfaceLanguage": "swift"},
+          "kind": "symbol",
+          "metadata": {"title": "X", "roleHeading": "Structure", "symbolKind": "struct",
+            "platforms": [
+              {"name": "iOS", "introducedAt": "13.0"},
+              {"name": "macOS", "introducedAt": "10.15", "deprecatedAt": "12.0"},
+              {"name": "watchOS", "introducedAt": "6.0", "beta": true}
+            ]},
+          "deprecationSummary": [{"type": "paragraph", "inlineContent": [
+            {"type": "text", "text": "Use "},
+            {"type": "codeVoice", "code": "Y"},
+            {"type": "text", "text": " instead."}]}],
+          "abstract": [{"type": "text", "text": "A thing."}],
+          "primaryContentSections": []
+        }
+        """)
+
+        let rendered = DocCRenderer().render(node)
+        // Availability badges: one per platform, with introduced version.
+        #expect(rendered.availabilityHTML.contains("<div class=\"docc-availability\">"))
+        #expect(rendered.availabilityHTML.contains("iOS 13.0+"))
+        #expect(rendered.availabilityHTML.contains("macOS 10.15+"))
+        #expect(rendered.availabilityHTML.contains("watchOS 6.0+"))
+        // Beta and deprecated flags.
+        #expect(rendered.availabilityHTML.contains("<span class=\"docc-availability-flag\">Beta</span>"))
+        #expect(rendered.availabilityHTML.contains("<span class=\"docc-availability-flag is-deprecated\">Deprecated</span>"))
+        // Deprecation callout carries the authored message.
+        #expect(rendered.deprecationHTML.contains("admonition deprecated docc-deprecated"))
+        #expect(rendered.deprecationHTML.contains("Use <code>Y</code> instead."))
+    }
+
+    @Test("A symbol with no platforms or deprecation emits neither block")
+    func rendersNoAvailabilityWhenAbsent() throws {
+        let node = try decode("""
+        {
+          "schemaVersion": {"major": 0, "minor": 3, "patch": 0},
+          "identifier": {"url": "doc://T/documentation/T/X", "interfaceLanguage": "swift"},
+          "kind": "symbol",
+          "metadata": {"title": "X", "roleHeading": "Structure", "symbolKind": "struct"},
+          "primaryContentSections": []
+        }
+        """)
+        let rendered = DocCRenderer().render(node)
+        #expect(rendered.availabilityHTML.isEmpty)
+        #expect(rendered.deprecationHTML.isEmpty)
+    }
+
     @Test("Discussion asides, code listings, and tables render")
     func rendersRichBlocks() throws {
         let node = try decode("""

@@ -657,6 +657,37 @@ details.admonition > summary.admonition-title::-webkit-details-marker { display:
 .docc-header h1 { margin-bottom: 0; overflow-wrap: anywhere; }
 h1.docc-symbol-title { font-family: var(--kiln-font-code); font-size: 1.65rem; font-weight: 600; }
 
+/* Platform-availability badges under the title. */
+.docc-availability { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.docc-availability-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 10px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--surface);
+    color: var(--muted);
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+.docc-availability-flag {
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--accent);
+}
+.docc-availability-flag.is-deprecated { color: #f59e0b; }
+
+/* Deprecation callout (an amber admonition). */
+.admonition.deprecated { border-inline-start-color: #f59e0b; }
+.admonition.deprecated .admonition-title { color: #f59e0b; }
+
+/* Deprecated symbols are struck through in the sidebar. */
+.docc-nav-deprecated > .docc-nav-link,
+.docc-nav-deprecated > .docc-nav-row > .docc-nav-link { text-decoration: line-through; }
+
 /* The lead abstract under the title. Inline content only, so style the box. */
 .docc-abstract { font-size: 1.12rem; color: var(--muted); line-height: 1.6; margin: 0 0 1.4em; }
 

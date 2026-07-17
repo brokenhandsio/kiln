@@ -11,6 +11,12 @@ public struct RenderedDocC: Sendable {
     public var abstractText: String?
     /// The rendered page body (abstract, declaration, parameters, discussion).
     public var contentHTML: String
+    /// The platform-availability badge row (e.g. "iOS 13.0+ · macOS 10.15+"),
+    /// shown under the title. Empty when the symbol declares no availability.
+    public var availabilityHTML: String
+    /// A deprecation callout (the deprecation message, or a generic notice),
+    /// shown above the content. Empty when the symbol isn't deprecated.
+    public var deprecationHTML: String
     /// The nested on-page table of contents built from the discussion headings
     /// and generated section headings.
     public var tableOfContents: [TOCEntry]
@@ -89,9 +95,60 @@ public struct DocCRenderer: Sendable {
             symbolKind: node.metadata.symbolKind,
             abstractText: abstractText,
             contentHTML: body,
+            availabilityHTML: Self.renderAvailability(node.metadata.platforms),
+            deprecationHTML: renderDeprecation(node, resolver: resolver, slugger: slugger),
             tableOfContents: TableOfContents.build(from: toc, levels: 1...6),
             breadcrumb: breadcrumbAncestry(node, resolver: resolver)
         )
+    }
+
+    // MARK: Availability & deprecation
+
+    /// The platform-availability badges (`iOS 13.0+`, `macOS 10.15+`, …), one per
+    /// platform that declares an introduced version. A beta or deprecated platform
+    /// carries a trailing marker. Returns "" when nothing is available to show.
+    static func renderAvailability(_ platforms: [PlatformAvailability]?) -> String {
+        guard let platforms, !platforms.isEmpty else { return "" }
+        var items: [String] = []
+        for platform in platforms {
+            guard let name = platform.name, platform.unavailable != true else { continue }
+            var label = HTMLEscaping.text(name)
+            if let introduced = platform.introducedAt {
+                label += " \(HTMLEscaping.text(introduced))+"
+            }
+            var badge = "<span class=\"docc-availability-item\">\(label)"
+            if platform.beta == true {
+                badge += "<span class=\"docc-availability-flag\">Beta</span>"
+            }
+            if platform.deprecatedAt != nil {
+                badge += "<span class=\"docc-availability-flag is-deprecated\">Deprecated</span>"
+            }
+            badge += "</span>"
+            items.append(badge)
+        }
+        guard !items.isEmpty else { return "" }
+        return "<div class=\"docc-availability\">\n\(items.joined(separator: "\n"))\n</div>\n"
+    }
+
+    /// A deprecation callout: the authored deprecation message when present, else a
+    /// generic notice, shown whenever the symbol declares a `deprecationSummary` or
+    /// any platform marks it deprecated/unavailable. Returns "" otherwise.
+    private func renderDeprecation(_ node: RenderNode, resolver: DocCLinkResolver, slugger: Slugger) -> String {
+        let platformDeprecated = (node.metadata.platforms ?? []).contains { $0.deprecatedAt != nil || $0.unavailable == true }
+        let summary = node.deprecationSummary ?? []
+        guard platformDeprecated || !summary.isEmpty else { return "" }
+
+        let inner: String
+        if summary.isEmpty {
+            inner = "<p>This symbol is deprecated.</p>\n"
+        } else {
+            // Reuse the block renderer for the message (it may carry inline links);
+            // its headings are intentionally not added to the page TOC.
+            var block = DocCBlockRenderer(resolver: resolver, slugger: slugger)
+            block.render(summary)
+            inner = block.html
+        }
+        return "<div class=\"admonition deprecated docc-deprecated\">\n<p class=\"admonition-title\">Deprecated</p>\n\(inner)</div>\n"
     }
 
     /// The ancestor breadcrumb trail from `hierarchy.paths` (DocC's first path is

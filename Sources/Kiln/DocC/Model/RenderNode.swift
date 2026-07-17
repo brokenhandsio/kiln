@@ -19,6 +19,10 @@ public struct RenderNode: Decodable, Sendable {
     public var metadata: RenderMetadata
     /// The one-line summary shown under the title and in topic cards.
     public var abstract: [RenderInlineContent]?
+    /// The deprecation message shown in a prominent callout when the symbol is
+    /// deprecated (from `@available(*, deprecated, message:)` or a
+    /// `@DeprecationSummary`). Absent for non-deprecated symbols.
+    public var deprecationSummary: [RenderBlockContent]?
     /// The breadcrumb ancestry (`doc://` identifier chains).
     public var hierarchy: RenderHierarchy?
     /// The main body: declarations, parameters, discussion, and the like.
