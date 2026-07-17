@@ -196,6 +196,72 @@ struct DocCRendererTests {
         #expect(rendered.deprecationHTML.isEmpty)
     }
 
+    @Test("An @Links block renders topic cards with the layout style class")
+    func rendersLinkCards() throws {
+        let node = try decode("""
+        {
+          "schemaVersion": {"major": 0, "minor": 3, "patch": 0},
+          "identifier": {"url": "doc://T/documentation/T/X", "interfaceLanguage": "swift"},
+          "kind": "article",
+          "metadata": {"title": "X"},
+          "primaryContentSections": [
+            {"kind": "content", "content": [
+              {"type": "links", "style": "detailedGrid", "items": [
+                "doc://T/documentation/T/Queue",
+                "doc://T/documentation/T/Guide"]}
+            ]}
+          ],
+          "references": {
+            "doc://T/documentation/T/Queue": {"type": "topic", "identifier": "doc://T/documentation/T/Queue",
+               "kind": "symbol", "title": "Queue", "url": "/documentation/t/queue",
+               "abstract": [{"type": "text", "text": "A queue."}],
+               "fragments": [{"text": "struct ", "kind": "keyword"}, {"text": "Queue", "kind": "identifier"}]},
+            "doc://T/documentation/T/Guide": {"type": "topic", "identifier": "doc://T/documentation/T/Guide",
+               "kind": "article", "role": "article", "title": "The Guide", "url": "/documentation/t/guide",
+               "abstract": [{"type": "text", "text": "How to."}]}
+          }
+        }
+        """)
+
+        let html = DocCRenderer(pathMapper: { "/t\($0)/" }).render(node).contentHTML
+        // A grid container tagged with the DocC visual style, not a plain <ul>.
+        #expect(html.contains("<div class=\"docc-link-cards docc-link-cards--detailedgrid\">"))
+        #expect(!html.contains("<ul class=\"docc-links\">"))
+        // The card is a <div> (not an <a>) so abstract links don't nest; the title
+        // is the link. Symbol card: declaration fragments as tokens + abstract.
+        #expect(html.contains("<div class=\"docc-link-card\"><a class=\"docc-link-card-title\" href=\"/t/documentation/t/queue/\">"))
+        #expect(html.contains("<span class=\"token-keyword\">struct </span><span class=\"token-identifier\">Queue</span>"))
+        #expect(html.contains("<span class=\"docc-link-card-abstract\">A queue.</span>"))
+        // Article card: plain title (no <code>) + abstract.
+        #expect(html.contains("<a class=\"docc-link-card-title\" href=\"/t/documentation/t/guide/\">The Guide</a>"))
+    }
+
+    @Test("A compactGrid @Links block omits abstracts")
+    func rendersCompactLinkCards() throws {
+        let node = try decode("""
+        {
+          "schemaVersion": {"major": 0, "minor": 3, "patch": 0},
+          "identifier": {"url": "doc://T/documentation/T/X", "interfaceLanguage": "swift"},
+          "kind": "article",
+          "metadata": {"title": "X"},
+          "primaryContentSections": [
+            {"kind": "content", "content": [
+              {"type": "links", "style": "compactGrid", "items": ["doc://T/documentation/T/Guide"]}
+            ]}
+          ],
+          "references": {
+            "doc://T/documentation/T/Guide": {"type": "topic", "identifier": "doc://T/documentation/T/Guide",
+               "kind": "article", "title": "The Guide", "url": "/documentation/t/guide",
+               "abstract": [{"type": "text", "text": "How to."}]}
+          }
+        }
+        """)
+        let html = DocCRenderer().render(node).contentHTML
+        #expect(html.contains("docc-link-cards--compactgrid"))
+        #expect(html.contains("The Guide"))
+        #expect(!html.contains("docc-link-card-abstract"))
+    }
+
     @Test("Discussion asides, code listings, and tables render")
     func rendersRichBlocks() throws {
         let node = try decode("""

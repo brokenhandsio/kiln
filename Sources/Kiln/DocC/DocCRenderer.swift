@@ -294,22 +294,7 @@ public struct DocCRenderer: Sendable {
     private func renderTopicCard(_ identifier: String, resolver: DocCLinkResolver) -> String {
         guard case .topic(let topic)? = resolver.reference(identifier) else { return "" }
 
-        // A symbol card shows its abbreviated declaration fragments (kind + name +
-        // types, e.g. `var subquery: SQLUnionSubquery`) like Xcode/DocC, so the
-        // reader sees func/var and the return/property types at a glance. The
-        // fragments render as unlinked token spans — the whole card is already a
-        // link, so per-token <a>s would nest. Falls back to the plain title.
-        let titleHTML: String
-        if topic.kind == "symbol", let fragments = topic.fragments, !fragments.isEmpty {
-            let tokens = fragments.map {
-                "<span class=\"token-\($0.kind)\">\(HTMLEscaping.text($0.text))</span>"
-            }.joined()
-            titleHTML = "<code>\(tokens)</code>"
-        } else {
-            let titleText = HTMLEscaping.text(topic.title ?? identifier)
-            titleHTML = topic.kind == "symbol" ? "<code>\(titleText)</code>" : titleText
-        }
-
+        let titleHTML = Self.linkTitleHTML(topic: topic, identifier: identifier)
         let link: String
         if let url = topic.url {
             link = "<a class=\"docc-topic-link\" href=\"\(HTMLEscaping.attribute(resolver.mapPath(url)))\">\(titleHTML)</a>"
@@ -323,6 +308,51 @@ public struct DocCRenderer: Sendable {
         }
         card += "</li>\n"
         return card
+    }
+
+    /// A topic's card title: for a symbol, its abbreviated declaration fragments
+    /// (kind + name + types, e.g. `var subquery: SQLUnionSubquery`) as unlinked
+    /// token spans — so the reader sees func/var and the types at a glance,
+    /// matching Xcode/DocC. The whole card is already a link, so per-token `<a>`s
+    /// would nest; hence spans. Falls back to the plain (code-wrapped) title.
+    static func linkTitleHTML(topic: TopicReference, identifier: String) -> String {
+        if topic.kind == "symbol", let fragments = topic.fragments, !fragments.isEmpty {
+            let tokens = fragments.map {
+                "<span class=\"token-\($0.kind)\">\(HTMLEscaping.text($0.text))</span>"
+            }.joined()
+            return "<code>\(tokens)</code>"
+        }
+        let titleText = HTMLEscaping.text(topic.title ?? identifier)
+        return topic.kind == "symbol" ? "<code>\(titleText)</code>" : titleText
+    }
+
+    /// Render an `@Links` block (`links` block content) as a card grid or list.
+    /// Each identifier resolves to a topic card (title + abstract); DocC's visual
+    /// `style` drives the layout class (`compactGrid`/`detailedGrid`/`list`), and
+    /// `compactGrid` shows titles only. Non-topic identifiers (and topics with no
+    /// URL) are skipped; an all-empty block renders nothing.
+    static func renderLinkCards(_ identifiers: [String], style: String?, resolver: DocCLinkResolver) -> String {
+        let styleName = style ?? "list"
+        let styleSuffix = String(styleName.lowercased().map { $0.isLetter || $0.isNumber ? $0 : "-" })
+        let showAbstract = styleName != "compactGrid"
+
+        var cards = ""
+        for identifier in identifiers {
+            guard case .topic(let topic)? = resolver.reference(identifier), let url = topic.url else { continue }
+            // The card is a container, not an anchor: an abstract can carry its own
+            // inline links, and nesting <a>s inside a card <a> is invalid (browsers
+            // split it). The title is the link, stretched over the whole card in CSS
+            // so the card stays clickable while abstract links keep working.
+            var card = "<div class=\"docc-link-card\">"
+            card += "<a class=\"docc-link-card-title\" href=\"\(HTMLEscaping.attribute(resolver.mapPath(url)))\">\(linkTitleHTML(topic: topic, identifier: identifier))</a>"
+            if showAbstract, let abstract = topic.abstract, !abstract.isEmpty {
+                card += "<span class=\"docc-link-card-abstract\">\(DocCInline.render(abstract, resolver: resolver))</span>"
+            }
+            card += "</div>\n"
+            cards += card
+        }
+        guard !cards.isEmpty else { return "" }
+        return "<div class=\"docc-link-cards docc-link-cards--\(styleSuffix)\">\n\(cards)</div>\n"
     }
 
     // MARK: Relationships
@@ -525,13 +555,8 @@ struct DocCBlockRenderer {
             }
             html += "</dl>\n"
 
-        case .links(_, let identifiers):
-            html += "<ul class=\"docc-links\">\n"
-            for identifier in identifiers {
-                guard let link = resolver.resolveTopic(identifier) else { continue }
-                html += "<li><a href=\"\(HTMLEscaping.attribute(link.href))\">\(HTMLEscaping.text(link.title))</a></li>\n"
-            }
-            html += "</ul>\n"
+        case .links(let style, let identifiers):
+            html += DocCRenderer.renderLinkCards(identifiers, style: style, resolver: resolver)
 
         case .thematicBreak:
             html += "<hr>\n"

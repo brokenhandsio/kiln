@@ -10,3 +10,10 @@ API reference rendered from DocC.
 
 For a large, multi-package DocC site built with Kiln, see the
 [Vapor API docs](https://api.vapor.codes).
+
+### Start here
+
+@Links(visualStyle: detailedGrid) {
+   - ``KilnSite``
+   - ``DocCSite``
+}

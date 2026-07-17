@@ -727,6 +727,33 @@ h1.docc-symbol-title { font-family: var(--kiln-font-code); font-size: 1.65rem; f
 .docc-topic-link code { background: none; padding: 0; }
 .docc-topic-abstract { margin-top: 2px; font-size: 0.92rem; color: var(--muted); }
 .docc-topic-abstract code { font-size: 0.85em; }
+
+/* `@Links` card grids/lists in discussion prose. The grid styles auto-fit
+   cards; the list style stacks them full-width. */
+.docc-link-cards { display: grid; gap: 14px; margin: 1.2em 0; }
+.docc-link-cards--compactgrid,
+.docc-link-cards--detailedgrid { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+.docc-link-cards--list { grid-template-columns: 1fr; }
+.docc-link-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    padding: 14px 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--kiln-radius);
+    background: var(--surface);
+    color: var(--text);
+}
+.docc-link-card:hover { border-color: var(--accent); }
+.docc-link-card-title { font-weight: 600; overflow-wrap: anywhere; color: var(--text); }
+.docc-link-card-title:hover { text-decoration: none; }
+.docc-link-card-title code { background: none; padding: 0; }
+/* Stretch the title link over the whole card so it's fully clickable, while
+   leaving any links inside the abstract clickable above it. */
+.docc-link-card-title::after { content: ""; position: absolute; inset: 0; }
+.docc-link-card-abstract { position: relative; font-size: 0.9rem; color: var(--muted); line-height: 1.5; }
+.docc-link-card-abstract a { position: relative; }
 .kiln-footer { border-top: 1px solid var(--border); margin-top: 40px; }
 .kiln-footer-inner { max-width: var(--kiln-max-width); margin: 0 auto; padding: 28px 24px; display: flex; flex-direction: column; gap: 10px; align-items: center; text-align: center; }
 .kiln-social { display: flex; gap: 14px; }
