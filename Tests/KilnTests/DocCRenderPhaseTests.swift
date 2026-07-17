@@ -95,7 +95,7 @@ struct DocCRenderPhaseTests {
         #expect(index.contains(">Queues</span>") || index.contains("Queues</span>"))
         // The landing keeps the sidebar with the module switcher (closed by
         // default) and no on-page TOC.
-        #expect(index.contains("<details class=\"docc-select docc-select--module\">"))
+        #expect(index.contains("<details class=\"docc-select docc-select--module\" name=\"docc-select\">"))
         #expect(!index.contains("docc-expanded"))
         #expect(!index.contains("kiln-no-sidebar"))
         #expect(index.contains("kiln-no-toc"))
@@ -210,11 +210,52 @@ struct DocCRenderPhaseTests {
         #expect(index.docs.contains { $0.location == "queues/queue/" })
         #expect(!index.docs.contains { $0.location.hasPrefix("queues/5-beta/") })
 
+        // The module landing page is tagged as a module (the client ranks it
+        // above its symbols for a name query); symbol pages carry no kind.
+        #expect(index.docs.first { $0.location == "queues/" }?.kind == "module")
+        #expect(index.docs.first { $0.location == "queues/queue/" }?.kind == nil)
+
         // The sitemap mirrors this: default-version pages listed, the noindex
         // beta version excluded.
         let sitemap = try html(output, "sitemap.xml")
         #expect(sitemap.contains("<loc>https://api.example.com/queues/queue/</loc>"))
         #expect(!sitemap.contains("/queues/5-beta/"))
+    }
+
+    @Test("Non-default version pages carry the version banner linking to the default")
+    func versionBanner() async throws {
+        guard let fixtures = Bundle.module.url(forResource: "Fixtures", withExtension: nil) else {
+            throw ContentError.contentDirectoryNotFound("Fixtures")
+        }
+        let queuesArchive = fixtures.appendingPathComponent("docc/Queues.doccarchive")
+        let fm = FileManager.default
+        let content = fm.temporaryDirectory.appendingPathComponent("kiln-docc-banner-\(UUID().uuidString)")
+        for vid in ["4", "5-beta"] {
+            let dir = content.appendingPathComponent("archives/\(vid)")
+            try fm.createDirectory(at: dir, withIntermediateDirectories: true)
+            try fm.copyItem(at: queuesArchive, to: dir.appendingPathComponent("Queues.doccarchive"))
+        }
+        let output = fm.temporaryDirectory.appendingPathComponent("kiln-docc-banner-out-\(UUID().uuidString)")
+        let site = KilnSite(name: "API", url: "https://api.example.com", llmsText: false,
+                            docc: DocCSite(packages: [APIPackage("vapor/queues", group: "Core", versions: [
+                                PackageVersion("4", ref: "v4", isDefault: true, modules: [Module("Queues")]),
+                                PackageVersion("5-beta", ref: "main", isPrerelease: true, modules: [Module("Queues")]),
+                            ])]))
+        try await Kiln.build(site, contentDirectory: content, outputDirectory: output, linkChecking: .off)
+
+        // The pre-release version's landing page shows the pre-release banner
+        // (note styling) linking back to the default version's landing. (The
+        // apostrophe in "You're" is HTML-escaped in the output.)
+        let beta = try html(output, "queues/5-beta/index.html")
+        #expect(beta.contains("note kiln-version-notice"))
+        #expect(beta.contains("viewing documentation for a pre-release version."))
+        #expect(beta.contains("<a href=\"/queues/\">View the latest stable version</a>"))
+        // A pre-release uses the "note" admonition, not the "old version" wording.
+        #expect(!beta.contains("viewing documentation for an older version."))
+
+        // The default version's landing page shows no banner.
+        let latest = try html(output, "queues/index.html")
+        #expect(!latest.contains("kiln-version-notice"))
     }
 
     @Test("Renders a symbol page with declaration, eyebrow, and TOC")

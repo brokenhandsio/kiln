@@ -139,6 +139,16 @@ struct DocCRenderPhase {
                                                           basePath: basePath, pathsByVersion: pathsByVersion)
                 let moduleSwitcherHTML = switcher.renderHTML(currentModule: module.name)
 
+                // For the "viewing an old/pre-release version" banner on non-default
+                // version pages: link back to the same symbol in the default version
+                // if it exists there, else that version's module landing (mirroring
+                // the version switcher's fallback). Only shown when the package has
+                // more than one version.
+                let isVersioned = package.versions.count > 1
+                let defaultVersion = package.defaultVersion
+                let defaultURLs = DocCURLs(moduleName: module.name, version: defaultVersion, basePath: basePath)
+                let defaultPaths = pathsByVersion[defaultVersion.id] ?? []
+
                 // Search: collect this module's default-version symbols only.
                 var moduleSearch = SearchIndexBuilder()
 
@@ -155,22 +165,30 @@ struct DocCRenderPhase {
                     for page in archive.pages {
                         let rendered = contentRenderer.render(page.node)
                         let versionSwitcherHTML = versionSwitcher.renderHTML(currentVersion: version, currentPath: page.path)
+                        let latestURL = defaultPaths.contains(page.path)
+                            ? defaultURLs.url(forDocCPath: page.path)
+                            : defaultURLs.moduleRootURL
                         let html = try await renderPage(page: page, rendered: rendered, urls: urls,
                                                         moduleTitle: module.displayTitle,
                                                         moduleImageURL: Self.resolveModuleImage(module.image, basePath: basePath),
                                                         sidebarHTML: sidebar,
                                                         moduleSwitcherHTML: moduleSwitcherHTML,
                                                         versionSwitcherHTML: versionSwitcherHTML,
-                                                        isDefaultVersion: version.isDefault,
+                                                        currentVersion: version,
+                                                        isVersioned: isVersioned,
+                                                        latestURL: latestURL,
                                                         language: language, renderer: renderer)
                         try writer.write(html, to: urls.outputFile(forDocCPath: page.path, in: outputDirectory))
                         // Only default versions are indexed (search.js prepends "/",
-                        // so store the location without a leading slash).
+                        // so store the location without a leading slash). The module
+                        // landing page is tagged so the client can rank a module
+                        // above its symbols when its name is searched, and badge it.
                         if version.isDefault {
                             moduleSearch.add(
                                 location: String(urls.url(forDocCPath: page.path).drop(while: { $0 == "/" })),
                                 title: rendered.title,
-                                html: rendered.abstractText ?? ""
+                                html: rendered.abstractText ?? "",
+                                kind: urls.suffix(forDocCPath: page.path).isEmpty ? "module" : nil
                             )
                         }
                     }
@@ -334,7 +352,9 @@ struct DocCRenderPhase {
         sidebarHTML: String,
         moduleSwitcherHTML: String,
         versionSwitcherHTML: String,
-        isDefaultVersion: Bool,
+        currentVersion: PackageVersion,
+        isVersioned: Bool,
+        latestURL: String,
         language: Language,
         renderer: TemplateRenderer
     ) async throws -> String {
@@ -366,9 +386,21 @@ struct DocCRenderPhase {
         body += "<h1\(titleClass)>\(HTMLEscaping.text(rendered.title))</h1>\n</header>\n"
         body += rendered.contentHTML
 
-        // Non-default package versions are noindex (duplicate/older content).
+        // Version banner + noindex. Non-default versions are noindex (duplicate/
+        // older content) and, when the package has more than one version, carry the
+        // "you're viewing an old/pre-release version" banner linking to the default
+        // version (the theme keys the pre-release vs outdated wording off
+        // `isPrerelease`). The default version shows no banner (`isLatest`).
         var versionContext = VersionContext()
+        let isDefaultVersion = currentVersion.isDefault
         versionContext.noindex = !isDefaultVersion
+        versionContext.isVersioned = isVersioned
+        versionContext.isLatest = isDefaultVersion
+        versionContext.isPrerelease = currentVersion.isPrerelease
+        versionContext.deprecated = currentVersion.deprecated
+        versionContext.currentID = currentVersion.id
+        versionContext.currentName = currentVersion.name
+        versionContext.latestURL = latestURL
 
         // Breadcrumb: the resolved ancestry (module → … → parent) plus the current
         // page as a trailing, unlinked crumb. Only symbol pages have ancestors; a

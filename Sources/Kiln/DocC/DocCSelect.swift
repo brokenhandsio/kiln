@@ -6,6 +6,11 @@
 /// so every theme injects identical markup; CSS (`docc-select*`) styles it and a
 /// `sizeClass` sizes it. Intended to migrate into the shared design system's
 /// component library.
+///
+/// Every select shares one `name`, so the browser's exclusive-accordion
+/// behaviour closes an open select (e.g. the version switcher) when another
+/// (e.g. the module switcher) is opened. Older browsers ignore the attribute
+/// and simply allow both open — a harmless degradation.
 enum DocCSelect {
     /// One selectable option.
     struct Option: Sendable, Equatable {
@@ -37,7 +42,7 @@ enum DocCSelect {
         guard sections.contains(where: { !$0.options.isEmpty }) else { return "" }
         let rootClass = sizeClass.isEmpty ? "docc-select" : "docc-select \(sizeClass)"
 
-        var out = "<details class=\"\(rootClass)\">\n"
+        var out = "<details class=\"\(rootClass)\" name=\"docc-select\">\n"
         // Only set aria-label when a purpose is given; the value it contains must
         // include the visible label so the accessible name matches what's shown.
         if let accessibleLabel {

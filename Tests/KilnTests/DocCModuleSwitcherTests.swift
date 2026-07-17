@@ -30,7 +30,7 @@ struct DocCModuleSwitcherTests {
     @Test("Renders a shared docc-select with the current module as the label")
     func rendersHTML() {
         let html = DocCModuleSwitcher(docc: site(), basePath: "").renderHTML(currentModule: "FluentKit")
-        #expect(html.contains("<details class=\"docc-select docc-select--module\">"))
+        #expect(html.contains("<details class=\"docc-select docc-select--module\" name=\"docc-select\">"))
         #expect(html.contains("<span class=\"docc-select-value\">FluentKit</span>"))
         #expect(html.contains("<p class=\"docc-select-group\">Queues</p>"))
         #expect(html.contains("<a class=\"docc-select-option\" href=\"/queues/\">Queues</a>"))
@@ -47,7 +47,7 @@ struct DocCModuleSwitcherTests {
         #expect(html.contains("<span class=\"docc-select-value\">Modules</span>"))
         #expect(!html.contains("is-current"))
         // Closed by default (no `open` attribute).
-        #expect(html.hasPrefix("<details class=\"docc-select docc-select--module\">"))
+        #expect(html.hasPrefix("<details class=\"docc-select docc-select--module\" name=\"docc-select\">"))
     }
 
     @Test("basePath prefixes the switcher URLs")
