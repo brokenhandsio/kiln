@@ -49,6 +49,16 @@ public struct DocCLinkResolver: Sendable {
         )
     }
 
+    /// Resolve an external-hyperlink reference (DocC's `link` type — how a
+    /// markdown link or autolink to an off-site URL in a doc comment is encoded)
+    /// to a link, or `nil` if the identifier isn't such a reference with a URL.
+    /// The URL is absolute, so it bypasses ``mapPath`` (which rewrites
+    /// archive-relative DocC paths, not external URLs).
+    public func resolveLink(_ identifier: String) -> ResolvedLink? {
+        guard case .link(let link)? = references[identifier], let url = link.url else { return nil }
+        return ResolvedLink(href: url, title: link.title ?? url, isSymbol: false)
+    }
+
     /// The plain title for an identifier, if any (used when a reference resolves
     /// to a topic without a URL, or an unresolvable link, so it still shows text).
     public func title(for identifier: String) -> String? {

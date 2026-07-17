@@ -373,6 +373,13 @@ enum DocCInline {
             guard isActive else { return inner }
             return "<a class=\"docc-symbol-link\" href=\"\(HTMLEscaping.attribute(link.href))\">\(inner)</a>"
         }
+        // An external hyperlink (DocC `link` reference): a plain anchor to the
+        // absolute URL, matching the inline `.link` markdown case.
+        if let external = resolver.resolveLink(identifier) {
+            let inner = text(default: external.title)
+            guard isActive else { return inner }
+            return "<a href=\"\(HTMLEscaping.attribute(external.href))\">\(inner)</a>"
+        }
         // Not a linkable topic (unresolvable, or topic without a URL): render text.
         return text(default: resolver.title(for: identifier) ?? "")
     }
