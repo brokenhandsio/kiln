@@ -620,6 +620,14 @@ try await Kiln.build(site, contentDirectory: "Content",
 A fresh checkout has no previous build to reuse, so CI still does a full build;
 incremental only helps repeated local builds.
 
+Kiln can also drive Stage A for you: `Kiln.buildDocCArchives(site,
+contentDirectory:)` checks out each configured package at its ref and runs
+`swift package generate-documentation`, dropping the archives in place (archives
+that already exist are reused; pass `rebuild:` to force). Call it before
+`Kiln.build` for a single command that produces archives *and* the site — see
+[`Examples/APIDocsSite`](Examples/APIDocsSite), which builds Kiln's own API
+reference this way.
+
 ## Output
 
 A build produces a static site with pretty ("directory") URLs:
@@ -659,6 +667,13 @@ kiln serve --directory public
 ```
 
 (or `swift run && python3 -m http.server --directory public` without the CLI).
+
+[`Examples/APIDocsSite`](Examples/APIDocsSite) is the DocC counterpart —
+**Kiln's own API reference**, built with the [DocC support](#api-reference-docc).
+Its `swift run` performs both stages: `Kiln.buildDocCArchives` generates the
+archives (first run only), then `Kiln.build` renders them. It declares two
+version lines so the module/version switchers, pre-release badges, and the
+catalog page all render.
 
 ## Development
 
