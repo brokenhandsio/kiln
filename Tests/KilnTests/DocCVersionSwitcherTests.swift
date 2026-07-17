@@ -56,7 +56,7 @@ struct DocCVersionSwitcherTests {
     @Test("Renders a shared docc-select flagged to the current version")
     func rendersHTML() {
         let html = switcher().renderHTML(currentVersion: v4, currentPath: "/documentation/routingkit/router")
-        #expect(html.contains("<details class=\"docc-select docc-select--version\">"))
+        #expect(html.contains("<details class=\"docc-select docc-select--version\" name=\"docc-select\">"))
         #expect(html.contains("<span class=\"docc-select-value\">4.x</span>"))
         #expect(html.contains("<a class=\"docc-select-option is-current\" href=\"/routingkit/router/\">4.x</a>"))
         #expect(html.contains("5.0 (beta) <span class=\"docc-select-badge\">beta</span>"))

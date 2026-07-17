@@ -96,10 +96,14 @@
         for (var i = 0; i < terms.length; i++) {
             var term = terms[i];
             if (!term) continue;
-            if (doc.foldedTitle.indexOf(term) !== -1) total += 10;
+            var titleHit = doc.foldedTitle.indexOf(term) !== -1;
+            if (titleHit) total += 10;
+            // A module whose name matches ranks above its own symbols — searching
+            // a module's name should surface the module itself first.
+            if (titleHit && doc.kind === "module") total += 100;
             var occurrences = doc.foldedText.split(term).length - 1;
             total += occurrences;
-            if (occurrences === 0 && doc.foldedTitle.indexOf(term) === -1) {
+            if (occurrences === 0 && !titleHit) {
                 return 0; // every term must appear somewhere
             }
         }
@@ -181,8 +185,9 @@
         var html = "";
         matches.forEach(function (match, index) {
             var location = match.doc.location ? "/" + match.doc.location : "/";
+            var badge = match.doc.kind === "module" ? ' <span class="kiln-search-result-badge">Module</span>' : "";
             html += '<a class="kiln-search-result" role="option" id="kiln-search-option-' + index + '" href="' + location + '">' +
-                '<span class="kiln-search-result-title">' + highlightRange(match.doc.title, queryUnits) + "</span>" +
+                '<span class="kiln-search-result-title">' + highlightRange(match.doc.title, queryUnits) + badge + "</span>" +
                 '<span class="kiln-search-result-context">' + snippet(match.doc, queryUnits) + "</span>" +
                 "</a>";
         });

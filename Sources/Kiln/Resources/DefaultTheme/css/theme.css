@@ -399,6 +399,20 @@ details.admonition > summary.admonition-title::-webkit-details-marker { display:
 .kiln-search-result { display: block; padding: 10px 12px; border-radius: 8px; color: var(--text); }
 .kiln-search-result:hover, .kiln-search-result.kiln-active { background: var(--surface); text-decoration: none; }
 .kiln-search-result-title { font-weight: 600; display: block; }
+/* Kind pill on a result (e.g. a DocC module landing page). */
+.kiln-search-result-badge {
+    display: inline-block;
+    margin-inline-start: 6px;
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--accent) 15%, transparent);
+    color: var(--accent);
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    vertical-align: middle;
+}
 .kiln-search-result-context { font-size: 0.82rem; color: var(--muted); display: block; }
 .kiln-search-result mark { background: color-mix(in srgb, var(--accent) 30%, transparent); color: inherit; border-radius: 3px; }
 .kiln-search-empty { padding: 14px; color: var(--muted); text-align: center; }
