@@ -118,6 +118,32 @@ struct DocCRendererTests {
         #expect(!html.contains("<code>The Guide</code>"))
     }
 
+    @Test("Inline external-link references render as anchors, not plain text")
+    func rendersExternalLinkReference() throws {
+        let node = try decode("""
+        {
+          "schemaVersion": {"major": 0, "minor": 3, "patch": 0},
+          "identifier": {"url": "doc://T/documentation/T/X", "interfaceLanguage": "swift"},
+          "kind": "symbol",
+          "metadata": {"title": "X", "roleHeading": "Structure", "symbolKind": "struct"},
+          "abstract": [{"type": "text", "text": "See the "},
+                       {"type": "reference", "identifier": "https://api.vapor.codes", "isActive": true},
+                       {"type": "text", "text": " for details."}],
+          "primaryContentSections": [],
+          "references": {
+            "https://api.vapor.codes": {"type": "link", "title": "Vapor API docs",
+               "url": "https://api.vapor.codes"}
+          }
+        }
+        """)
+
+        let html = DocCRenderer().render(node).contentHTML
+        // The external link is a real anchor to its absolute URL (not run through
+        // the path mapper, which is for archive-relative DocC paths), with the
+        // reference's title as the visible text.
+        #expect(html.contains("<a href=\"https://api.vapor.codes\">Vapor API docs</a>"))
+    }
+
     @Test("Discussion asides, code listings, and tables render")
     func rendersRichBlocks() throws {
         let node = try decode("""
