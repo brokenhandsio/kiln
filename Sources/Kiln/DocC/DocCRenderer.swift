@@ -17,6 +17,10 @@ public struct RenderedDocC: Sendable {
     /// A deprecation callout (the deprecation message, or a generic notice),
     /// shown above the content. Empty when the symbol isn't deprecated.
     public var deprecationHTML: String
+    /// For a symbol that extends a *different* module's type (e.g. MultipartKit's
+    /// extensions to `Foundation.URL`), the extended module's name — shown as a
+    /// context badge in the header. `nil` for a symbol in its own module.
+    public var extendedModule: String?
     /// The nested on-page table of contents built from the discussion headings
     /// and generated section headings.
     public var tableOfContents: [TOCEntry]
@@ -97,9 +101,21 @@ public struct DocCRenderer: Sendable {
             contentHTML: body,
             availabilityHTML: Self.renderAvailability(node.metadata.platforms),
             deprecationHTML: renderDeprecation(node, resolver: resolver, slugger: slugger),
+            extendedModule: Self.extendedModule(node.metadata),
             tableOfContents: TableOfContents.build(from: toc, levels: 1...6),
             breadcrumb: breadcrumbAncestry(node, resolver: resolver)
         )
+    }
+
+    /// The extended module to surface for a symbol, or `nil`. DocC sets
+    /// `extendedModule` on every symbol inside an extension; it's only worth
+    /// showing when it names a *different* module from the one that owns the
+    /// symbol (`modules[0]`) — i.e. a cross-module extension like MultipartKit
+    /// adding members to `Foundation.URL`. Same-module extensions are noise.
+    static func extendedModule(_ metadata: RenderMetadata) -> String? {
+        guard let extended = metadata.extendedModule, !extended.isEmpty else { return nil }
+        let owner = metadata.modules?.first?.name
+        return extended == owner ? nil : extended
     }
 
     // MARK: Availability & deprecation

@@ -375,8 +375,15 @@ struct DocCRenderPhase {
         if isModuleLanding, let image = moduleImageURL {
             body += "<img class=\"docc-module-image\" src=\"\(HTMLEscaping.attribute(image))\" alt=\"\" loading=\"lazy\">\n"
         }
+        // The eyebrow carries the role heading and, for a cross-module extension,
+        // a badge naming the extended module (e.g. "Instance Property · Foundation").
+        let extendedBadge = rendered.extendedModule.map {
+            "<span class=\"docc-extended-module\">\(HTMLEscaping.text($0))</span>"
+        } ?? ""
         if let role = rendered.roleHeading, !role.isEmpty {
-            body += "<p class=\"docc-eyebrow\">\(HTMLEscaping.text(role))</p>\n"
+            body += "<p class=\"docc-eyebrow\">\(HTMLEscaping.text(role))\(extendedBadge)</p>\n"
+        } else if !extendedBadge.isEmpty {
+            body += "<p class=\"docc-eyebrow\">\(extendedBadge)</p>\n"
         }
         // A symbol page's title is a code identifier (type/method name), so tag it
         // for the code font. The module landing (its own symbolKind is "module")

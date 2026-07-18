@@ -654,6 +654,18 @@ details.admonition > summary.admonition-title::-webkit-details-marker { display:
     letter-spacing: 0.06em;
     color: var(--accent);
 }
+/* Extended-module badge: which foreign module a cross-module extension extends. */
+.docc-extended-module {
+    display: inline-block;
+    margin-inline-start: 0.7em;
+    padding: 1px 8px;
+    border-radius: 999px;
+    background: var(--surface-2);
+    color: var(--muted);
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    vertical-align: middle;
+}
 .docc-header h1 { margin-bottom: 0; overflow-wrap: anywhere; }
 h1.docc-symbol-title { font-family: var(--kiln-font-code); font-size: 1.65rem; font-weight: 600; }
 

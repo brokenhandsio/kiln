@@ -262,6 +262,49 @@ struct DocCRendererTests {
         #expect(!html.contains("docc-link-card-abstract"))
     }
 
+    @Test("A cross-module extension surfaces the extended module; a same-module one doesn't")
+    func extendedModule() throws {
+        // MultipartKit extending Foundation.URL → surface "Foundation".
+        let cross = try decode("""
+        {
+          "schemaVersion": {"major": 0, "minor": 3, "patch": 0},
+          "identifier": {"url": "doc://T/documentation/multipartkit/foundation/url", "interfaceLanguage": "swift"},
+          "kind": "symbol",
+          "metadata": {"title": "URL", "roleHeading": "Extended Structure", "symbolKind": "extension",
+            "extendedModule": "Foundation",
+            "modules": [{"name": "MultipartKit", "relatedModules": ["Foundation"]}]},
+          "primaryContentSections": []
+        }
+        """)
+        #expect(DocCRenderer().render(cross).extendedModule == "Foundation")
+
+        // A symbol extending its own module's type → no badge (noise).
+        let same = try decode("""
+        {
+          "schemaVersion": {"major": 0, "minor": 3, "patch": 0},
+          "identifier": {"url": "doc://T/documentation/queues/queue", "interfaceLanguage": "swift"},
+          "kind": "symbol",
+          "metadata": {"title": "Queue", "roleHeading": "Extended Protocol", "symbolKind": "extension",
+            "extendedModule": "Queues", "modules": [{"name": "Queues"}]},
+          "primaryContentSections": []
+        }
+        """)
+        #expect(DocCRenderer().render(same).extendedModule == nil)
+
+        // A plain symbol (no extension) → nil.
+        let plain = try decode("""
+        {
+          "schemaVersion": {"major": 0, "minor": 3, "patch": 0},
+          "identifier": {"url": "doc://T/documentation/queues/queue", "interfaceLanguage": "swift"},
+          "kind": "symbol",
+          "metadata": {"title": "Queue", "roleHeading": "Structure", "symbolKind": "struct",
+            "modules": [{"name": "Queues"}]},
+          "primaryContentSections": []
+        }
+        """)
+        #expect(DocCRenderer().render(plain).extendedModule == nil)
+    }
+
     @Test("Discussion asides, code listings, and tables render")
     func rendersRichBlocks() throws {
         let node = try decode("""
