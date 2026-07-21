@@ -144,6 +144,236 @@ struct DocCRendererTests {
         #expect(html.contains("<a href=\"https://api.vapor.codes\">Vapor API docs</a>"))
     }
 
+    @Test("Availability badges and a deprecation callout render")
+    func rendersAvailabilityAndDeprecation() throws {
+        let node = try decode("""
+        {
+          "schemaVersion": {"major": 0, "minor": 3, "patch": 0},
+          "identifier": {"url": "doc://T/documentation/T/X", "interfaceLanguage": "swift"},
+          "kind": "symbol",
+          "metadata": {"title": "X", "roleHeading": "Structure", "symbolKind": "struct",
+            "platforms": [
+              {"name": "iOS", "introducedAt": "13.0"},
+              {"name": "macOS", "introducedAt": "10.15", "deprecatedAt": "12.0"},
+              {"name": "watchOS", "introducedAt": "6.0", "beta": true}
+            ]},
+          "deprecationSummary": [{"type": "paragraph", "inlineContent": [
+            {"type": "text", "text": "Use "},
+            {"type": "codeVoice", "code": "Y"},
+            {"type": "text", "text": " instead."}]}],
+          "abstract": [{"type": "text", "text": "A thing."}],
+          "primaryContentSections": []
+        }
+        """)
+
+        let rendered = DocCRenderer().render(node)
+        // Availability badges: one per platform, with introduced version.
+        #expect(rendered.availabilityHTML.contains("<div class=\"docc-availability\">"))
+        #expect(rendered.availabilityHTML.contains("iOS 13.0+"))
+        #expect(rendered.availabilityHTML.contains("macOS 10.15+"))
+        #expect(rendered.availabilityHTML.contains("watchOS 6.0+"))
+        // Beta and deprecated flags.
+        #expect(rendered.availabilityHTML.contains("<span class=\"docc-availability-flag\">Beta</span>"))
+        #expect(rendered.availabilityHTML.contains("<span class=\"docc-availability-flag is-deprecated\">Deprecated</span>"))
+        // Deprecation callout carries the authored message.
+        #expect(rendered.deprecationHTML.contains("admonition deprecated docc-deprecated"))
+        #expect(rendered.deprecationHTML.contains("Use <code>Y</code> instead."))
+    }
+
+    @Test("A symbol with no platforms or deprecation emits neither block")
+    func rendersNoAvailabilityWhenAbsent() throws {
+        let node = try decode("""
+        {
+          "schemaVersion": {"major": 0, "minor": 3, "patch": 0},
+          "identifier": {"url": "doc://T/documentation/T/X", "interfaceLanguage": "swift"},
+          "kind": "symbol",
+          "metadata": {"title": "X", "roleHeading": "Structure", "symbolKind": "struct"},
+          "primaryContentSections": []
+        }
+        """)
+        let rendered = DocCRenderer().render(node)
+        #expect(rendered.availabilityHTML.isEmpty)
+        #expect(rendered.deprecationHTML.isEmpty)
+    }
+
+    @Test("An @Links block renders topic cards with the layout style class")
+    func rendersLinkCards() throws {
+        let node = try decode("""
+        {
+          "schemaVersion": {"major": 0, "minor": 3, "patch": 0},
+          "identifier": {"url": "doc://T/documentation/T/X", "interfaceLanguage": "swift"},
+          "kind": "article",
+          "metadata": {"title": "X"},
+          "primaryContentSections": [
+            {"kind": "content", "content": [
+              {"type": "links", "style": "detailedGrid", "items": [
+                "doc://T/documentation/T/Queue",
+                "doc://T/documentation/T/Guide"]}
+            ]}
+          ],
+          "references": {
+            "doc://T/documentation/T/Queue": {"type": "topic", "identifier": "doc://T/documentation/T/Queue",
+               "kind": "symbol", "title": "Queue", "url": "/documentation/t/queue",
+               "abstract": [{"type": "text", "text": "A queue."}],
+               "fragments": [{"text": "struct ", "kind": "keyword"}, {"text": "Queue", "kind": "identifier"}]},
+            "doc://T/documentation/T/Guide": {"type": "topic", "identifier": "doc://T/documentation/T/Guide",
+               "kind": "article", "role": "article", "title": "The Guide", "url": "/documentation/t/guide",
+               "abstract": [{"type": "text", "text": "How to."}]}
+          }
+        }
+        """)
+
+        let html = DocCRenderer(pathMapper: { "/t\($0)/" }).render(node).contentHTML
+        // A grid container tagged with the DocC visual style, not a plain <ul>.
+        #expect(html.contains("<div class=\"docc-link-cards docc-link-cards--detailedgrid\">"))
+        #expect(!html.contains("<ul class=\"docc-links\">"))
+        // The card is a <div> (not an <a>) so abstract links don't nest; the title
+        // is the link. Symbol card: declaration fragments as tokens + abstract.
+        #expect(html.contains("<div class=\"docc-link-card\"><a class=\"docc-link-card-title\" href=\"/t/documentation/t/queue/\">"))
+        #expect(html.contains("<span class=\"token-keyword\">struct </span><span class=\"token-identifier\">Queue</span>"))
+        #expect(html.contains("<span class=\"docc-link-card-abstract\">A queue.</span>"))
+        // Article card: plain title (no <code>) + abstract.
+        #expect(html.contains("<a class=\"docc-link-card-title\" href=\"/t/documentation/t/guide/\">The Guide</a>"))
+    }
+
+    @Test("A compactGrid @Links block omits abstracts")
+    func rendersCompactLinkCards() throws {
+        let node = try decode("""
+        {
+          "schemaVersion": {"major": 0, "minor": 3, "patch": 0},
+          "identifier": {"url": "doc://T/documentation/T/X", "interfaceLanguage": "swift"},
+          "kind": "article",
+          "metadata": {"title": "X"},
+          "primaryContentSections": [
+            {"kind": "content", "content": [
+              {"type": "links", "style": "compactGrid", "items": ["doc://T/documentation/T/Guide"]}
+            ]}
+          ],
+          "references": {
+            "doc://T/documentation/T/Guide": {"type": "topic", "identifier": "doc://T/documentation/T/Guide",
+               "kind": "article", "title": "The Guide", "url": "/documentation/t/guide",
+               "abstract": [{"type": "text", "text": "How to."}]}
+          }
+        }
+        """)
+        let html = DocCRenderer().render(node).contentHTML
+        #expect(html.contains("docc-link-cards--compactgrid"))
+        #expect(html.contains("The Guide"))
+        #expect(!html.contains("docc-link-card-abstract"))
+    }
+
+    @Test("A cross-module extension surfaces the extended module; a same-module one doesn't")
+    func extendedModule() throws {
+        // MultipartKit extending Foundation.URL → surface "Foundation".
+        let cross = try decode("""
+        {
+          "schemaVersion": {"major": 0, "minor": 3, "patch": 0},
+          "identifier": {"url": "doc://T/documentation/multipartkit/foundation/url", "interfaceLanguage": "swift"},
+          "kind": "symbol",
+          "metadata": {"title": "URL", "roleHeading": "Extended Structure", "symbolKind": "extension",
+            "extendedModule": "Foundation",
+            "modules": [{"name": "MultipartKit", "relatedModules": ["Foundation"]}]},
+          "primaryContentSections": []
+        }
+        """)
+        #expect(DocCRenderer().render(cross).extendedModule == "Foundation")
+
+        // A symbol extending its own module's type → no badge (noise).
+        let same = try decode("""
+        {
+          "schemaVersion": {"major": 0, "minor": 3, "patch": 0},
+          "identifier": {"url": "doc://T/documentation/queues/queue", "interfaceLanguage": "swift"},
+          "kind": "symbol",
+          "metadata": {"title": "Queue", "roleHeading": "Extended Protocol", "symbolKind": "extension",
+            "extendedModule": "Queues", "modules": [{"name": "Queues"}]},
+          "primaryContentSections": []
+        }
+        """)
+        #expect(DocCRenderer().render(same).extendedModule == nil)
+
+        // A plain symbol (no extension) → nil.
+        let plain = try decode("""
+        {
+          "schemaVersion": {"major": 0, "minor": 3, "patch": 0},
+          "identifier": {"url": "doc://T/documentation/queues/queue", "interfaceLanguage": "swift"},
+          "kind": "symbol",
+          "metadata": {"title": "Queue", "roleHeading": "Structure", "symbolKind": "struct",
+            "modules": [{"name": "Queues"}]},
+          "primaryContentSections": []
+        }
+        """)
+        #expect(DocCRenderer().render(plain).extendedModule == nil)
+    }
+
+    @Test("An @Video block renders a <video> with poster, source, and caption")
+    func rendersVideo() throws {
+        let node = try decode("""
+        {
+          "schemaVersion": {"major": 0, "minor": 3, "patch": 0},
+          "identifier": {"url": "doc://T/documentation/T/X", "interfaceLanguage": "swift"},
+          "kind": "article",
+          "metadata": {"title": "X"},
+          "primaryContentSections": [
+            {"kind": "content", "content": [
+              {"type": "video", "identifier": "demo.mp4",
+               "metadata": {"abstract": [{"type": "text", "text": "A short demo."}]}}
+            ]}
+          ],
+          "references": {
+            "demo.mp4": {"type": "video", "identifier": "demo.mp4", "poster": "demo-poster.png",
+               "variants": [{"traits": ["1x", "light"], "url": "/videos/T/demo.mp4"}]},
+            "demo-poster.png": {"type": "image", "identifier": "demo-poster.png",
+               "variants": [{"traits": ["1x", "light"], "url": "/images/T/demo-poster.png"}]}
+          }
+        }
+        """)
+
+        let html = DocCRenderer(pathMapper: { "/mod\($0)" }).render(node).contentHTML
+        // A figure wrapping a <video controls> with the mapped source + poster.
+        #expect(html.contains("<figure class=\"docc-figure\">"))
+        #expect(html.contains("<video class=\"docc-video\" controls poster=\"/mod/images/T/demo-poster.png\">"))
+        #expect(html.contains("<source src=\"/mod/videos/T/demo.mp4\">"))
+        // The caption comes from the block metadata abstract.
+        #expect(html.contains("<figcaption>A short demo.</figcaption>"))
+    }
+
+    @Test("A sample-code page renders a download button from its sampleCodeDownload")
+    func rendersSampleDownload() throws {
+        let node = try decode("""
+        {
+          "schemaVersion": {"major": 0, "minor": 3, "patch": 0},
+          "identifier": {"url": "doc://T/documentation/T/Sample", "interfaceLanguage": "swift"},
+          "kind": "article",
+          "metadata": {"title": "Example Site", "roleHeading": "Sample Code", "role": "sampleCode"},
+          "abstract": [{"type": "text", "text": "A runnable example."}],
+          "sampleCodeDownload": {"kind": "sampleDownload", "action": {
+             "type": "reference", "identifier": "sample.zip", "isActive": true,
+             "overridingTitle": "Download the example"}},
+          "primaryContentSections": [],
+          "references": {
+            "sample.zip": {"type": "download", "identifier": "sample.zip", "url": "/downloads/T/sample.zip"}
+          }
+        }
+        """)
+
+        let html = DocCRenderer(pathMapper: { "/mod\($0)" }).render(node).contentHTML
+        #expect(html.contains("<a class=\"docc-download\" href=\"/mod/downloads/T/sample.zip\" download>Download the example</a>"))
+        // The button sits right after the abstract.
+        #expect(html.range(of: "docc-abstract")!.upperBound < html.range(of: "docc-download")!.lowerBound)
+    }
+
+    @Test("A page with no sampleCodeDownload renders no download button")
+    func rendersNoSampleDownload() throws {
+        let node = try decode("""
+        {
+          "schemaVersion": {"major": 0, "minor": 3, "patch": 0},
+          "identifier": {"url": "doc://T/documentation/T/X", "interfaceLanguage": "swift"},
+          "kind": "article", "metadata": {"title": "X"}, "primaryContentSections": []
+        }
+        """)
+        #expect(!DocCRenderer().render(node).contentHTML.contains("docc-download"))
+    }
+
     @Test("Discussion asides, code listings, and tables render")
     func rendersRichBlocks() throws {
         let node = try decode("""

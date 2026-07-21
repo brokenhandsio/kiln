@@ -375,15 +375,27 @@ struct DocCRenderPhase {
         if isModuleLanding, let image = moduleImageURL {
             body += "<img class=\"docc-module-image\" src=\"\(HTMLEscaping.attribute(image))\" alt=\"\" loading=\"lazy\">\n"
         }
+        // The eyebrow carries the role heading and, for a cross-module extension,
+        // a badge naming the extended module (e.g. "Instance Property · Foundation").
+        let extendedBadge = rendered.extendedModule.map {
+            "<span class=\"docc-extended-module\">\(HTMLEscaping.text($0))</span>"
+        } ?? ""
         if let role = rendered.roleHeading, !role.isEmpty {
-            body += "<p class=\"docc-eyebrow\">\(HTMLEscaping.text(role))</p>\n"
+            body += "<p class=\"docc-eyebrow\">\(HTMLEscaping.text(role))\(extendedBadge)</p>\n"
+        } else if !extendedBadge.isEmpty {
+            body += "<p class=\"docc-eyebrow\">\(extendedBadge)</p>\n"
         }
         // A symbol page's title is a code identifier (type/method name), so tag it
         // for the code font. The module landing (its own symbolKind is "module")
         // and articles (no symbolKind) keep the prose heading font.
         let isSymbolTitle = !isModuleLanding && rendered.symbolKind != nil
         let titleClass = isSymbolTitle ? " class=\"docc-symbol-title\"" : ""
-        body += "<h1\(titleClass)>\(HTMLEscaping.text(rendered.title))</h1>\n</header>\n"
+        body += "<h1\(titleClass)>\(HTMLEscaping.text(rendered.title))</h1>\n"
+        // Availability badges sit under the title, inside the header; the
+        // deprecation callout is a prominent notice above the content.
+        body += rendered.availabilityHTML
+        body += "</header>\n"
+        body += rendered.deprecationHTML
         body += rendered.contentHTML
 
         // Version banner + noindex. Non-default versions are noindex (duplicate/

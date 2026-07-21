@@ -654,11 +654,72 @@ details.admonition > summary.admonition-title::-webkit-details-marker { display:
     letter-spacing: 0.06em;
     color: var(--accent);
 }
+/* Extended-module badge: which foreign module a cross-module extension extends. */
+.docc-extended-module {
+    display: inline-block;
+    margin-inline-start: 0.7em;
+    padding: 1px 8px;
+    border-radius: 999px;
+    background: var(--surface-2);
+    color: var(--muted);
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    vertical-align: middle;
+}
 .docc-header h1 { margin-bottom: 0; overflow-wrap: anywhere; }
 h1.docc-symbol-title { font-family: var(--kiln-font-code); font-size: 1.65rem; font-weight: 600; }
 
+/* Platform-availability badges under the title. */
+.docc-availability { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.docc-availability-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 10px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--surface);
+    color: var(--muted);
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+.docc-availability-flag {
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--accent);
+}
+.docc-availability-flag.is-deprecated { color: #f59e0b; }
+
+/* Deprecation callout (an amber admonition). */
+.admonition.deprecated { border-inline-start-color: #f59e0b; }
+.admonition.deprecated .admonition-title { color: #f59e0b; }
+
+/* Deprecated symbols are struck through in the sidebar. */
+.docc-nav-deprecated > .docc-nav-link,
+.docc-nav-deprecated > .docc-nav-row > .docc-nav-link { text-decoration: line-through; }
+
 /* The lead abstract under the title. Inline content only, so style the box. */
 .docc-abstract { font-size: 1.12rem; color: var(--muted); line-height: 1.6; margin: 0 0 1.4em; }
+
+/* Embedded @Video (and its optional caption). */
+.docc-figure { margin: 1.4em 0; }
+.docc-video { display: block; width: 100%; max-width: 100%; border-radius: var(--kiln-radius); background: #000; }
+.docc-figure figcaption { margin-top: 0.5em; font-size: 0.9rem; color: var(--muted); text-align: center; }
+
+/* Sample-code download button. */
+.docc-download {
+    display: inline-block;
+    margin: 0.6em 0 1.6em;
+    padding: 10px 20px;
+    border-radius: var(--kiln-radius);
+    background: var(--accent);
+    color: var(--on-primary);
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+.docc-download:hover { text-decoration: none; filter: brightness(1.08); }
 
 /* Declaration block. Long signatures wrap rather than scroll (matching
    DocC's own rendering). Tokens are coloured below to match the highlight.js
@@ -696,6 +757,33 @@ h1.docc-symbol-title { font-family: var(--kiln-font-code); font-size: 1.65rem; f
 .docc-topic-link code { background: none; padding: 0; }
 .docc-topic-abstract { margin-top: 2px; font-size: 0.92rem; color: var(--muted); }
 .docc-topic-abstract code { font-size: 0.85em; }
+
+/* `@Links` card grids/lists in discussion prose. The grid styles auto-fit
+   cards; the list style stacks them full-width. */
+.docc-link-cards { display: grid; gap: 14px; margin: 1.2em 0; }
+.docc-link-cards--compactgrid,
+.docc-link-cards--detailedgrid { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+.docc-link-cards--list { grid-template-columns: 1fr; }
+.docc-link-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    padding: 14px 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--kiln-radius);
+    background: var(--surface);
+    color: var(--text);
+}
+.docc-link-card:hover { border-color: var(--accent); }
+.docc-link-card-title { font-weight: 600; overflow-wrap: anywhere; color: var(--text); }
+.docc-link-card-title:hover { text-decoration: none; }
+.docc-link-card-title code { background: none; padding: 0; }
+/* Stretch the title link over the whole card so it's fully clickable, while
+   leaving any links inside the abstract clickable above it. */
+.docc-link-card-title::after { content: ""; position: absolute; inset: 0; }
+.docc-link-card-abstract { position: relative; font-size: 0.9rem; color: var(--muted); line-height: 1.5; }
+.docc-link-card-abstract a { position: relative; }
 .kiln-footer { border-top: 1px solid var(--border); margin-top: 40px; }
 .kiln-footer-inner { max-width: var(--kiln-max-width); margin: 0 auto; padding: 28px 24px; display: flex; flex-direction: column; gap: 10px; align-items: center; text-align: center; }
 .kiln-social { display: flex; gap: 14px; }

@@ -27,6 +27,8 @@ public struct DocCNavigationBuilder: Sendable {
         /// The DocC entry type (`class`, `struct`, `groupMarker`, …) → icon class.
         var kind: String
         var isGroupMarker: Bool
+        /// Whether the symbol is deprecated (struck through in the sidebar).
+        var deprecated: Bool
         var children: [Node]
     }
 
@@ -46,6 +48,7 @@ public struct DocCNavigationBuilder: Sendable {
             path: entry.path,
             kind: entry.type,
             isGroupMarker: entry.isGroupMarker,
+            deprecated: entry.deprecated ?? false,
             children: (entry.children ?? []).map(convert)
         )
     }
@@ -74,7 +77,8 @@ public struct DocCNavigationBuilder: Sendable {
 
     private func render(_ node: Node, idCounter: inout Int) -> String {
         let kindClass = "docc-kind-\(Self.sanitiseKind(node.kind))"
-        var html = "<li class=\"docc-nav-item \(kindClass)\">"
+        let deprecatedClass = node.deprecated ? " docc-nav-deprecated" : ""
+        var html = "<li class=\"docc-nav-item \(kindClass)\(deprecatedClass)\">"
         if node.isGroupMarker {
             // Category headers are always expanded and carry no link, so a plain
             // text <summary> disclosure is valid and needs no separate toggle.

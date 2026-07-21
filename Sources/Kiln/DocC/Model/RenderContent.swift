@@ -94,6 +94,9 @@ public enum RenderBlockContent: Sendable {
     case termList(items: [RenderTermListItem])
     /// A block of reference links (a "Topics"-style grid/list within prose).
     case links(style: String?, items: [String])
+    /// An embedded video (`@Video`), resolved via the reference map by identifier.
+    /// `metadata.abstract` carries the optional caption.
+    case video(identifier: String, metadata: RenderContentMetadata?)
     /// A thematic break — a horizontal rule (`---` in Markdown).
     case thematicBreak
     /// A construct not modelled by Kiln (recorded in ``DocCDiagnostics``).
@@ -104,6 +107,7 @@ extension RenderBlockContent: Decodable {
     private enum CodingKeys: String, CodingKey {
         case type, inlineContent, level, text, anchor, syntax, code
         case style, name, content, items, start, header, rows
+        case identifier, metadata
     }
 
     public init(from decoder: any Decoder) throws {
@@ -147,6 +151,11 @@ extension RenderBlockContent: Decodable {
             self = .links(
                 style: try c.decodeIfPresent(String.self, forKey: .style),
                 items: try c.decodeIfPresent([String].self, forKey: .items) ?? []
+            )
+        case "video":
+            self = .video(
+                identifier: try c.decode(String.self, forKey: .identifier),
+                metadata: try c.decodeIfPresent(RenderContentMetadata.self, forKey: .metadata)
             )
         case "thematicBreak":
             self = .thematicBreak

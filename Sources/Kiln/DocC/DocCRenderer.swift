@@ -11,6 +11,16 @@ public struct RenderedDocC: Sendable {
     public var abstractText: String?
     /// The rendered page body (abstract, declaration, parameters, discussion).
     public var contentHTML: String
+    /// The platform-availability badge row (e.g. "iOS 13.0+ · macOS 10.15+"),
+    /// shown under the title. Empty when the symbol declares no availability.
+    public var availabilityHTML: String
+    /// A deprecation callout (the deprecation message, or a generic notice),
+    /// shown above the content. Empty when the symbol isn't deprecated.
+    public var deprecationHTML: String
+    /// For a symbol that extends a *different* module's type (e.g. MultipartKit's
+    /// extensions to `Foundation.URL`), the extended module's name — shown as a
+    /// context badge in the header. `nil` for a symbol in its own module.
+    public var extendedModule: String?
     /// The nested on-page table of contents built from the discussion headings
     /// and generated section headings.
     public var tableOfContents: [TOCEntry]
@@ -49,6 +59,9 @@ public struct DocCRenderer: Sendable {
             body += "<div class=\"docc-abstract\">\(DocCInline.render(abstract, resolver: resolver))</div>\n"
             abstractText = DocCInline.plainText(abstract)
         }
+
+        // A sample-code download button (below the abstract, like DocC).
+        body += Self.renderSampleDownload(node.sampleCodeDownload, resolver: resolver)
 
         // Primary content, in DocC's own order (declaration → parameters →
         // discussion for a method; declaration → discussion for a type).
@@ -89,9 +102,83 @@ public struct DocCRenderer: Sendable {
             symbolKind: node.metadata.symbolKind,
             abstractText: abstractText,
             contentHTML: body,
+            availabilityHTML: Self.renderAvailability(node.metadata.platforms),
+            deprecationHTML: renderDeprecation(node, resolver: resolver, slugger: slugger),
+            extendedModule: Self.extendedModule(node.metadata),
             tableOfContents: TableOfContents.build(from: toc, levels: 1...6),
             breadcrumb: breadcrumbAncestry(node, resolver: resolver)
         )
+    }
+
+    /// The extended module to surface for a symbol, or `nil`. DocC sets
+    /// `extendedModule` on every symbol inside an extension; it's only worth
+    /// showing when it names a *different* module from the one that owns the
+    /// symbol (`modules[0]`) — i.e. a cross-module extension like MultipartKit
+    /// adding members to `Foundation.URL`. Same-module extensions are noise.
+    static func extendedModule(_ metadata: RenderMetadata) -> String? {
+        guard let extended = metadata.extendedModule, !extended.isEmpty else { return nil }
+        let owner = metadata.modules?.first?.name
+        return extended == owner ? nil : extended
+    }
+
+    /// A sample-code download button, or "" when the page has no (resolvable)
+    /// download. The action's `identifier` resolves to a `download` reference for
+    /// the URL; `overridingTitle` is the button label (default "Download").
+    static func renderSampleDownload(_ download: RenderNode.SampleCodeDownload?, resolver: DocCLinkResolver) -> String {
+        guard let action = download?.action, action.isActive != false,
+              let identifier = action.identifier,
+              let url = resolver.downloadURL(identifier) else { return "" }
+        let label = action.overridingTitle ?? "Download"
+        return "<a class=\"docc-download\" href=\"\(HTMLEscaping.attribute(url))\" download>\(HTMLEscaping.text(label))</a>\n"
+    }
+
+    // MARK: Availability & deprecation
+
+    /// The platform-availability badges (`iOS 13.0+`, `macOS 10.15+`, …), one per
+    /// platform that declares an introduced version. A beta or deprecated platform
+    /// carries a trailing marker. Returns "" when nothing is available to show.
+    static func renderAvailability(_ platforms: [PlatformAvailability]?) -> String {
+        guard let platforms, !platforms.isEmpty else { return "" }
+        var items: [String] = []
+        for platform in platforms {
+            guard let name = platform.name, platform.unavailable != true else { continue }
+            var label = HTMLEscaping.text(name)
+            if let introduced = platform.introducedAt {
+                label += " \(HTMLEscaping.text(introduced))+"
+            }
+            var badge = "<span class=\"docc-availability-item\">\(label)"
+            if platform.beta == true {
+                badge += "<span class=\"docc-availability-flag\">Beta</span>"
+            }
+            if platform.deprecatedAt != nil {
+                badge += "<span class=\"docc-availability-flag is-deprecated\">Deprecated</span>"
+            }
+            badge += "</span>"
+            items.append(badge)
+        }
+        guard !items.isEmpty else { return "" }
+        return "<div class=\"docc-availability\">\n\(items.joined(separator: "\n"))\n</div>\n"
+    }
+
+    /// A deprecation callout: the authored deprecation message when present, else a
+    /// generic notice, shown whenever the symbol declares a `deprecationSummary` or
+    /// any platform marks it deprecated/unavailable. Returns "" otherwise.
+    private func renderDeprecation(_ node: RenderNode, resolver: DocCLinkResolver, slugger: Slugger) -> String {
+        let platformDeprecated = (node.metadata.platforms ?? []).contains { $0.deprecatedAt != nil || $0.unavailable == true }
+        let summary = node.deprecationSummary ?? []
+        guard platformDeprecated || !summary.isEmpty else { return "" }
+
+        let inner: String
+        if summary.isEmpty {
+            inner = "<p>This symbol is deprecated.</p>\n"
+        } else {
+            // Reuse the block renderer for the message (it may carry inline links);
+            // its headings are intentionally not added to the page TOC.
+            var block = DocCBlockRenderer(resolver: resolver, slugger: slugger)
+            block.render(summary)
+            inner = block.html
+        }
+        return "<div class=\"admonition deprecated docc-deprecated\">\n<p class=\"admonition-title\">Deprecated</p>\n\(inner)</div>\n"
     }
 
     /// The ancestor breadcrumb trail from `hierarchy.paths` (DocC's first path is
@@ -237,22 +324,7 @@ public struct DocCRenderer: Sendable {
     private func renderTopicCard(_ identifier: String, resolver: DocCLinkResolver) -> String {
         guard case .topic(let topic)? = resolver.reference(identifier) else { return "" }
 
-        // A symbol card shows its abbreviated declaration fragments (kind + name +
-        // types, e.g. `var subquery: SQLUnionSubquery`) like Xcode/DocC, so the
-        // reader sees func/var and the return/property types at a glance. The
-        // fragments render as unlinked token spans — the whole card is already a
-        // link, so per-token <a>s would nest. Falls back to the plain title.
-        let titleHTML: String
-        if topic.kind == "symbol", let fragments = topic.fragments, !fragments.isEmpty {
-            let tokens = fragments.map {
-                "<span class=\"token-\($0.kind)\">\(HTMLEscaping.text($0.text))</span>"
-            }.joined()
-            titleHTML = "<code>\(tokens)</code>"
-        } else {
-            let titleText = HTMLEscaping.text(topic.title ?? identifier)
-            titleHTML = topic.kind == "symbol" ? "<code>\(titleText)</code>" : titleText
-        }
-
+        let titleHTML = Self.linkTitleHTML(topic: topic, identifier: identifier)
         let link: String
         if let url = topic.url {
             link = "<a class=\"docc-topic-link\" href=\"\(HTMLEscaping.attribute(resolver.mapPath(url)))\">\(titleHTML)</a>"
@@ -266,6 +338,51 @@ public struct DocCRenderer: Sendable {
         }
         card += "</li>\n"
         return card
+    }
+
+    /// A topic's card title: for a symbol, its abbreviated declaration fragments
+    /// (kind + name + types, e.g. `var subquery: SQLUnionSubquery`) as unlinked
+    /// token spans — so the reader sees func/var and the types at a glance,
+    /// matching Xcode/DocC. The whole card is already a link, so per-token `<a>`s
+    /// would nest; hence spans. Falls back to the plain (code-wrapped) title.
+    static func linkTitleHTML(topic: TopicReference, identifier: String) -> String {
+        if topic.kind == "symbol", let fragments = topic.fragments, !fragments.isEmpty {
+            let tokens = fragments.map {
+                "<span class=\"token-\($0.kind)\">\(HTMLEscaping.text($0.text))</span>"
+            }.joined()
+            return "<code>\(tokens)</code>"
+        }
+        let titleText = HTMLEscaping.text(topic.title ?? identifier)
+        return topic.kind == "symbol" ? "<code>\(titleText)</code>" : titleText
+    }
+
+    /// Render an `@Links` block (`links` block content) as a card grid or list.
+    /// Each identifier resolves to a topic card (title + abstract); DocC's visual
+    /// `style` drives the layout class (`compactGrid`/`detailedGrid`/`list`), and
+    /// `compactGrid` shows titles only. Non-topic identifiers (and topics with no
+    /// URL) are skipped; an all-empty block renders nothing.
+    static func renderLinkCards(_ identifiers: [String], style: String?, resolver: DocCLinkResolver) -> String {
+        let styleName = style ?? "list"
+        let styleSuffix = String(styleName.lowercased().map { $0.isLetter || $0.isNumber ? $0 : "-" })
+        let showAbstract = styleName != "compactGrid"
+
+        var cards = ""
+        for identifier in identifiers {
+            guard case .topic(let topic)? = resolver.reference(identifier), let url = topic.url else { continue }
+            // The card is a container, not an anchor: an abstract can carry its own
+            // inline links, and nesting <a>s inside a card <a> is invalid (browsers
+            // split it). The title is the link, stretched over the whole card in CSS
+            // so the card stays clickable while abstract links keep working.
+            var card = "<div class=\"docc-link-card\">"
+            card += "<a class=\"docc-link-card-title\" href=\"\(HTMLEscaping.attribute(resolver.mapPath(url)))\">\(linkTitleHTML(topic: topic, identifier: identifier))</a>"
+            if showAbstract, let abstract = topic.abstract, !abstract.isEmpty {
+                card += "<span class=\"docc-link-card-abstract\">\(DocCInline.render(abstract, resolver: resolver))</span>"
+            }
+            card += "</div>\n"
+            cards += card
+        }
+        guard !cards.isEmpty else { return "" }
+        return "<div class=\"docc-link-cards docc-link-cards--\(styleSuffix)\">\n\(cards)</div>\n"
     }
 
     // MARK: Relationships
@@ -468,13 +585,11 @@ struct DocCBlockRenderer {
             }
             html += "</dl>\n"
 
-        case .links(_, let identifiers):
-            html += "<ul class=\"docc-links\">\n"
-            for identifier in identifiers {
-                guard let link = resolver.resolveTopic(identifier) else { continue }
-                html += "<li><a href=\"\(HTMLEscaping.attribute(link.href))\">\(HTMLEscaping.text(link.title))</a></li>\n"
-            }
-            html += "</ul>\n"
+        case .links(let style, let identifiers):
+            html += DocCRenderer.renderLinkCards(identifiers, style: style, resolver: resolver)
+
+        case .video(let identifier, let metadata):
+            html += renderVideo(identifier: identifier, metadata: metadata)
 
         case .thematicBreak:
             html += "<hr>\n"
@@ -514,5 +629,23 @@ struct DocCBlockRenderer {
         var inner = DocCBlockRenderer(resolver: resolver, slugger: slugger)
         inner.render(cell)
         return inner.html
+    }
+
+    /// Render an embedded `@Video` as a `<figure>`: a `<video controls>` (with a
+    /// poster image when authored) and an optional `<figcaption>` from the
+    /// metadata abstract. Emits nothing when the video identifier doesn't resolve.
+    private func renderVideo(identifier: String, metadata: RenderContentMetadata?) -> String {
+        guard let url = resolver.videoURL(identifier) else { return "" }
+        var video = "<video class=\"docc-video\" controls"
+        if let poster = resolver.videoPosterURL(identifier) {
+            video += " poster=\"\(HTMLEscaping.attribute(poster))\""
+        }
+        video += "><source src=\"\(HTMLEscaping.attribute(url))\"></video>"
+
+        let caption = metadata?.abstract ?? []
+        if caption.isEmpty {
+            return "<figure class=\"docc-figure\">\(video)</figure>\n"
+        }
+        return "<figure class=\"docc-figure\">\(video)<figcaption>\(DocCInline.render(caption, resolver: resolver))</figcaption></figure>\n"
     }
 }

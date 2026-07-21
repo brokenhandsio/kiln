@@ -19,6 +19,14 @@ public struct RenderNode: Decodable, Sendable {
     public var metadata: RenderMetadata
     /// The one-line summary shown under the title and in topic cards.
     public var abstract: [RenderInlineContent]?
+    /// The deprecation message shown in a prominent callout when the symbol is
+    /// deprecated (from `@available(*, deprecated, message:)` or a
+    /// `@DeprecationSummary`). Absent for non-deprecated symbols.
+    public var deprecationSummary: [RenderBlockContent]?
+    /// A sample-code download action (`@CallToAction(..., purpose: download)` on a
+    /// `@PageKind(sampleCode)` page), rendered as a download button. Absent on
+    /// pages without one.
+    public var sampleCodeDownload: SampleCodeDownload?
     /// The breadcrumb ancestry (`doc://` identifier chains).
     public var hierarchy: RenderHierarchy?
     /// The main body: declarations, parameters, discussion, and the like.
@@ -56,6 +64,22 @@ public struct RenderNode: Decodable, Sendable {
         case overview
         case project
         case unknown(String)
+    }
+
+    /// A sample-code download action — a reference to a downloadable file plus a
+    /// button label. The `action`'s `identifier` resolves to a `download`/`file`
+    /// reference in the node's reference map.
+    public struct SampleCodeDownload: Decodable, Sendable {
+        public var action: Action?
+
+        public struct Action: Decodable, Sendable {
+            /// The download reference identifier (keys the `download` reference).
+            public var identifier: String?
+            /// The button label (e.g. "Download the example"), when authored.
+            public var overridingTitle: String?
+            /// Whether the action is active (a resolvable download).
+            public var isActive: Bool?
+        }
     }
 }
 

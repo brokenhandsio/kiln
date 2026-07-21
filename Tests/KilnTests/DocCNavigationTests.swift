@@ -65,6 +65,27 @@ struct DocCNavigationTests {
         #expect(html.contains("<ul class=\"docc-nav-list\" id=\"docc-nav-1\" hidden>"))
     }
 
+    @Test("Deprecated entries are marked for strikethrough styling")
+    func deprecatedEntries() throws {
+        let index = try JSONDecoder().decode(RenderIndex.self, from: Data("""
+        {
+          "schemaVersion": {"major": 0, "minor": 1, "patch": 2},
+          "interfaceLanguages": {"swift": [
+            {"title": "Queues", "type": "module", "path": "/documentation/queues", "children": [
+              {"title": "Symbols", "type": "groupMarker"},
+              {"title": "OldThing", "type": "struct", "path": "/documentation/queues/oldthing", "deprecated": true},
+              {"title": "NewThing", "type": "struct", "path": "/documentation/queues/newthing"}
+            ]}
+          ]}
+        }
+        """.utf8))
+        let builder = DocCNavigationBuilder(urls: urls)
+        let html = builder.renderHTML(builder.build(index), moduleTitle: "Queues")
+        // The deprecated symbol's <li> carries the marker class; the live one doesn't.
+        #expect(html.contains("docc-nav-item docc-kind-struct docc-nav-deprecated"))
+        #expect(html.contains("<li class=\"docc-nav-item docc-kind-struct\">"))
+    }
+
     @Test("A nil index yields an empty sidebar")
     func emptyIndex() {
         let builder = DocCNavigationBuilder(urls: urls)

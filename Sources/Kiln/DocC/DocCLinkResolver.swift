@@ -84,4 +84,32 @@ public struct DocCLinkResolver: Sendable {
         guard case .image(let image)? = references[identifier] else { return nil }
         return image.alt
     }
+
+    /// Resolve a video identifier to its best variant URL (run through
+    /// ``mapPath``), preferring a light-appearance rendition when present.
+    public func videoURL(_ identifier: String) -> String? {
+        guard case .video(let video)? = references[identifier], !video.variants.isEmpty else { return nil }
+        let preferred = video.variants.first { ($0.traits ?? []).contains("light") } ?? video.variants.first!
+        return mapPath(preferred.url)
+    }
+
+    /// The poster-image URL for a video identifier, if it declares one (its
+    /// ``VideoReference/poster`` is an image identifier resolved like any image).
+    public func videoPosterURL(_ identifier: String) -> String? {
+        guard case .video(let video)? = references[identifier], let poster = video.poster else { return nil }
+        return imageURL(poster)
+    }
+
+    /// The alt text for a video identifier, if authored.
+    public func videoAlt(_ identifier: String) -> String? {
+        guard case .video(let video)? = references[identifier] else { return nil }
+        return video.alt
+    }
+
+    /// Resolve a download identifier to its file URL (run through ``mapPath``), or
+    /// `nil` if it isn't a `download`/`file` reference with a URL.
+    public func downloadURL(_ identifier: String) -> String? {
+        guard case .file(let file)? = references[identifier], let url = file.url else { return nil }
+        return mapPath(url)
+    }
 }

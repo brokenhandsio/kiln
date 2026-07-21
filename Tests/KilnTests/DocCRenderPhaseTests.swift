@@ -269,6 +269,19 @@ struct DocCRenderPhaseTests {
         #expect(queue.contains("Topics") || queue.contains("docc-topic"))
     }
 
+    @Test("A cross-module extension page shows the extended-module badge in its eyebrow")
+    func extendedModuleBadge() async throws {
+        let output = try await buildSite()
+        // `hash(into:)` is a Swift-protocol conformance Queues adds to ScheduleBuilder.Month
+        // (extendedModule "Swift", owner "Queues") — the eyebrow names the extended module.
+        let page = try html(output, "queues/schedulebuilder/month/hash(into:)/index.html")
+        #expect(page.contains("<span class=\"docc-extended-module\">Swift</span>"))
+        #expect(page.contains("Instance Method<span class=\"docc-extended-module\">Swift</span>"))
+        // A same-module symbol shows no badge.
+        let queue = try html(output, "queues/queue/index.html")
+        #expect(!queue.contains("docc-extended-module"))
+    }
+
     @Test("Symbol pages carry a breadcrumb trail (visible + BreadcrumbList JSON-LD)")
     func breadcrumbs() async throws {
         let output = try await buildSite()
