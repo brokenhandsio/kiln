@@ -305,6 +305,75 @@ struct DocCRendererTests {
         #expect(DocCRenderer().render(plain).extendedModule == nil)
     }
 
+    @Test("An @Video block renders a <video> with poster, source, and caption")
+    func rendersVideo() throws {
+        let node = try decode("""
+        {
+          "schemaVersion": {"major": 0, "minor": 3, "patch": 0},
+          "identifier": {"url": "doc://T/documentation/T/X", "interfaceLanguage": "swift"},
+          "kind": "article",
+          "metadata": {"title": "X"},
+          "primaryContentSections": [
+            {"kind": "content", "content": [
+              {"type": "video", "identifier": "demo.mp4",
+               "metadata": {"abstract": [{"type": "text", "text": "A short demo."}]}}
+            ]}
+          ],
+          "references": {
+            "demo.mp4": {"type": "video", "identifier": "demo.mp4", "poster": "demo-poster.png",
+               "variants": [{"traits": ["1x", "light"], "url": "/videos/T/demo.mp4"}]},
+            "demo-poster.png": {"type": "image", "identifier": "demo-poster.png",
+               "variants": [{"traits": ["1x", "light"], "url": "/images/T/demo-poster.png"}]}
+          }
+        }
+        """)
+
+        let html = DocCRenderer(pathMapper: { "/mod\($0)" }).render(node).contentHTML
+        // A figure wrapping a <video controls> with the mapped source + poster.
+        #expect(html.contains("<figure class=\"docc-figure\">"))
+        #expect(html.contains("<video class=\"docc-video\" controls poster=\"/mod/images/T/demo-poster.png\">"))
+        #expect(html.contains("<source src=\"/mod/videos/T/demo.mp4\">"))
+        // The caption comes from the block metadata abstract.
+        #expect(html.contains("<figcaption>A short demo.</figcaption>"))
+    }
+
+    @Test("A sample-code page renders a download button from its sampleCodeDownload")
+    func rendersSampleDownload() throws {
+        let node = try decode("""
+        {
+          "schemaVersion": {"major": 0, "minor": 3, "patch": 0},
+          "identifier": {"url": "doc://T/documentation/T/Sample", "interfaceLanguage": "swift"},
+          "kind": "article",
+          "metadata": {"title": "Example Site", "roleHeading": "Sample Code", "role": "sampleCode"},
+          "abstract": [{"type": "text", "text": "A runnable example."}],
+          "sampleCodeDownload": {"kind": "sampleDownload", "action": {
+             "type": "reference", "identifier": "sample.zip", "isActive": true,
+             "overridingTitle": "Download the example"}},
+          "primaryContentSections": [],
+          "references": {
+            "sample.zip": {"type": "download", "identifier": "sample.zip", "url": "/downloads/T/sample.zip"}
+          }
+        }
+        """)
+
+        let html = DocCRenderer(pathMapper: { "/mod\($0)" }).render(node).contentHTML
+        #expect(html.contains("<a class=\"docc-download\" href=\"/mod/downloads/T/sample.zip\" download>Download the example</a>"))
+        // The button sits right after the abstract.
+        #expect(html.range(of: "docc-abstract")!.upperBound < html.range(of: "docc-download")!.lowerBound)
+    }
+
+    @Test("A page with no sampleCodeDownload renders no download button")
+    func rendersNoSampleDownload() throws {
+        let node = try decode("""
+        {
+          "schemaVersion": {"major": 0, "minor": 3, "patch": 0},
+          "identifier": {"url": "doc://T/documentation/T/X", "interfaceLanguage": "swift"},
+          "kind": "article", "metadata": {"title": "X"}, "primaryContentSections": []
+        }
+        """)
+        #expect(!DocCRenderer().render(node).contentHTML.contains("docc-download"))
+    }
+
     @Test("Discussion asides, code listings, and tables render")
     func rendersRichBlocks() throws {
         let node = try decode("""

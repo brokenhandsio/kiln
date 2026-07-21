@@ -60,6 +60,9 @@ public struct DocCRenderer: Sendable {
             abstractText = DocCInline.plainText(abstract)
         }
 
+        // A sample-code download button (below the abstract, like DocC).
+        body += Self.renderSampleDownload(node.sampleCodeDownload, resolver: resolver)
+
         // Primary content, in DocC's own order (declaration → parameters →
         // discussion for a method; declaration → discussion for a type).
         for section in node.primaryContentSections ?? [] {
@@ -116,6 +119,17 @@ public struct DocCRenderer: Sendable {
         guard let extended = metadata.extendedModule, !extended.isEmpty else { return nil }
         let owner = metadata.modules?.first?.name
         return extended == owner ? nil : extended
+    }
+
+    /// A sample-code download button, or "" when the page has no (resolvable)
+    /// download. The action's `identifier` resolves to a `download` reference for
+    /// the URL; `overridingTitle` is the button label (default "Download").
+    static func renderSampleDownload(_ download: RenderNode.SampleCodeDownload?, resolver: DocCLinkResolver) -> String {
+        guard let action = download?.action, action.isActive != false,
+              let identifier = action.identifier,
+              let url = resolver.downloadURL(identifier) else { return "" }
+        let label = action.overridingTitle ?? "Download"
+        return "<a class=\"docc-download\" href=\"\(HTMLEscaping.attribute(url))\" download>\(HTMLEscaping.text(label))</a>\n"
     }
 
     // MARK: Availability & deprecation
@@ -574,6 +588,9 @@ struct DocCBlockRenderer {
         case .links(let style, let identifiers):
             html += DocCRenderer.renderLinkCards(identifiers, style: style, resolver: resolver)
 
+        case .video(let identifier, let metadata):
+            html += renderVideo(identifier: identifier, metadata: metadata)
+
         case .thematicBreak:
             html += "<hr>\n"
 
@@ -612,5 +629,23 @@ struct DocCBlockRenderer {
         var inner = DocCBlockRenderer(resolver: resolver, slugger: slugger)
         inner.render(cell)
         return inner.html
+    }
+
+    /// Render an embedded `@Video` as a `<figure>`: a `<video controls>` (with a
+    /// poster image when authored) and an optional `<figcaption>` from the
+    /// metadata abstract. Emits nothing when the video identifier doesn't resolve.
+    private func renderVideo(identifier: String, metadata: RenderContentMetadata?) -> String {
+        guard let url = resolver.videoURL(identifier) else { return "" }
+        var video = "<video class=\"docc-video\" controls"
+        if let poster = resolver.videoPosterURL(identifier) {
+            video += " poster=\"\(HTMLEscaping.attribute(poster))\""
+        }
+        video += "><source src=\"\(HTMLEscaping.attribute(url))\"></video>"
+
+        let caption = metadata?.abstract ?? []
+        if caption.isEmpty {
+            return "<figure class=\"docc-figure\">\(video)</figure>\n"
+        }
+        return "<figure class=\"docc-figure\">\(video)<figcaption>\(DocCInline.render(caption, resolver: resolver))</figcaption></figure>\n"
     }
 }

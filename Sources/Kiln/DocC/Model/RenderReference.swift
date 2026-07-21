@@ -9,6 +9,8 @@ public enum RenderReference: Sendable {
     case topic(TopicReference)
     /// An image asset, with one or more trait-specific variants.
     case image(ImageReference)
+    /// A video asset (`@Video`), with trait-specific variants and a poster image.
+    case video(VideoReference)
     /// An external hyperlink.
     case link(LinkReference)
     /// A downloadable/file asset.
@@ -42,6 +44,8 @@ extension RenderReference: Decodable {
             self = .topic(try TopicReference(from: decoder))
         case "image":
             self = .image(try ImageReference(from: decoder))
+        case "video":
+            self = .video(try VideoReference(from: decoder))
         case "link":
             self = .link(try LinkReference(from: decoder))
         case "file", "download":
@@ -117,6 +121,29 @@ public struct ImageReference: Decodable, Sendable {
         self.identifier = try c.decode(String.self, forKey: .identifier)
         self.alt = try c.decodeIfPresent(String.self, forKey: .alt)
         self.variants = try c.decodeIfPresent([Variant].self, forKey: .variants) ?? []
+    }
+}
+
+/// A video asset reference (`@Video`), resolved to trait-specific variants and an
+/// optional poster image (referenced by identifier, like any other image).
+public struct VideoReference: Decodable, Sendable {
+    public var identifier: String
+    /// Alt text, when authored.
+    public var alt: String?
+    /// The identifier of the poster image shown before playback (resolve via the
+    /// reference map like any image), when authored.
+    public var poster: String?
+    /// The available renditions (e.g. light/dark).
+    public var variants: [ImageReference.Variant]
+
+    private enum CodingKeys: String, CodingKey { case identifier, alt, poster, variants }
+
+    public init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.identifier = try c.decode(String.self, forKey: .identifier)
+        self.alt = try c.decodeIfPresent(String.self, forKey: .alt)
+        self.poster = try c.decodeIfPresent(String.self, forKey: .poster)
+        self.variants = try c.decodeIfPresent([ImageReference.Variant].self, forKey: .variants) ?? []
     }
 }
 

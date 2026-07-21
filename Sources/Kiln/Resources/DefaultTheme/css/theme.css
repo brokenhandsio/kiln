@@ -703,6 +703,24 @@ h1.docc-symbol-title { font-family: var(--kiln-font-code); font-size: 1.65rem; f
 /* The lead abstract under the title. Inline content only, so style the box. */
 .docc-abstract { font-size: 1.12rem; color: var(--muted); line-height: 1.6; margin: 0 0 1.4em; }
 
+/* Embedded @Video (and its optional caption). */
+.docc-figure { margin: 1.4em 0; }
+.docc-video { display: block; width: 100%; max-width: 100%; border-radius: var(--kiln-radius); background: #000; }
+.docc-figure figcaption { margin-top: 0.5em; font-size: 0.9rem; color: var(--muted); text-align: center; }
+
+/* Sample-code download button. */
+.docc-download {
+    display: inline-block;
+    margin: 0.6em 0 1.6em;
+    padding: 10px 20px;
+    border-radius: var(--kiln-radius);
+    background: var(--accent);
+    color: var(--on-primary);
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+.docc-download:hover { text-decoration: none; filter: brightness(1.08); }
+
 /* Declaration block. Long signatures wrap rather than scroll (matching
    DocC's own rendering). Tokens are coloured below to match the highlight.js
    palette used in code listings; linked tokens keep their token colour. */
