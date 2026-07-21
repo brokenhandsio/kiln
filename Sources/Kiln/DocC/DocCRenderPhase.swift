@@ -168,6 +168,30 @@ struct DocCRenderPhase {
                         let latestURL = defaultPaths.contains(page.path)
                             ? defaultURLs.url(forDocCPath: page.path)
                             : defaultURLs.moduleRootURL
+                        // Cross-module extension context: where the extended module
+                        // lives, and (on an extension's own page) where the extended
+                        // type is canonically documented.
+                        let extendedModuleURL = rendered.extendedModule.flatMap {
+                            registry.siteURL(forDocCPath: "/documentation/\($0.lowercased())",
+                                             currentPackageRepo: package.repo,
+                                             currentVersionSegment: version.urlSegment)
+                        }
+                        let extendedTypeURL = Self.canonicalExtendedTypePath(
+                            pagePath: page.path, currentModule: module.name, rendered: rendered
+                        ).flatMap { canonicalPath -> String? in
+                            // The extended module may document that symbol under a
+                            // *disambiguated* path (`views-swift.struct`), so the
+                            // derived path isn't guaranteed to exist. Only link when
+                            // the target page is really there.
+                            guard let extended = rendered.extendedModule,
+                                  self.documentsPage(atArchivePath: canonicalPath,
+                                                     inModuleNamed: extended,
+                                                     archivesBase: archivesBase)
+                            else { return nil }
+                            return registry.siteURL(forDocCPath: canonicalPath,
+                                                    currentPackageRepo: package.repo,
+                                                    currentVersionSegment: version.urlSegment)
+                        }
                         let html = try await renderPage(page: page, rendered: rendered, urls: urls,
                                                         moduleTitle: module.displayTitle,
                                                         moduleImageURL: Self.resolveModuleImage(module.image, basePath: basePath),
@@ -177,6 +201,8 @@ struct DocCRenderPhase {
                                                         currentVersion: version,
                                                         isVersioned: isVersioned,
                                                         latestURL: latestURL,
+                                                        extendedModuleURL: extendedModuleURL,
+                                                        extendedTypeURL: extendedTypeURL,
                                                         language: language, renderer: renderer)
                         try writer.write(html, to: urls.outputFile(forDocCPath: page.path, in: outputDirectory))
                         // Only default versions are indexed (search.js prepends "/",
@@ -355,6 +381,8 @@ struct DocCRenderPhase {
         currentVersion: PackageVersion,
         isVersioned: Bool,
         latestURL: String,
+        extendedModuleURL: String? = nil,
+        extendedTypeURL: String? = nil,
         language: Language,
         renderer: TemplateRenderer
     ) async throws -> String {
@@ -377,8 +405,13 @@ struct DocCRenderPhase {
         }
         // The eyebrow carries the role heading and, for a cross-module extension,
         // a badge naming the extended module (e.g. "Instance Property · Foundation").
-        let extendedBadge = rendered.extendedModule.map {
-            "<span class=\"docc-extended-module\">\(HTMLEscaping.text($0))</span>"
+        // When that module is hosted here, the badge links to its documentation.
+        let extendedBadge = rendered.extendedModule.map { name in
+            let text = HTMLEscaping.text(name)
+            guard let url = extendedModuleURL else {
+                return "<span class=\"docc-extended-module\">\(text)</span>"
+            }
+            return "<a class=\"docc-extended-module\" href=\"\(HTMLEscaping.attribute(url))\">\(text)</a>"
         } ?? ""
         if let role = rendered.roleHeading, !role.isEmpty {
             body += "<p class=\"docc-eyebrow\">\(HTMLEscaping.text(role))\(extendedBadge)</p>\n"
@@ -390,7 +423,13 @@ struct DocCRenderPhase {
         // and articles (no symbolKind) keep the prose heading font.
         let isSymbolTitle = !isModuleLanding && rendered.symbolKind != nil
         let titleClass = isSymbolTitle ? " class=\"docc-symbol-title\"" : ""
-        body += "<h1\(titleClass)>\(HTMLEscaping.text(rendered.title))</h1>\n"
+        // On an extension's page the title names a type that lives in another
+        // hosted module, so link it to where that type is actually documented.
+        let titleText = HTMLEscaping.text(rendered.title)
+        let titleContent = extendedTypeURL.map {
+            "<a class=\"docc-canonical-type\" href=\"\(HTMLEscaping.attribute($0))\">\(titleText)</a>"
+        } ?? titleText
+        body += "<h1\(titleClass)>\(titleContent)</h1>\n"
         // Availability badges sit under the title, inside the header; the
         // deprecation callout is a prominent notice above the content.
         body += rendered.availabilityHTML
@@ -466,6 +505,47 @@ struct DocCRenderPhase {
     /// the site default), for `<meta property="og:image">`.
     private func socialImageURL(for language: Language) -> String? {
         (language.image ?? site.image).map { absoluteURL(basePath + "/" + $0.drop(while: { $0 == "/" })) }
+    }
+
+    /// Whether the module named `moduleName` really documents `archivePath` — i.e.
+    /// its archive contains the corresponding render node. Used to confirm a
+    /// *derived* canonical path before linking to it, since DocC may document the
+    /// same symbol under a disambiguated path in its owning module (e.g.
+    /// `application/views-swift.struct` where the extension side is `views`).
+    func documentsPage(atArchivePath archivePath: String, inModuleNamed moduleName: String, archivesBase: URL) -> Bool {
+        // Find the hosted module and the version its pages are surfaced at.
+        guard let match = docc.allModules.first(where: { $0.module.name.lowercased() == moduleName.lowercased() }),
+              let surfaced = match.package.surfacedModules.first(where: { $0.module.name == match.module.name })
+        else { return false }
+
+        let archive = Self.archiveURL(module: match.module, version: surfaced.version, in: archivesBase)
+        let node = archive
+            .appendingPathComponent("data", isDirectory: true)
+            .appendingPathComponent(archivePath.trimmingCharacters(in: CharacterSet(charactersIn: "/")))
+            .appendingPathExtension("json")
+        return FileManager.default.fileExists(atPath: node.path)
+    }
+
+    /// The archive path where an extended type is *canonically* documented, for an
+    /// extension's own page — e.g. FluentSQL's page at
+    /// `/documentation/fluentsql/fluentkit/databasequery` maps to FluentKit's
+    /// `/documentation/fluentkit/databasequery`, obtained by dropping the hosting
+    /// module's segment.
+    ///
+    /// Only applies to an extension's *type* page (`symbolKind == "extension"`):
+    /// a member of that extension is the hosting module's own addition and has no
+    /// canonical page in the extended module, so linking one would 404. Returns
+    /// `nil` unless the remaining path really does start with the extended module.
+    static func canonicalExtendedTypePath(pagePath: String, currentModule: String, rendered: RenderedDocC) -> String? {
+        guard rendered.symbolKind == "extension", let extended = rendered.extendedModule else { return nil }
+        let prefix = "/documentation/\(currentModule.lowercased())/"
+        guard pagePath.hasPrefix(prefix) else { return nil }
+        let remainder = String(pagePath.dropFirst(prefix.count))
+        // Sanity: the next segment must be the extended module itself.
+        guard remainder.split(separator: "/").first.map(String.init)?.lowercased() == extended.lowercased() else {
+            return nil
+        }
+        return "/documentation/" + remainder
     }
 
     /// Resolve a ``Module/image`` for the module landing page: an absolute

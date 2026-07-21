@@ -98,17 +98,27 @@ public struct DocCArchiveBuilder: Sendable {
     let checkoutDirectory: URL
     /// Base URL for resolving a package's `owner/name` repo to a clone URL.
     let gitHost: String
+    /// Resolve links *between* hosted modules (a symbol's cross-module "Conforms
+    /// To", a foreign type it extends, …) instead of rendering them as plain text.
+    ///
+    /// Builds each archive with DocC's experimental external-link support, in
+    /// package-dependency order, passing each already-built dependency archive to
+    /// its dependents. The rendered site needs no changes: the resolved
+    /// `/documentation/<module>/…` URLs route through ``DocCModuleRegistry``.
+    let crossModuleLinks: Bool
 
     init(
         docc: DocCSite,
         contentDirectory: URL,
         checkoutDirectory: URL,
-        gitHost: String = "https://github.com"
+        gitHost: String = "https://github.com",
+        crossModuleLinks: Bool = false
     ) {
         self.docc = docc
         self.contentDirectory = contentDirectory
         self.checkoutDirectory = checkoutDirectory
         self.gitHost = gitHost
+        self.crossModuleLinks = crossModuleLinks
     }
 
     /// A line-oriented progress sink (defaults to stderr so it doesn't pollute
@@ -129,9 +139,9 @@ public struct DocCArchiveBuilder: Sendable {
         }
         try fileManager.createDirectory(at: checkoutDirectory, withIntermediateDirectories: true)
 
-        var built: [String] = []
+        // What needs generating, per package.
+        var pending: [(package: APIPackage, work: [(version: PackageVersion, modules: [Module])])] = []
         for package in docc.packages {
-            // Which (version, module) pairs actually need generating?
             var work: [(version: PackageVersion, modules: [Module])] = []
             for version in package.versions {
                 let forced = rebuild.forces(package: package, version: version)
@@ -141,22 +151,92 @@ public struct DocCArchiveBuilder: Sendable {
                 }
                 if !modules.isEmpty { work.append((version, modules)) }
             }
-            guard !work.isEmpty else { continue }
+            if !work.isEmpty { pending.append((package, work)) }
+        }
 
+        // With cross-module links on, a package must be built *after* the hosted
+        // packages it depends on, so their archives can be passed as dependencies.
+        var dependencies: [String: Set<String>] = [:]   // repo → hosted repos it depends on
+        if crossModuleLinks && !pending.isEmpty {
+            log("🔗 cross-module links: resolving package dependency order")
+            for entry in pending {
+                let checkout = checkoutDirectory.appendingPathComponent(repoSlug(entry.package.repo))
+                // Check out first so the manifest is available to query.
+                let ref = entry.work[0].version.ref
+                try checkoutRepo(entry.package.repo, ref: ref, into: checkout, log: log)
+                dependencies[entry.package.repo] = hostedDependencies(in: checkout, log: log)
+            }
+            pending = Self.dependencyOrdered(pending, dependencies: dependencies, log: log)
+        }
+
+        var built: [String] = []
+        for entry in pending {
+            let package = entry.package
             let checkout = checkoutDirectory.appendingPathComponent(repoSlug(package.repo))
-            for (version, modules) in work {
+            for (version, modules) in entry.work {
                 log("📦 \(package.repo) @ \(version.ref) → \(modules.map(\.name).joined(separator: ", "))")
                 try checkoutRepo(package.repo, ref: version.ref, into: checkout, log: log)
                 try ensurePluginAvailable(in: checkout, repo: package.repo, log: log)
+                // Archives of the hosted packages this one depends on, for link
+                // resolution. Only ones already on disk (built earlier in this run,
+                // or cached from a previous one) are passed.
+                let dependencyArchives = crossModuleLinks
+                    ? existingDependencyArchives(for: package, dependencies: dependencies, in: archivesBase)
+                    : []
                 for module in modules {
                     let archive = DocCRenderPhase.archiveURL(module: module, version: version, in: archivesBase)
+                    // A package's own modules can reference each other too (e.g.
+                    // XCTFluent → FluentKit), and each is a separate DocC build, so
+                    // pass the siblings' archives alongside the dependencies'.
+                    let siblings = crossModuleLinks
+                        ? existingSiblingArchives(of: module, in: version, package: package, archivesBase: archivesBase)
+                        : []
                     try generate(module: module, package: package, version: version,
-                                 checkout: checkout, archive: archive, log: log)
+                                 checkout: checkout, archive: archive,
+                                 dependencyArchives: dependencyArchives + siblings, log: log)
                     built.append(module.name)
                 }
             }
         }
         return built
+    }
+
+    /// Order packages so every package follows the hosted packages it depends on
+    /// (Kahn's algorithm). Packages in a cycle — which SwiftPM shouldn't produce —
+    /// or with unknown edges are appended in their original order, so ordering can
+    /// never drop work.
+    static func dependencyOrdered(
+        _ pending: [(package: APIPackage, work: [(version: PackageVersion, modules: [Module])])],
+        dependencies: [String: Set<String>],
+        log: Log
+    ) -> [(package: APIPackage, work: [(version: PackageVersion, modules: [Module])])] {
+        let pendingRepos = Set(pending.map(\.package.repo))
+        // Only edges *within* the set being built constrain the order; anything
+        // already on disk is available regardless of when it was produced.
+        var remaining = pending
+        var ordered: [(package: APIPackage, work: [(version: PackageVersion, modules: [Module])])] = []
+        var placed: Set<String> = []
+
+        while !remaining.isEmpty {
+            let ready = remaining.filter { entry in
+                let deps = (dependencies[entry.package.repo] ?? []).intersection(pendingRepos)
+                return deps.subtracting(placed).isEmpty
+            }
+            guard !ready.isEmpty else {
+                // Cycle (or unresolvable edge): emit the rest in declaration order
+                // rather than failing the build.
+                log("⚠️  cross-module links: dependency cycle among \(remaining.map(\.package.repo).joined(separator: ", ")) — building in declared order")
+                ordered.append(contentsOf: remaining)
+                break
+            }
+            for entry in ready {
+                ordered.append(entry)
+                placed.insert(entry.package.repo)
+            }
+            let readyRepos = Set(ready.map(\.package.repo))
+            remaining.removeAll { readyRepos.contains($0.package.repo) }
+        }
+        return ordered
     }
 
     // MARK: Steps
@@ -173,6 +253,100 @@ public struct DocCArchiveBuilder: Sendable {
         }
         try git(["fetch", "--force", "--tags", "origin", ref], in: checkout, repo: repo, ref: ref, log: log)
         try git(["checkout", "--force", "--detach", "FETCH_HEAD"], in: checkout, repo: repo, ref: ref, log: log)
+    }
+
+    // MARK: Cross-module dependencies
+
+    /// The hosted packages a checkout depends on (transitively), as repo slugs.
+    ///
+    /// Reads SwiftPM's resolved dependency tree (`swift package show-dependencies`)
+    /// and keeps only the packages this site actually hosts — those are the ones
+    /// whose archives can resolve links. A failure here is non-fatal: the package
+    /// simply builds without dependency archives (links stay unresolved, as before).
+    func hostedDependencies(in checkout: URL, log: Log) -> Set<String> {
+        guard let json = try? runCapturing("swift", ["package", "show-dependencies", "--format", "json"], in: checkout),
+              let data = json.data(using: .utf8),
+              let root = try? JSONSerialization.jsonObject(with: data) else {
+            log("⚠️  cross-module links: couldn't read dependencies of \(checkout.lastPathComponent)")
+            return []
+        }
+        var urls: Set<String> = []
+        Self.collectDependencyURLs(root, into: &urls)
+
+        let hosted = Set(docc.packages.map { $0.repo.lowercased() })
+        var found: Set<String> = []
+        for url in urls {
+            guard let slug = Self.repoSlug(fromURL: url), hosted.contains(slug) else { continue }
+            // Map back to the configured casing.
+            if let match = docc.packages.first(where: { $0.repo.lowercased() == slug }) {
+                found.insert(match.repo)
+            }
+        }
+        return found
+    }
+
+    /// Walk `show-dependencies` JSON, collecting every dependency `url`.
+    private static func collectDependencyURLs(_ node: Any, into urls: inout Set<String>) {
+        guard let object = node as? [String: Any] else { return }
+        if let url = object["url"] as? String { urls.insert(url) }
+        if let children = object["dependencies"] as? [Any] {
+            for child in children { collectDependencyURLs(child, into: &urls) }
+        }
+    }
+
+    /// Normalise a git URL to a lower-cased `owner/name` slug, matching
+    /// ``APIPackage/repo`` (e.g. `https://github.com/vapor/sql-kit.git` →
+    /// `vapor/sql-kit`). Returns `nil` for anything without two path components.
+    static func repoSlug(fromURL url: String) -> String? {
+        var trimmed = url
+        if trimmed.hasSuffix(".git") { trimmed.removeLast(4) }
+        while trimmed.hasSuffix("/") { trimmed.removeLast() }
+        let parts = trimmed.split(separator: "/").map(String.init)
+        guard parts.count >= 2 else { return nil }
+        var owner = parts[parts.count - 2]
+        // SCP-style remotes (`git@github.com:owner/name`) fold the host into the
+        // owner component; keep only what follows the colon.
+        if let colon = owner.lastIndex(of: ":") { owner = String(owner[owner.index(after: colon)...]) }
+        return "\(owner)/\(parts[parts.count - 1])".lowercased()
+    }
+
+    /// Archive paths to pass as `--dependency` when building `package`: the
+    /// default-version archives of every hosted package it depends on that already
+    /// exist on disk. Cross-links point at the canonical (default) version, which
+    /// is what the site surfaces.
+    private func existingDependencyArchives(
+        for package: APIPackage,
+        dependencies: [String: Set<String>],
+        in archivesBase: URL
+    ) -> [URL] {
+        let fileManager = FileManager.default
+        var archives: [URL] = []
+        for repo in (dependencies[package.repo] ?? []).sorted() {
+            guard let dependency = docc.packages.first(where: { $0.repo == repo }) else { continue }
+            let version = dependency.defaultVersion
+            for module in version.modules {
+                let archive = DocCRenderPhase.archiveURL(module: module, version: version, in: archivesBase)
+                if fileManager.fileExists(atPath: archive.path) { archives.append(archive) }
+            }
+        }
+        return archives
+    }
+
+    /// Archives of the *other* modules this package ships in the same version, when
+    /// they already exist (built earlier in this run, or cached). Modules within a
+    /// package are built one target at a time, so a sibling's archive is what lets
+    /// links between them resolve.
+    private func existingSiblingArchives(
+        of module: Module,
+        in version: PackageVersion,
+        package: APIPackage,
+        archivesBase: URL
+    ) -> [URL] {
+        let fileManager = FileManager.default
+        return version.modules
+            .filter { $0.name != module.name }
+            .map { DocCRenderPhase.archiveURL(module: $0, version: version, in: archivesBase) }
+            .filter { fileManager.fileExists(atPath: $0.path) }
     }
 
     /// Inject the swift-docc-plugin into every Swift manifest variant that lacks
@@ -203,7 +377,7 @@ public struct DocCArchiveBuilder: Sendable {
     /// Run `swift package generate-documentation` for one module, writing the raw
     /// `.doccarchive` (no static-hosting transform) to `archive`.
     private func generate(module: Module, package: APIPackage, version: PackageVersion,
-                          checkout: URL, archive: URL, log: Log) throws {
+                          checkout: URL, archive: URL, dependencyArchives: [URL] = [], log: Log) throws {
         let fileManager = FileManager.default
         try? fileManager.removeItem(at: archive)
         try fileManager.createDirectory(at: archive.deletingLastPathComponent(), withIntermediateDirectories: true)
@@ -211,7 +385,7 @@ public struct DocCArchiveBuilder: Sendable {
         // No DOCC_HTML_DIR / --transform-for-static-hosting → the output is the
         // archive Kiln reads. Indexing stays ON so `index/index.json` (the sidebar
         // nav) is produced.
-        let args = [
+        var args = [
             "package",
             "--allow-writing-to-directory", archive.deletingLastPathComponent().path,
             "generate-documentation",
@@ -221,6 +395,17 @@ public struct DocCArchiveBuilder: Sendable {
             "--enable-experimental-overloaded-symbol-presentation",
             "--output-path", archive.path,
         ]
+        if crossModuleLinks {
+            // Emit link metadata so *this* archive can resolve links for its
+            // dependents, and consume the dependencies' metadata for its own.
+            args.append("--enable-experimental-external-link-support")
+            for dependency in dependencyArchives {
+                args.append(contentsOf: ["--dependency", dependency.path])
+            }
+            if !dependencyArchives.isEmpty {
+                log("   ↳ resolving links against \(dependencyArchives.count) dependency archive(s)")
+            }
+        }
         let status = try run("swift", args, in: checkout, log: log)
         guard status == 0 else {
             throw BuildError.generateFailed(module: module.name, repo: package.repo, ref: version.ref, status: status)
@@ -237,8 +422,16 @@ public struct DocCArchiveBuilder: Sendable {
     /// `generate-documentation` also bundles the swift-docc-render SPA
     /// (css/js/index.html/documentation/…) which Kiln never touches and which
     /// roughly triples the archive — pure dead weight in the (S3) cache.
+    ///
+    /// The external-link metadata (`linkable-entities.json`/`link-hierarchy.json`,
+    /// written only under ``crossModuleLinks``) is kept: a *cached* archive is
+    /// passed as a `--dependency` to its dependents on later builds, and without
+    /// this metadata those links would silently stop resolving.
     private func stripToKilnEssentials(_ archive: URL) throws {
-        let keep: Set<String> = ["metadata.json", "data", "index", "images", "videos", "downloads"]
+        let keep: Set<String> = [
+            "metadata.json", "data", "index", "images", "videos", "downloads",
+            "linkable-entities.json", "link-hierarchy.json",
+        ]
         let fileManager = FileManager.default
         for entry in try fileManager.contentsOfDirectory(atPath: archive.path) where !keep.contains(entry) {
             try? fileManager.removeItem(at: archive.appendingPathComponent(entry))
@@ -263,6 +456,27 @@ public struct DocCArchiveBuilder: Sendable {
         try process.run()
         process.waitUntilExit()
         return process.terminationStatus
+    }
+
+    /// Run a tool and capture its standard output (used for machine-readable
+    /// queries like `swift package show-dependencies --format json`). Throws on a
+    /// non-zero exit so callers can fall back.
+    private func runCapturing(_ tool: String, _ args: [String], in directory: URL) throws -> String {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+        process.arguments = [tool] + args
+        process.currentDirectoryURL = directory
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = FileHandle.nullDevice
+        try process.run()
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+        guard process.terminationStatus == 0 else {
+            throw BuildError.generateFailed(module: tool, repo: directory.lastPathComponent,
+                                            ref: "", status: process.terminationStatus)
+        }
+        return String(decoding: data, as: UTF8.self)
     }
 
     private func repoSlug(_ repo: String) -> String {

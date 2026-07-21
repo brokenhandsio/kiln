@@ -282,6 +282,44 @@ struct DocCRenderPhaseTests {
         #expect(!queue.contains("docc-extended-module"))
     }
 
+    @Test("The canonical path of an extended type is derived only where it's safe")
+    func canonicalExtendedTypePath() {
+        func rendered(kind: String?, extended: String?) -> RenderedDocC {
+            RenderedDocC(title: "T", roleHeading: nil, symbolKind: kind, abstractText: nil,
+                         contentHTML: "", availabilityHTML: "", deprecationHTML: "",
+                         extendedModule: extended, tableOfContents: [], breadcrumb: [])
+        }
+        // An extension's own page → the type's canonical path in the extended module.
+        #expect(DocCRenderPhase.canonicalExtendedTypePath(
+            pagePath: "/documentation/fluentsql/fluentkit/databasequery",
+            currentModule: "FluentSQL",
+            rendered: rendered(kind: "extension", extended: "FluentKit")
+        ) == "/documentation/fluentkit/databasequery")
+
+        // A *member* of that extension is the hosting module's own addition — it has
+        // no canonical page, so deriving one would 404.
+        #expect(DocCRenderPhase.canonicalExtendedTypePath(
+            pagePath: "/documentation/fluentsql/fluentkit/databasequery/somehelper",
+            currentModule: "FluentSQL",
+            rendered: rendered(kind: "property", extended: "FluentKit")
+        ) == nil)
+
+        // A plain (non-extension) symbol never derives one.
+        #expect(DocCRenderPhase.canonicalExtendedTypePath(
+            pagePath: "/documentation/fluentkit/model",
+            currentModule: "FluentKit",
+            rendered: rendered(kind: "protocol", extended: nil)
+        ) == nil)
+
+        // Defensive: if the path doesn't actually continue into the extended
+        // module, don't invent a link.
+        #expect(DocCRenderPhase.canonicalExtendedTypePath(
+            pagePath: "/documentation/fluentsql/somethingelse/x",
+            currentModule: "FluentSQL",
+            rendered: rendered(kind: "extension", extended: "FluentKit")
+        ) == nil)
+    }
+
     @Test("Symbol pages carry a breadcrumb trail (visible + BreadcrumbList JSON-LD)")
     func breadcrumbs() async throws {
         let output = try await buildSite()
