@@ -49,37 +49,33 @@ struct DocCArchiveBuilderTests {
     /// dependency's archive exists to be passed as `--dependency`.
     @Test("Packages are built in dependency order")
     func dependencyOrdering() {
-        func pkg(_ repo: String) -> (package: APIPackage, work: [(version: PackageVersion, modules: [Module])]) {
-            let p = APIPackage(repo, versions: [.single(ref: "main", modules: [Module(repo)])])
-            return (p, [(p.versions[0], p.versions[0].modules)])
+        func pkg(_ repo: String) -> APIPackage {
+            APIPackage(repo, versions: [.single(ref: "main", modules: [Module(repo)])])
         }
         // fluent-kit → sql-kit → nio (declared in the "wrong" order on purpose).
-        let pending = [pkg("vapor/fluent-kit"), pkg("vapor/sql-kit"), pkg("apple/swift-nio")]
+        let packages = [pkg("vapor/fluent-kit"), pkg("vapor/sql-kit"), pkg("apple/swift-nio")]
         let deps: [String: Set<String>] = [
             "vapor/fluent-kit": ["vapor/sql-kit", "apple/swift-nio"],
             "vapor/sql-kit": ["apple/swift-nio"],
             "apple/swift-nio": [],
         ]
-        let ordered = DocCArchiveBuilder.dependencyOrdered(pending, dependencies: deps, log: { _ in })
-            .map(\.package.repo)
+        let ordered = DocCArchiveBuilder.dependencyOrdered(packages, dependencies: deps, log: { _ in }).map(\.repo)
         #expect(ordered.firstIndex(of: "apple/swift-nio")! < ordered.firstIndex(of: "vapor/sql-kit")!)
         #expect(ordered.firstIndex(of: "vapor/sql-kit")! < ordered.firstIndex(of: "vapor/fluent-kit")!)
         #expect(ordered.count == 3)
     }
 
-    @Test("Dependencies outside the build set don't constrain the order, and cycles still build")
+    @Test("Unknown edges don't stall ordering, and cycles still build everything")
     func orderingEdgeCases() {
-        func pkg(_ repo: String) -> (package: APIPackage, work: [(version: PackageVersion, modules: [Module])]) {
-            let p = APIPackage(repo, versions: [.single(ref: "main", modules: [Module(repo)])])
-            return (p, [(p.versions[0], p.versions[0].modules)])
+        func pkg(_ repo: String) -> APIPackage {
+            APIPackage(repo, versions: [.single(ref: "main", modules: [Module(repo)])])
         }
-        // `vapor/vapor` depends on a package that isn't being rebuilt (already
-        // cached) — that must not stall it.
+        // A dependency that isn't among the ordered packages must not stall it.
         let cached = DocCArchiveBuilder.dependencyOrdered(
             [pkg("vapor/vapor")],
             dependencies: ["vapor/vapor": ["vapor/routing-kit"]],
             log: { _ in }
-        ).map(\.package.repo)
+        ).map(\.repo)
         #expect(cached == ["vapor/vapor"])
 
         // A cycle can't happen in SwiftPM, but must never drop work if it did.
@@ -87,7 +83,100 @@ struct DocCArchiveBuilderTests {
             [pkg("a/one"), pkg("b/two")],
             dependencies: ["a/one": ["b/two"], "b/two": ["a/one"]],
             log: { _ in }
-        ).map(\.package.repo)
+        ).map(\.repo)
         #expect(Set(cyclic) == ["a/one", "b/two"])
+    }
+
+    /// Cache invalidation: a cached archive must be rebuilt when it predates
+    /// cross-module linking, or when a dependency has been rebuilt since — otherwise
+    /// CI keeps serving archives whose cross-module links are absent or stale.
+    @Test("Archives are invalidated by missing link metadata and by newer dependencies")
+    func cacheInvalidation() throws {
+        let fm = FileManager.default
+        let sqlKit = APIPackage("vapor/sql-kit", versions: [.single(ref: "main", modules: [Module("SQLKit")])])
+        let fluent = APIPackage("vapor/fluent-kit", versions: [.single(ref: "main", modules: [Module("FluentKit")])])
+        let docc = DocCSite(packages: [sqlKit, fluent])
+
+        let content = fm.temporaryDirectory.appendingPathComponent("kiln-inval-\(UUID().uuidString)")
+        let archivesBase = content.appendingPathComponent("archives")
+        defer { try? fm.removeItem(at: content) }
+
+        // Stage two archives, both carrying link metadata.
+        func stage(_ package: APIPackage) throws -> URL {
+            let version = package.versions[0]
+            let archive = DocCRenderPhase.archiveURL(module: version.modules[0], version: version, in: archivesBase)
+            try fm.createDirectory(at: archive, withIntermediateDirectories: true)
+            try Data("{}".utf8).write(to: archive.appendingPathComponent("linkable-entities.json"))
+            try Data("{}".utf8).write(to: archive.appendingPathComponent("metadata.json"))
+            return archive
+        }
+        let sqlArchive = try stage(sqlKit)
+        let fluentArchive = try stage(fluent)
+
+        let builder = DocCArchiveBuilder(docc: docc, contentDirectory: content,
+                                         checkoutDirectory: content, crossModuleLinks: true)
+        let deps: [String: Set<String>] = ["vapor/fluent-kit": ["vapor/sql-kit"]]
+
+        // Both have metadata → neither is invalidated on that basis.
+        #expect(builder.lacksLinkMetadata(fluentArchive) == false)
+
+        // Baseline: what FluentKit's links were resolved against.
+        let baseline = builder.currentLinkInputs(for: fluent, dependencies: deps, archivesBase: archivesBase)
+        #expect(baseline.count == 1)
+        #expect(builder.linkInputsChanged(recorded: baseline, current: baseline) == false)
+
+        // Merely re-timestamping a dependency must NOT invalidate — a CI cache
+        // restore does exactly this, and rebuilding everything would defeat it.
+        try fm.setAttributes([.modificationDate: Date(timeIntervalSince1970: 9_999_999)],
+                             ofItemAtPath: sqlArchive.appendingPathComponent("linkable-entities.json").path)
+        let afterTouch = builder.currentLinkInputs(for: fluent, dependencies: deps, archivesBase: archivesBase)
+        #expect(builder.linkInputsChanged(recorded: baseline, current: afterTouch) == false)
+
+        // Changing the dependency's link *surface* does invalidate.
+        try Data("{\"symbols\":[\"new\"]}".utf8)
+            .write(to: sqlArchive.appendingPathComponent("linkable-entities.json"))
+        let afterChange = builder.currentLinkInputs(for: fluent, dependencies: deps, archivesBase: archivesBase)
+        #expect(builder.linkInputsChanged(recorded: baseline, current: afterChange) == true)
+
+        // A package with no dependencies is never invalidated this way, and an
+        // archive with no recorded baseline isn't either (it adopts one instead).
+        let none = builder.currentLinkInputs(for: sqlKit, dependencies: deps, archivesBase: archivesBase)
+        #expect(none.isEmpty)
+        #expect(builder.linkInputsChanged(recorded: nil, current: afterChange) == false)
+
+        // An archive built before the feature has no link metadata → rebuild.
+        try fm.removeItem(at: fluentArchive.appendingPathComponent("linkable-entities.json"))
+        #expect(builder.lacksLinkMetadata(fluentArchive) == true)
+    }
+
+    /// The state is cached beside the archives so a later build knows the edges of
+    /// packages it never checks out (and CI's archive cache carries it along).
+    @Test("Cross-module build state round-trips, and the earlier format still loads")
+    func linkStatePersistence() throws {
+        let site = KilnSite(name: "API", url: "https://api.example.com", docc: DocCSite(packages: [
+            APIPackage("vapor/fluent-kit", versions: [.single(ref: "main", modules: [Module("FluentKit")])]),
+        ]))
+        let base = FileManager.default.temporaryDirectory.appendingPathComponent("kiln-deps-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: base) }
+
+        let builder = DocCArchiveBuilder(docc: site.docc!, contentDirectory: base,
+                                         checkoutDirectory: base, crossModuleLinks: true)
+        #expect(builder.loadLinkState(base).dependencies.isEmpty)   // nothing cached yet
+
+        var state = DocCArchiveBuilder.LinkState()
+        state.dependencies = ["vapor/fluent-kit": ["apple/swift-nio", "vapor/sql-kit"]]
+        state.linkInputs = ["default/FluentKit.doccarchive": ["default/SQLKit.doccarchive": "abc123"]]
+        builder.saveLinkState(state, in: base, log: { _ in })
+
+        let loaded = builder.loadLinkState(base)
+        #expect(loaded.dependencies == state.dependencies)
+        #expect(loaded.linkInputs == state.linkInputs)
+
+        // An existing cache written in the earlier (bare graph) format still loads,
+        // so enabling this doesn't throw away a populated dependency graph.
+        try Data("{\"a/one\":[\"b/two\"]}".utf8)
+            .write(to: base.appendingPathComponent(".kiln-docc-dependencies.json"))
+        #expect(builder.loadLinkState(base).dependencies == ["a/one": ["b/two"]])
     }
 }

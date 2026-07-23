@@ -139,44 +139,88 @@ public struct DocCArchiveBuilder: Sendable {
         }
         try fileManager.createDirectory(at: checkoutDirectory, withIntermediateDirectories: true)
 
-        // What needs generating, per package.
-        var pending: [(package: APIPackage, work: [(version: PackageVersion, modules: [Module])])] = []
-        for package in docc.packages {
+        // Cross-module build state (dependency graph + the link surfaces each
+        // archive was built against), persisted beside the archives.
+        var state = crossModuleLinks ? loadLinkState(archivesBase) : LinkState()
+        var dependencies: [String: Set<String>] = state.dependencies.mapValues(Set.init)
+
+        // Packages that need *some* work regardless of the dependency graph. Their
+        // checkouts give us fresh edges before the order is decided.
+        if crossModuleLinks {
+            log("🔗 cross-module links: resolving package dependency order")
+            for package in docc.packages {
+                let needsWork = package.versions.contains { version in
+                    rebuild.forces(package: package, version: version) || version.modules.contains { module in
+                        let archive = DocCRenderPhase.archiveURL(module: module, version: version, in: archivesBase)
+                        return !fileManager.fileExists(atPath: archive.path) || lacksLinkMetadata(archive)
+                    }
+                }
+                let checkout = checkoutDirectory.appendingPathComponent(repoSlug(package.repo))
+                if needsWork, let ref = package.versions.first?.ref {
+                    try checkoutRepo(package.repo, ref: ref, into: checkout, log: log)
+                    dependencies[package.repo] = hostedDependencies(in: checkout, log: log)
+                } else if dependencies[package.repo] == nil,
+                          fileManager.fileExists(atPath: checkout.appendingPathComponent(".git").path) {
+                    // Backfill edges from a checkout we already have. Without this a
+                    // fully-built site never records its graph, so the staleness
+                    // cascade below would have nothing to work from. Packages with no
+                    // local checkout are left for whenever they're next built —
+                    // cloning them just to read a manifest isn't worth it.
+                    dependencies[package.repo] = hostedDependencies(in: checkout, log: log)
+                }
+            }
+        }
+
+        // Dependencies first, so a rebuilt archive's fresh timestamp is visible to
+        // its dependents as we walk — which is what makes staleness cascade.
+        let ordered = crossModuleLinks
+            ? Self.dependencyOrdered(docc.packages, dependencies: dependencies, log: log)
+            : docc.packages
+
+        var built: [String] = []
+        for package in ordered {
+            // Decide the work for this package *now* (not upfront): anything
+            // rebuilt earlier in this walk has already bumped its mtime.
             var work: [(version: PackageVersion, modules: [Module])] = []
             for version in package.versions {
                 let forced = rebuild.forces(package: package, version: version)
                 let modules = version.modules.filter { module in
                     let archive = DocCRenderPhase.archiveURL(module: module, version: version, in: archivesBase)
-                    return forced || !fileManager.fileExists(atPath: archive.path)
+                    if forced || !fileManager.fileExists(atPath: archive.path) { return true }
+                    guard crossModuleLinks else { return false }
+                    // Built before cross-module links were enabled: it can neither
+                    // resolve its own links nor serve as a dependency for others.
+                    if lacksLinkMetadata(archive) {
+                        log("♻️  \(module.name)@\(version.id): no link metadata — rebuilding")
+                        return true
+                    }
+                    // A dependency's link surface changed since this was built, so
+                    // its cross-module links may be stale or dangling.
+                    let key = archiveKey(archive, in: archivesBase)
+                    let current = currentLinkInputs(for: package, dependencies: dependencies, archivesBase: archivesBase)
+                    if linkInputsChanged(recorded: state.linkInputs[key], current: current) {
+                        log("♻️  \(module.name)@\(version.id): a dependency changed — rebuilding for fresh links")
+                        return true
+                    }
+                    // No baseline recorded (archive predates this tracking): adopt
+                    // the current inputs rather than forcing a mass rebuild.
+                    if state.linkInputs[key] == nil { state.linkInputs[key] = current }
+                    return false
                 }
                 if !modules.isEmpty { work.append((version, modules)) }
             }
-            if !work.isEmpty { pending.append((package, work)) }
-        }
+            guard !work.isEmpty else { continue }
 
-        // With cross-module links on, a package must be built *after* the hosted
-        // packages it depends on, so their archives can be passed as dependencies.
-        var dependencies: [String: Set<String>] = [:]   // repo → hosted repos it depends on
-        if crossModuleLinks && !pending.isEmpty {
-            log("🔗 cross-module links: resolving package dependency order")
-            for entry in pending {
-                let checkout = checkoutDirectory.appendingPathComponent(repoSlug(entry.package.repo))
-                // Check out first so the manifest is available to query.
-                let ref = entry.work[0].version.ref
-                try checkoutRepo(entry.package.repo, ref: ref, into: checkout, log: log)
-                dependencies[entry.package.repo] = hostedDependencies(in: checkout, log: log)
-            }
-            pending = Self.dependencyOrdered(pending, dependencies: dependencies, log: log)
-        }
-
-        var built: [String] = []
-        for entry in pending {
-            let package = entry.package
             let checkout = checkoutDirectory.appendingPathComponent(repoSlug(package.repo))
-            for (version, modules) in entry.work {
+            for (version, modules) in work {
                 log("📦 \(package.repo) @ \(version.ref) → \(modules.map(\.name).joined(separator: ", "))")
                 try checkoutRepo(package.repo, ref: version.ref, into: checkout, log: log)
                 try ensurePluginAvailable(in: checkout, repo: package.repo, log: log)
+                // A package pulled in by the staleness cascade hasn't had its edges
+                // read yet; record them so later builds can order and invalidate it.
+                if crossModuleLinks && dependencies[package.repo] == nil {
+                    dependencies[package.repo] = hostedDependencies(in: checkout, log: log)
+                }
                 // Archives of the hosted packages this one depends on, for link
                 // resolution. Only ones already on disk (built earlier in this run,
                 // or cached from a previous one) are passed.
@@ -195,10 +239,119 @@ public struct DocCArchiveBuilder: Sendable {
                                  checkout: checkout, archive: archive,
                                  dependencyArchives: dependencyArchives + siblings, log: log)
                     built.append(module.name)
+                    if crossModuleLinks {
+                        // Record the link surfaces this archive was just built
+                        // against, so a later change to any of them invalidates it.
+                        state.linkInputs[archiveKey(archive, in: archivesBase)] =
+                            currentLinkInputs(for: package, dependencies: dependencies, archivesBase: archivesBase)
+                    }
                 }
             }
         }
+        if crossModuleLinks {
+            state.dependencies = dependencies.mapValues { $0.sorted() }
+            saveLinkState(state, in: archivesBase, log: log)
+        }
         return built
+    }
+
+    // MARK: Cache invalidation
+
+    /// Whether an archive predates cross-module linking — no link metadata means it
+    /// can neither resolve its own cross-module links nor act as a dependency, so
+    /// leaving it cached would silently pin the site to the old behaviour.
+    func lacksLinkMetadata(_ archive: URL) -> Bool {
+        !FileManager.default.fileExists(atPath: archive.appendingPathComponent("linkable-entities.json").path)
+    }
+
+    /// A content hash of an archive's *link surface* — the `linkable-entities.json`
+    /// DocC writes under external-link support. That file is exactly what dependents
+    /// resolve their cross-module links against, so if it's unchanged their links
+    /// cannot have changed.
+    ///
+    /// Deliberately content-based, not timestamp-based: archives restored from a CI
+    /// cache get arbitrary mtimes, and a dependency that merely *looked* newer would
+    /// otherwise spuriously rebuild everything downstream — defeating the cache.
+    func linkSurfaceHash(_ archive: URL) -> String? {
+        guard let data = try? Data(contentsOf: archive.appendingPathComponent("linkable-entities.json")) else {
+            return nil
+        }
+        var hash: UInt64 = 0xcbf2_9ce4_8422_2325   // FNV-1a, matching DocCFingerprint
+        for byte in data {
+            hash ^= UInt64(byte)
+            hash = hash &* 0x0000_0100_0000_01b3
+        }
+        return String(hash, radix: 16)
+    }
+
+    /// A stable key for an archive inside the archives directory
+    /// (`<versionID>/<Module>.doccarchive`), so recorded state survives moves.
+    func archiveKey(_ archive: URL, in archivesBase: URL) -> String {
+        let base = archivesBase.standardizedFileURL.path
+        let path = archive.standardizedFileURL.path
+        guard path.hasPrefix(base) else { return archive.lastPathComponent }
+        return String(path.dropFirst(base.count)).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+    }
+
+    /// The current link-surface hashes of every archive `package` resolves against.
+    func currentLinkInputs(
+        for package: APIPackage,
+        dependencies: [String: Set<String>],
+        archivesBase: URL
+    ) -> [String: String] {
+        var inputs: [String: String] = [:]
+        for dependencyArchive in existingDependencyArchives(for: package, dependencies: dependencies, in: archivesBase) {
+            if let hash = linkSurfaceHash(dependencyArchive) {
+                inputs[archiveKey(dependencyArchive, in: archivesBase)] = hash
+            }
+        }
+        return inputs
+    }
+
+    /// Whether the link surface an archive was built against has since changed.
+    /// `recorded == nil` means there's no baseline yet (an archive from before this
+    /// tracking existed), in which case the caller adopts the current inputs as the
+    /// baseline rather than forcing a mass rebuild.
+    func linkInputsChanged(recorded: [String: String]?, current: [String: String]) -> Bool {
+        guard let recorded else { return false }
+        return recorded != current
+    }
+
+    /// Cross-module build state, kept with the archives so it travels with them
+    /// (including through CI's archive cache).
+    ///
+    /// - `dependencies`: repo → hosted repos it depends on, so a later build can
+    ///   order and invalidate packages it never checks out.
+    /// - `linkInputs`: archive key → the link-surface hashes it was built against,
+    ///   so a dependency's *content* change invalidates exactly its dependents.
+    struct LinkState: Codable {
+        var dependencies: [String: [String]] = [:]
+        var linkInputs: [String: [String: String]] = [:]
+    }
+
+    private func linkStateURL(in archivesBase: URL) -> URL {
+        archivesBase.appendingPathComponent(".kiln-docc-dependencies.json")
+    }
+
+    func loadLinkState(_ archivesBase: URL) -> LinkState {
+        guard let data = try? Data(contentsOf: linkStateURL(in: archivesBase)) else { return LinkState() }
+        if let state = try? JSONDecoder().decode(LinkState.self, from: data) { return state }
+        // Tolerate the earlier format (a bare repo → deps map) so an existing cache
+        // keeps its graph instead of silently re-deriving it.
+        if let legacy = try? JSONDecoder().decode([String: [String]].self, from: data) {
+            return LinkState(dependencies: legacy, linkInputs: [:])
+        }
+        return LinkState()
+    }
+
+    func saveLinkState(_ state: LinkState, in archivesBase: URL, log: Log) {
+        guard let data = try? JSONEncoder().encode(state) else { return }
+        try? FileManager.default.createDirectory(at: archivesBase, withIntermediateDirectories: true)
+        do {
+            try data.write(to: linkStateURL(in: archivesBase))
+        } catch {
+            log("⚠️  cross-module links: couldn't persist the cross-module build state (\(error))")
+        }
     }
 
     /// Order packages so every package follows the hosted packages it depends on
@@ -206,35 +359,32 @@ public struct DocCArchiveBuilder: Sendable {
     /// or with unknown edges are appended in their original order, so ordering can
     /// never drop work.
     static func dependencyOrdered(
-        _ pending: [(package: APIPackage, work: [(version: PackageVersion, modules: [Module])])],
+        _ packages: [APIPackage],
         dependencies: [String: Set<String>],
         log: Log
-    ) -> [(package: APIPackage, work: [(version: PackageVersion, modules: [Module])])] {
-        let pendingRepos = Set(pending.map(\.package.repo))
-        // Only edges *within* the set being built constrain the order; anything
-        // already on disk is available regardless of when it was produced.
-        var remaining = pending
-        var ordered: [(package: APIPackage, work: [(version: PackageVersion, modules: [Module])])] = []
+    ) -> [APIPackage] {
+        let known = Set(packages.map(\.repo))
+        var remaining = packages
+        var ordered: [APIPackage] = []
         var placed: Set<String> = []
 
         while !remaining.isEmpty {
-            let ready = remaining.filter { entry in
-                let deps = (dependencies[entry.package.repo] ?? []).intersection(pendingRepos)
+            let ready = remaining.filter { package in
+                // Only edges among the packages being ordered constrain us.
+                let deps = (dependencies[package.repo] ?? []).intersection(known)
                 return deps.subtracting(placed).isEmpty
             }
             guard !ready.isEmpty else {
                 // Cycle (or unresolvable edge): emit the rest in declaration order
                 // rather than failing the build.
-                log("⚠️  cross-module links: dependency cycle among \(remaining.map(\.package.repo).joined(separator: ", ")) — building in declared order")
+                log("⚠️  cross-module links: dependency cycle among \(remaining.map(\.repo).joined(separator: ", ")) — building in declared order")
                 ordered.append(contentsOf: remaining)
                 break
             }
-            for entry in ready {
-                ordered.append(entry)
-                placed.insert(entry.package.repo)
-            }
-            let readyRepos = Set(ready.map(\.package.repo))
-            remaining.removeAll { readyRepos.contains($0.package.repo) }
+            ordered.append(contentsOf: ready)
+            let readyRepos = Set(ready.map(\.repo))
+            placed.formUnion(readyRepos)
+            remaining.removeAll { readyRepos.contains($0.repo) }
         }
         return ordered
     }
