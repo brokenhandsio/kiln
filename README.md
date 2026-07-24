@@ -628,6 +628,47 @@ that already exist are reused; pass `rebuild:` to force). Call it before
 [`Examples/APIDocsSite`](Examples/APIDocsSite), which builds Kiln's own API
 reference this way.
 
+### Cross-module links
+
+By default, DocC builds each target independently, so a reference from one
+package into another — a cross-package `Conforms To`, a parameter type from a
+dependency, an `extension` of a foreign type — has no resolved URL and renders as
+**plain text**. Pass `crossModuleLinks: true` to `buildDocCArchives` to resolve
+those into real links:
+
+```swift
+try Kiln.buildDocCArchives(site, contentDirectory: "Content", crossModuleLinks: true)
+try await Kiln.build(site, contentDirectory: "Content", outputDirectory: "site")
+```
+
+How it works (all in Stage A — **rendering is unchanged**):
+
+- Each archive is built with DocC's experimental external-link support, which
+  writes link metadata other targets can resolve against.
+- Kiln reads each package's SwiftPM dependency graph and builds in **dependency
+  order**, passing every already-built dependency (and sibling module) archive to
+  its dependents, so their references resolve to `/<module>/…` on this site.
+- Only **hosted** modules resolve; references to Swift, Foundation, NIO, etc.
+  correctly stay plain text.
+
+An extension's page also gains links to the extended module and (for the type
+itself) to where that type is canonically documented.
+
+Requirements and trade-offs:
+
+- **Experimental**: relies on DocC's `--enable-experimental-external-link-support`
+  (Swift 6.0+). Works on Linux — it's a toolchain feature, not Xcode-gated.
+- **Slower**: the build is ordered rather than fully parallel, and adds link
+  metadata to every archive. Off by default for that reason.
+- **Cache-aware**: archives are invalidated when a dependency's link surface
+  changes (by content, so a CI cache restore doesn't trigger spurious rebuilds),
+  and archives built before the feature was enabled are rebuilt automatically.
+- **Version-aware**: with multi-version packages, a link from a page on one major
+  line lands on the target's matching line (a `5.x` page → the dependency's `5.x`
+  docs). The line is taken from ``PackageVersion``'s `line`, else inferred from its
+  `id`/`name` — set `line:` explicitly when a version's id doesn't encode the major
+  (e.g. a `main`-branch build).
+
 ## Output
 
 A build produces a static site with pretty ("directory") URLs:
