@@ -96,6 +96,91 @@ struct DocCURLsTests {
         #expect(fromQueues("/documentation/vaporextras/thing") == "/vaporextras/5-alpha/thing/")
     }
 
+    @Test("A version id's major line is its leading integer, or nil when it has none")
+    func versionLineParsing() {
+        #expect(DocCModuleRegistry.versionLine("4") == 4)
+        #expect(DocCModuleRegistry.versionLine("5-beta") == 5)
+        #expect(DocCModuleRegistry.versionLine("5-alpha") == 5)
+        #expect(DocCModuleRegistry.versionLine("6-rc.1") == 6)
+        #expect(DocCModuleRegistry.versionLine("10") == 10)
+        #expect(DocCModuleRegistry.versionLine("default") == nil)
+        #expect(DocCModuleRegistry.versionLine("main") == nil)
+        #expect(DocCModuleRegistry.versionLine("") == nil)
+    }
+
+    @Test("A version's major line comes from an explicit line, else the id, else the name")
+    func majorLineResolution() {
+        // Conventional ids parse directly.
+        #expect(PackageVersion("5-beta", ref: "main", modules: []).majorLine == 5)
+        #expect(PackageVersion("4", ref: "v4", isDefault: true, modules: []).majorLine == 4)
+        // A single-version package's synthetic "default" has no line.
+        #expect(PackageVersion.single(ref: "main", modules: []).majorLine == nil)
+        // A main-branch version whose id doesn't encode the major falls back to the
+        // display name ("5.0 (beta)" → 5) — the Vapor `vapor@main` case.
+        #expect(PackageVersion("latest", name: "5.0 (beta)", ref: "main", modules: []).majorLine == 5)
+        // …or an explicit line wins over everything, for when neither id nor name helps.
+        #expect(PackageVersion("edge", name: "Edge", ref: "main", line: 5, modules: []).majorLine == 5)
+        #expect(PackageVersion("5-beta", ref: "main", line: 4, modules: []).majorLine == 4)  // pinned to 4
+    }
+
+    @Test("Cross-package links prefer the target's matching major line")
+    func crossModuleLineMatching() {
+        // Two multi-version packages, each with a 4 (default) and a 5 line.
+        let site = DocCSite(packages: [
+            APIPackage("me/a", versions: [
+                PackageVersion("4", ref: "v4", isDefault: true, modules: [Module("AKit")]),
+                PackageVersion("5-beta", ref: "main", isPrerelease: true, modules: [Module("AKit")]),
+            ]),
+            APIPackage("me/b", versions: [
+                PackageVersion("4", ref: "v4", isDefault: true, modules: [Module("BKit")]),
+                PackageVersion("5-alpha", ref: "main", isPrerelease: true, modules: [Module("BKit")]),
+            ]),
+        ])
+        let registry = DocCModuleRegistry(site: site)
+
+        // AKit @ 5-beta (line 5) → BKit should land on B's line-5 (5-alpha), not v4.
+        let a5 = registry.linkMapper(current: DocCURLs(moduleName: "AKit",
+            version: PackageVersion("5-beta", ref: "main", isPrerelease: true, modules: [])),
+            currentPackageRepo: "me/a")
+        #expect(a5("/documentation/bkit/thing") == "/bkit/5-alpha/thing/")
+
+        // AKit @ 4 (default, line 4) → BKit's line-4 = its default (no segment).
+        let a4 = registry.linkMapper(current: DocCURLs(moduleName: "AKit",
+            version: PackageVersion("4", ref: "v4", isDefault: true, modules: [])),
+            currentPackageRepo: "me/a")
+        #expect(a4("/documentation/bkit/thing") == "/bkit/thing/")
+    }
+
+    @Test("A main-branch version routes by its resolved line, not its ref (the vapor@main case)")
+    func mainBranchVersionRouting() {
+        // Vapor gains a `main` line whose id doesn't encode the major; the display
+        // name supplies it. RoutingKit is a conventional 4/5-beta package.
+        let site = DocCSite(packages: [
+            APIPackage("vapor/vapor", versions: [
+                PackageVersion("4", name: "4.x", ref: "vapor4", isDefault: true, modules: [Module("Vapor")]),
+                PackageVersion("main", name: "5.0 (beta)", ref: "main", isPrerelease: true, modules: [Module("Vapor")]),
+            ]),
+            APIPackage("vapor/routing-kit", versions: [
+                PackageVersion("4", name: "4.x", ref: "v4", isDefault: true, modules: [Module("RoutingKit")]),
+                PackageVersion("5-beta", name: "5.0 (beta)", ref: "main", isPrerelease: true, modules: [Module("RoutingKit")]),
+            ]),
+        ])
+        let registry = DocCModuleRegistry(site: site)
+
+        // Vapor's `main` version (line 5 via its name) → RoutingKit 5-beta, despite
+        // the `main` ref carrying no version number.
+        let vaporMain = registry.linkMapper(current: DocCURLs(moduleName: "Vapor",
+            version: PackageVersion("main", name: "5.0 (beta)", ref: "main", isPrerelease: true, modules: [])),
+            currentPackageRepo: "vapor/vapor")
+        #expect(vaporMain("/documentation/routingkit/trierouter") == "/routingkit/5-beta/trierouter/")
+
+        // Vapor 4 → RoutingKit 4 (default).
+        let vapor4 = registry.linkMapper(current: DocCURLs(moduleName: "Vapor",
+            version: PackageVersion("4", name: "4.x", ref: "vapor4", isDefault: true, modules: [])),
+            currentPackageRepo: "vapor/vapor")
+        #expect(vapor4("/documentation/routingkit/trierouter") == "/routingkit/trierouter/")
+    }
+
     @Test("Asset paths mount under the current module; unhosted and external pass sensibly")
     func assetAndExternalMapping() {
         let registry = DocCModuleRegistry(site: site())

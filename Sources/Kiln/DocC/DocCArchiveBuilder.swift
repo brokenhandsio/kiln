@@ -197,7 +197,7 @@ public struct DocCArchiveBuilder: Sendable {
                     // A dependency's link surface changed since this was built, so
                     // its cross-module links may be stale or dangling.
                     let key = archiveKey(archive, in: archivesBase)
-                    let current = currentLinkInputs(for: package, dependencies: dependencies, archivesBase: archivesBase)
+                    let current = currentLinkInputs(for: package, dependencies: dependencies, forLine: version.majorLine, archivesBase: archivesBase)
                     if linkInputsChanged(recorded: state.linkInputs[key], current: current) {
                         log("♻️  \(module.name)@\(version.id): a dependency changed — rebuilding for fresh links")
                         return true
@@ -225,7 +225,7 @@ public struct DocCArchiveBuilder: Sendable {
                 // resolution. Only ones already on disk (built earlier in this run,
                 // or cached from a previous one) are passed.
                 let dependencyArchives = crossModuleLinks
-                    ? existingDependencyArchives(for: package, dependencies: dependencies, in: archivesBase)
+                    ? existingDependencyArchives(for: package, dependencies: dependencies, forLine: version.majorLine, in: archivesBase)
                     : []
                 for module in modules {
                     let archive = DocCRenderPhase.archiveURL(module: module, version: version, in: archivesBase)
@@ -243,7 +243,7 @@ public struct DocCArchiveBuilder: Sendable {
                         // Record the link surfaces this archive was just built
                         // against, so a later change to any of them invalidates it.
                         state.linkInputs[archiveKey(archive, in: archivesBase)] =
-                            currentLinkInputs(for: package, dependencies: dependencies, archivesBase: archivesBase)
+                            currentLinkInputs(for: package, dependencies: dependencies, forLine: version.majorLine, archivesBase: archivesBase)
                     }
                 }
             }
@@ -293,14 +293,16 @@ public struct DocCArchiveBuilder: Sendable {
         return String(path.dropFirst(base.count)).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
     }
 
-    /// The current link-surface hashes of every archive `package` resolves against.
+    /// The current link-surface hashes of every archive `package` (at major `line`)
+    /// resolves against.
     func currentLinkInputs(
         for package: APIPackage,
         dependencies: [String: Set<String>],
+        forLine line: Int?,
         archivesBase: URL
     ) -> [String: String] {
         var inputs: [String: String] = [:]
-        for dependencyArchive in existingDependencyArchives(for: package, dependencies: dependencies, in: archivesBase) {
+        for dependencyArchive in existingDependencyArchives(for: package, dependencies: dependencies, forLine: line, in: archivesBase) {
             if let hash = linkSurfaceHash(dependencyArchive) {
                 inputs[archiveKey(dependencyArchive, in: archivesBase)] = hash
             }
@@ -460,20 +462,31 @@ public struct DocCArchiveBuilder: Sendable {
         return "\(owner)/\(parts[parts.count - 1])".lowercased()
     }
 
-    /// Archive paths to pass as `--dependency` when building `package`: the
-    /// default-version archives of every hosted package it depends on that already
-    /// exist on disk. Cross-links point at the canonical (default) version, which
-    /// is what the site surfaces.
+    /// The version of a dependency to resolve links against when building the
+    /// `line`-major version of a dependent — the dependency's own version on the
+    /// same major line (Vapor 5 → RoutingKit 5), falling back to its default when
+    /// there's no matching line (the common single-version case).
+    func dependencyVersion(of dependency: APIPackage, forLine line: Int?) -> PackageVersion {
+        if let line, let match = dependency.versions.first(where: { DocCModuleRegistry.versionLine($0.id) == line }) {
+            return match
+        }
+        return dependency.defaultVersion
+    }
+
+    /// Archive paths to pass as `--dependency` when building `package` at the given
+    /// major `line`: every hosted package it depends on, at its matching-line
+    /// version, whose archive already exists on disk.
     private func existingDependencyArchives(
         for package: APIPackage,
         dependencies: [String: Set<String>],
+        forLine line: Int?,
         in archivesBase: URL
     ) -> [URL] {
         let fileManager = FileManager.default
         var archives: [URL] = []
         for repo in (dependencies[package.repo] ?? []).sorted() {
             guard let dependency = docc.packages.first(where: { $0.repo == repo }) else { continue }
-            let version = dependency.defaultVersion
+            let version = dependencyVersion(of: dependency, forLine: line)
             for module in version.modules {
                 let archive = DocCRenderPhase.archiveURL(module: module, version: version, in: archivesBase)
                 if fileManager.fileExists(atPath: archive.path) { archives.append(archive) }

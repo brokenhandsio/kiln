@@ -121,7 +121,7 @@ struct DocCArchiveBuilderTests {
         #expect(builder.lacksLinkMetadata(fluentArchive) == false)
 
         // Baseline: what FluentKit's links were resolved against.
-        let baseline = builder.currentLinkInputs(for: fluent, dependencies: deps, archivesBase: archivesBase)
+        let baseline = builder.currentLinkInputs(for: fluent, dependencies: deps, forLine: nil, archivesBase: archivesBase)
         #expect(baseline.count == 1)
         #expect(builder.linkInputsChanged(recorded: baseline, current: baseline) == false)
 
@@ -129,24 +129,49 @@ struct DocCArchiveBuilderTests {
         // restore does exactly this, and rebuilding everything would defeat it.
         try fm.setAttributes([.modificationDate: Date(timeIntervalSince1970: 9_999_999)],
                              ofItemAtPath: sqlArchive.appendingPathComponent("linkable-entities.json").path)
-        let afterTouch = builder.currentLinkInputs(for: fluent, dependencies: deps, archivesBase: archivesBase)
+        let afterTouch = builder.currentLinkInputs(for: fluent, dependencies: deps, forLine: nil, archivesBase: archivesBase)
         #expect(builder.linkInputsChanged(recorded: baseline, current: afterTouch) == false)
 
         // Changing the dependency's link *surface* does invalidate.
         try Data("{\"symbols\":[\"new\"]}".utf8)
             .write(to: sqlArchive.appendingPathComponent("linkable-entities.json"))
-        let afterChange = builder.currentLinkInputs(for: fluent, dependencies: deps, archivesBase: archivesBase)
+        let afterChange = builder.currentLinkInputs(for: fluent, dependencies: deps, forLine: nil, archivesBase: archivesBase)
         #expect(builder.linkInputsChanged(recorded: baseline, current: afterChange) == true)
 
         // A package with no dependencies is never invalidated this way, and an
         // archive with no recorded baseline isn't either (it adopts one instead).
-        let none = builder.currentLinkInputs(for: sqlKit, dependencies: deps, archivesBase: archivesBase)
+        let none = builder.currentLinkInputs(for: sqlKit, dependencies: deps, forLine: nil, archivesBase: archivesBase)
         #expect(none.isEmpty)
         #expect(builder.linkInputsChanged(recorded: nil, current: afterChange) == false)
 
         // An archive built before the feature has no link metadata → rebuild.
         try fm.removeItem(at: fluentArchive.appendingPathComponent("linkable-entities.json"))
         #expect(builder.lacksLinkMetadata(fluentArchive) == true)
+    }
+
+    /// Stage A must pass the dependency archive on the *same* major line as the
+    /// version being built, so a 5-line build resolves links against 5-line deps.
+    @Test("Dependency version selection matches the building major line")
+    func dependencyVersionSelection() {
+        let sqlKit = APIPackage("vapor/sql-kit", versions: [
+            PackageVersion("4", ref: "v4", isDefault: true, modules: [Module("SQLKit")]),
+            PackageVersion("5-beta", ref: "main", isPrerelease: true, modules: [Module("SQLKit")]),
+        ])
+        let asyncKit = APIPackage("vapor/async-kit", versions: [.single(ref: "main", modules: [Module("AsyncKit")])])
+        let builder = DocCArchiveBuilder(
+            docc: DocCSite(packages: [sqlKit, asyncKit]),
+            contentDirectory: URL(fileURLWithPath: "/tmp"), checkoutDirectory: URL(fileURLWithPath: "/tmp"),
+            crossModuleLinks: true)
+
+        // Building a line-5 dependent → SQLKit's 5-beta line.
+        #expect(builder.dependencyVersion(of: sqlKit, forLine: 5).id == "5-beta")
+        // Building a line-4 dependent → SQLKit's 4 line (its default).
+        #expect(builder.dependencyVersion(of: sqlKit, forLine: 4).id == "4")
+        // No line info, or a line the dependency doesn't have → its default.
+        #expect(builder.dependencyVersion(of: sqlKit, forLine: nil).id == "4")
+        #expect(builder.dependencyVersion(of: sqlKit, forLine: 6).id == "4")
+        // A single-version dependency always resolves to its lone default.
+        #expect(builder.dependencyVersion(of: asyncKit, forLine: 5).isDefault)
     }
 
     /// The state is cached beside the archives so a later build knows the edges of

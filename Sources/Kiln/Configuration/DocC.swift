@@ -186,6 +186,16 @@ public struct PackageVersion: Sendable {
     /// `nil`, ``badge`` infers it from the ``id``/``name`` (falling back to
     /// `"beta"`); ignored for stable versions.
     public var prereleaseLabel: String?
+    /// The major-version *line* this version belongs to, e.g. `4` or `5`. Used to
+    /// align cross-module links across packages: a page on a package's `line`-N
+    /// version links to the N-line of a multi-version dependency (Vapor 5 →
+    /// RoutingKit 5), instead of the dependency's default.
+    ///
+    /// When `nil` the line is inferred from ``id`` then ``name`` (see ``majorLine``),
+    /// which works for conventional ids like `"4"`/`"5-beta"`. Set it explicitly
+    /// when neither encodes the major — e.g. a `main`-branch version whose id is
+    /// `"latest"`, or a `main`-tracking `"4"` build that must stay on the 4 line.
+    public var line: Int?
     /// The modules this version ships. A package's target set can differ across
     /// major versions, so each version declares its own; reuse ``Module`` values
     /// across versions to avoid duplication.
@@ -199,6 +209,7 @@ public struct PackageVersion: Sendable {
         isPrerelease: Bool = false,
         deprecated: Bool = false,
         prereleaseLabel: String? = nil,
+        line: Int? = nil,
         modules: [Module]
     ) {
         self.id = id
@@ -208,7 +219,29 @@ public struct PackageVersion: Sendable {
         self.isPrerelease = isPrerelease
         self.deprecated = deprecated
         self.prereleaseLabel = prereleaseLabel
+        self.line = line
         self.modules = modules
+    }
+
+    /// This version's major line for cross-module link alignment: the explicit
+    /// ``line`` if set, else the leading integer inferred from ``id``, else from
+    /// ``name``. `nil` when none carry a number (e.g. a single-version package's
+    /// `"default"`, which never needs alignment).
+    public var majorLine: Int? {
+        line ?? Self.majorLine(fromString: id) ?? Self.majorLine(fromString: name)
+    }
+
+    /// The leading integer of a version string — `"4"`, `"5-beta"`, `"5.0 (rc)"`,
+    /// and `"6-rc.1"` yield 4/5/5/6; strings with no leading number yield `nil`.
+    public static func majorLine(fromString string: String) -> Int? {
+        var digits = ""
+        for character in string {
+            if character.isNumber { digits.append(character) }
+            else if !digits.isEmpty { break }
+            else if character == "." || character == "-" || character == "_" || character == " " { continue }
+            else { break }
+        }
+        return Int(digits)
     }
 
     /// The single default version for a package with no version switcher. Built
