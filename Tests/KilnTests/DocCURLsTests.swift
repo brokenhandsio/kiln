@@ -151,6 +151,44 @@ struct DocCURLsTests {
         #expect(a4("/documentation/bkit/thing") == "/bkit/thing/")
     }
 
+    @Test("An explicit dependency pin routes links to the pinned version, overriding line-matching")
+    func explicitPinRouting() {
+        // Vapor 5 pins routing-kit to `5-beta`, but sql-kit (single-version) to its
+        // default, and doesn't pin console-kit at all.
+        let site = DocCSite(packages: [
+            APIPackage("vapor/vapor", versions: [
+                PackageVersion("4", name: "4.x", ref: "vapor4", isDefault: true, dependencies: [
+                    DependencyPin("vapor/routing-kit", "4"),
+                    DependencyPin("vapor/sql-kit"),
+                ], modules: [Module("Vapor")]),
+                PackageVersion("5-beta", name: "5.0 (beta)", ref: "main", isPrerelease: true, dependencies: [
+                    DependencyPin("vapor/routing-kit", "5-beta"),
+                    DependencyPin("vapor/sql-kit"),
+                ], modules: [Module("Vapor")]),
+            ]),
+            APIPackage("vapor/routing-kit", versions: [
+                PackageVersion("4", name: "4.x", ref: "v4", isDefault: true, modules: [Module("RoutingKit")]),
+                PackageVersion("5-beta", name: "5.0 (beta)", ref: "main", isPrerelease: true, modules: [Module("RoutingKit")]),
+            ]),
+            APIPackage("vapor/sql-kit", versions: [.single(ref: "main", modules: [Module("SQLKit")])]),
+        ])
+        let registry = DocCModuleRegistry(site: site)
+
+        let vapor5 = registry.linkMapper(current: DocCURLs(moduleName: "Vapor",
+            version: PackageVersion("5-beta", name: "5.0 (beta)", ref: "main", isPrerelease: true, modules: [])),
+            currentPackageRepo: "vapor/vapor")
+        // Pinned to routing-kit 5-beta.
+        #expect(vapor5("/documentation/routingkit/trierouter") == "/routingkit/5-beta/trierouter/")
+        // Pinned to single-version sql-kit's default.
+        #expect(vapor5("/documentation/sqlkit/sqlquery") == "/sqlkit/sqlquery/")
+
+        let vapor4 = registry.linkMapper(current: DocCURLs(moduleName: "Vapor",
+            version: PackageVersion("4", name: "4.x", ref: "vapor4", isDefault: true, modules: [])),
+            currentPackageRepo: "vapor/vapor")
+        // Same-line pin, but explicit: routing-kit 4 (default → no segment).
+        #expect(vapor4("/documentation/routingkit/trierouter") == "/routingkit/trierouter/")
+    }
+
     @Test("A main-branch version routes by its resolved line, not its ref (the vapor@main case)")
     func mainBranchVersionRouting() {
         // Vapor gains a `main` line whose id doesn't encode the major; the display

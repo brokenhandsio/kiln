@@ -174,6 +174,7 @@ struct DocCRenderPhase {
                         let extendedModuleURL = rendered.extendedModule.flatMap {
                             registry.siteURL(forDocCPath: "/documentation/\($0.lowercased())",
                                              currentPackageRepo: package.repo,
+                                             currentVersionID: version.id,
                                              currentVersionSegment: version.urlSegment,
                                              currentVersionLine: urls.versionLine)
                         }
@@ -191,6 +192,7 @@ struct DocCRenderPhase {
                             else { return nil }
                             return registry.siteURL(forDocCPath: canonicalPath,
                                                     currentPackageRepo: package.repo,
+                                                    currentVersionID: version.id,
                                                     currentVersionSegment: version.urlSegment,
                                                     currentVersionLine: urls.versionLine)
                         }

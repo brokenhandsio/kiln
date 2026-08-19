@@ -65,6 +65,25 @@ struct DocCArchiveBuilderTests {
         #expect(ordered.count == 3)
     }
 
+    /// Within a package, a module must be built after the sibling modules it
+    /// depends on, so their archives exist to resolve links against.
+    @Test("Modules are ordered after the siblings they depend on")
+    func moduleOrdering() {
+        let modules = [Module("XCTFluent"), Module("FluentSQL"), Module("FluentKit")]  // "wrong" order
+        // Target deps as `swift package describe` reports them.
+        let deps: [String: Set<String>] = [
+            "XCTFluent": ["FluentKit"],
+            "FluentSQL": ["FluentKit"],
+            "FluentKit": [],
+        ]
+        let ordered = DocCArchiveBuilder.topologicallyOrdered(modules, key: \.name,
+                                                              dependencies: deps, subject: "module", log: { _ in })
+            .map(\.name)
+        #expect(ordered.first == "FluentKit")
+        #expect(ordered.firstIndex(of: "FluentKit")! < ordered.firstIndex(of: "FluentSQL")!)
+        #expect(ordered.firstIndex(of: "FluentKit")! < ordered.firstIndex(of: "XCTFluent")!)
+    }
+
     @Test("Unknown edges don't stall ordering, and cycles still build everything")
     func orderingEdgeCases() {
         func pkg(_ repo: String) -> APIPackage {
@@ -121,7 +140,7 @@ struct DocCArchiveBuilderTests {
         #expect(builder.lacksLinkMetadata(fluentArchive) == false)
 
         // Baseline: what FluentKit's links were resolved against.
-        let baseline = builder.currentLinkInputs(for: fluent, dependencies: deps, forLine: nil, archivesBase: archivesBase)
+        let baseline = builder.currentLinkInputs(for: fluent, version: fluent.defaultVersion, autoGraph: deps, archivesBase: archivesBase, log: { _ in })
         #expect(baseline.count == 1)
         #expect(builder.linkInputsChanged(recorded: baseline, current: baseline) == false)
 
@@ -129,24 +148,66 @@ struct DocCArchiveBuilderTests {
         // restore does exactly this, and rebuilding everything would defeat it.
         try fm.setAttributes([.modificationDate: Date(timeIntervalSince1970: 9_999_999)],
                              ofItemAtPath: sqlArchive.appendingPathComponent("linkable-entities.json").path)
-        let afterTouch = builder.currentLinkInputs(for: fluent, dependencies: deps, forLine: nil, archivesBase: archivesBase)
+        let afterTouch = builder.currentLinkInputs(for: fluent, version: fluent.defaultVersion, autoGraph: deps, archivesBase: archivesBase, log: { _ in })
         #expect(builder.linkInputsChanged(recorded: baseline, current: afterTouch) == false)
 
         // Changing the dependency's link *surface* does invalidate.
         try Data("{\"symbols\":[\"new\"]}".utf8)
             .write(to: sqlArchive.appendingPathComponent("linkable-entities.json"))
-        let afterChange = builder.currentLinkInputs(for: fluent, dependencies: deps, forLine: nil, archivesBase: archivesBase)
+        let afterChange = builder.currentLinkInputs(for: fluent, version: fluent.defaultVersion, autoGraph: deps, archivesBase: archivesBase, log: { _ in })
         #expect(builder.linkInputsChanged(recorded: baseline, current: afterChange) == true)
 
         // A package with no dependencies is never invalidated this way, and an
         // archive with no recorded baseline isn't either (it adopts one instead).
-        let none = builder.currentLinkInputs(for: sqlKit, dependencies: deps, forLine: nil, archivesBase: archivesBase)
+        let none = builder.currentLinkInputs(for: sqlKit, version: sqlKit.defaultVersion, autoGraph: deps, archivesBase: archivesBase, log: { _ in })
         #expect(none.isEmpty)
         #expect(builder.linkInputsChanged(recorded: nil, current: afterChange) == false)
 
         // An archive built before the feature has no link metadata → rebuild.
         try fm.removeItem(at: fluentArchive.appendingPathComponent("linkable-entities.json"))
         #expect(builder.lacksLinkMetadata(fluentArchive) == true)
+    }
+
+    /// Explicit pins drive which dependency versions Stage A passes; unknown pins
+    /// are skipped, and un-pinned versions fall back to the auto graph.
+    @Test("Explicit dependency pins select the pinned versions; auto is the fallback")
+    func explicitDependencyPins() {
+        let routingKit = APIPackage("vapor/routing-kit", versions: [
+            PackageVersion("4", ref: "v4", isDefault: true, modules: [Module("RoutingKit")]),
+            PackageVersion("5-beta", ref: "main", isPrerelease: true, modules: [Module("RoutingKit")]),
+        ])
+        let sqlKit = APIPackage("vapor/sql-kit", versions: [.single(ref: "main", modules: [Module("SQLKit")])])
+        let vapor = APIPackage("vapor/vapor", versions: [
+            // Pinned version.
+            PackageVersion("5-beta", ref: "main", isPrerelease: true, dependencies: [
+                DependencyPin("vapor/routing-kit", "5-beta"),
+                DependencyPin("vapor/sql-kit"),
+                DependencyPin("vapor/not-hosted"),          // skipped with a warning
+                DependencyPin("vapor/routing-kit", "9"),    // no such version → skipped
+            ], modules: [Module("Vapor")]),
+            // Un-pinned version → auto graph applies.
+            PackageVersion("4", ref: "vapor4", isDefault: true, modules: [Module("Vapor")]),
+        ])
+        let builder = DocCArchiveBuilder(
+            docc: DocCSite(packages: [routingKit, sqlKit, vapor]),
+            contentDirectory: URL(fileURLWithPath: "/tmp"), checkoutDirectory: URL(fileURLWithPath: "/tmp"),
+            crossModuleLinks: true)
+        let auto: [String: Set<String>] = ["vapor/vapor": ["vapor/routing-kit"]]
+
+        // Pinned version: routing-kit@5-beta + sql-kit@default; bad pins dropped.
+        let pinned = builder.linkDependencies(for: vapor, version: vapor.versions[0], autoGraph: auto, log: { _ in })
+            .map { "\($0.package.repo)@\($0.version.id)" }
+        #expect(pinned == ["vapor/routing-kit@5-beta", "vapor/sql-kit@default"])
+
+        // Un-pinned version: falls back to the auto graph, matched by line (4).
+        let autoResolved = builder.linkDependencies(for: vapor, version: vapor.versions[1], autoGraph: auto, log: { _ in })
+            .map { "\($0.package.repo)@\($0.version.id)" }
+        #expect(autoResolved == ["vapor/routing-kit@4"])
+
+        // Ordering edges union pins (5-beta) + auto (4) → routing-kit + sql-kit.
+        var edges: Set<String> = []
+        for version in vapor.versions { edges.formUnion(builder.linkDependencyRepos(for: vapor, version: version, autoGraph: auto)) }
+        #expect(edges == ["vapor/routing-kit", "vapor/sql-kit"])
     }
 
     /// Stage A must pass the dependency archive on the *same* major line as the

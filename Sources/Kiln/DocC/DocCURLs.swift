@@ -24,11 +24,15 @@ public struct DocCURLs: Sendable {
     /// This version's major line (see ``DocCModuleRegistry/versionLine(_:)``), for
     /// routing cross-package links to the target's matching line.
     public let versionLine: Int?
+    /// This version's ``PackageVersion/id`` (e.g. `"5-beta"`), for looking up its
+    /// explicit dependency pins.
+    public let versionID: String
 
     public init(moduleName: String, version: PackageVersion, basePath: String = "") {
         self.moduleSegment = moduleName.lowercased()
         self.versionSegment = version.urlSegment
         self.versionLine = version.majorLine
+        self.versionID = version.id
         self.basePath = SiteURLs.normaliseBasePath(basePath)
     }
 
@@ -123,6 +127,10 @@ public struct DocCHostedModule: Sendable {
     /// target (a Vapor-5 page → RoutingKit 5), falling back to the canonical
     /// version when there's no line match.
     public var segmentByLine: [Int: String]
+    /// Every version *id* this module appears in, mapped to that version's URL
+    /// segment — e.g. RoutingKit `["4": "", "5-beta": "5-beta/"]`. Used to resolve
+    /// an explicit ``DependencyPin`` to a URL segment.
+    public var segmentByID: [String: String]
 }
 
 /// The registry of every module a ``DocCSite`` hosts, plus the link-mapping logic
@@ -136,19 +144,33 @@ public struct DocCHostedModule: Sendable {
 public struct DocCModuleRegistry: Sendable {
     /// Hosted modules keyed by their DocC namespace (the lower-cased module name).
     public let modules: [String: DocCHostedModule]
+    /// Explicit cross-module link pins, `sourceRepo → sourceVersionID → depRepo →
+    /// depVersionID?` (a `nil` inner value means the dependency's default version).
+    /// Authoritative when present; otherwise ``siteURL(forDocCPath:...)`` falls back
+    /// to major-line matching.
+    public let pins: [String: [String: [String: String?]]]
     /// The site mount path, normalised.
     public let basePath: String
 
     public init(site: DocCSite, basePath: String = "") {
         self.basePath = SiteURLs.normaliseBasePath(basePath)
         var modules: [String: DocCHostedModule] = [:]
+        var pins: [String: [String: [String: String?]]] = [:]
         for package in site.packages {
-            // Every version line each of the package's modules appears in.
+            // Every version line / id each of the package's modules appears in.
             var linesByModule: [String: [Int: String]] = [:]
+            var idsByModule: [String: [String: String]] = [:]
             for version in package.versions {
-                guard let line = version.majorLine else { continue }
                 for module in version.modules {
-                    linesByModule[module.name.lowercased(), default: [:]][line] = version.urlSegment
+                    let key = module.name.lowercased()
+                    if let line = version.majorLine { linesByModule[key, default: [:]][line] = version.urlSegment }
+                    idsByModule[key, default: [:]][version.id] = version.urlSegment
+                }
+                // Record this version's declared dependency pins.
+                if let declared = version.dependencies {
+                    var byDep: [String: String?] = [:]
+                    for pin in declared { byDep[pin.repo] = pin.versionID }
+                    pins[package.repo, default: [:]][version.id] = byDep
                 }
             }
             for (module, version) in package.surfacedModules {
@@ -157,11 +179,13 @@ public struct DocCModuleRegistry: Sendable {
                     moduleSegment: segment,
                     packageRepo: package.repo,
                     canonicalVersionSegment: version.urlSegment,
-                    segmentByLine: linesByModule[segment] ?? [:]
+                    segmentByLine: linesByModule[segment] ?? [:],
+                    segmentByID: idsByModule[segment] ?? [:]
                 )
             }
         }
         self.modules = modules
+        self.pins = pins
     }
 
     /// The major-version *line* inferred from a version string (the leading
@@ -182,11 +206,13 @@ public struct DocCModuleRegistry: Sendable {
     /// package/version of the page doing the linking. Returns `nil` if the target
     /// module isn't hosted (an external/unresolved reference).
     ///
-    /// `currentVersionLine` is the major line of the page doing the linking (see
-    /// ``versionLine(_:)``); a cross-package link prefers the target's same-line
-    /// version so a Vapor-5 page links to RoutingKit 5, not RoutingKit 4.
+    /// The version target is resolved, in order: an explicit ``DependencyPin`` on the
+    /// source version (via ``pins``); else the target's same-major-line version
+    /// (`currentVersionLine`), so a Vapor-5 page links to RoutingKit 5; else the
+    /// target's canonical version.
     public func siteURL(forDocCPath path: String, currentPackageRepo: String,
-                        currentVersionSegment: String, currentVersionLine: Int? = nil) -> String? {
+                        currentVersionID: String = "", currentVersionSegment: String,
+                        currentVersionLine: Int? = nil) -> String? {
         let prefix = "/documentation/"
         guard path.hasPrefix(prefix) else { return nil }
         let rest = path.dropFirst(prefix.count)
@@ -198,8 +224,13 @@ public struct DocCModuleRegistry: Sendable {
         if hosted.packageRepo == currentPackageRepo {
             // Same package → stay on the current version.
             versionSegment = currentVersionSegment
+        } else if let declared = pins[currentPackageRepo]?[currentVersionID],
+                  declared.keys.contains(hosted.packageRepo) {
+            // The source version explicitly pins this dependency.
+            let pinnedID = declared[hosted.packageRepo] ?? nil
+            versionSegment = pinnedID.flatMap { hosted.segmentByID[$0] } ?? hosted.canonicalVersionSegment
         } else if let line = currentVersionLine, let matched = hosted.segmentByLine[line] {
-            // Different package → prefer its version on the same major line.
+            // No pin → prefer the target's version on the same major line.
             versionSegment = matched
         } else {
             // No line match → the module's canonical (default, or pre-release-only) version.
@@ -222,6 +253,7 @@ public struct DocCModuleRegistry: Sendable {
         let moduleRoot = current.moduleRootURL
         let currentVersionSegment = current.versionSegment
         let currentVersionLine = current.versionLine
+        let currentVersionID = current.versionID
         return { path in
             if path.hasPrefix("http://") || path.hasPrefix("https://") || path.hasPrefix("mailto:") {
                 return path
@@ -230,6 +262,7 @@ public struct DocCModuleRegistry: Sendable {
                 return registry.siteURL(
                     forDocCPath: path,
                     currentPackageRepo: currentPackageRepo,
+                    currentVersionID: currentVersionID,
                     currentVersionSegment: currentVersionSegment,
                     currentVersionLine: currentVersionLine
                 ) ?? path

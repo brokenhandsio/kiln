@@ -157,6 +157,33 @@ public struct APIPackage: Sendable {
     }
 }
 
+/// A cross-module link target: one hosted package a ``PackageVersion`` depends on,
+/// and which of *that* package's versions its links resolve against.
+///
+/// Declaring dependencies explicitly (via ``PackageVersion/dependencies``) is how a
+/// multi-version site lines links up deterministically — e.g. "Vapor 5 links to
+/// RoutingKit's `5-beta` docs, and to the single-version SQLKit's default":
+///
+/// ```swift
+/// PackageVersion("5-beta", ref: "main", isPrerelease: true, dependencies: [
+///     DependencyPin("vapor/routing-kit", "5-beta"),
+///     DependencyPin("vapor/sql-kit"),   // single-version → its default
+/// ], modules: [vapor])
+/// ```
+public struct DependencyPin: Sendable {
+    /// The dependency's repo (e.g. `"vapor/routing-kit"`); must be a package hosted
+    /// by the same ``DocCSite``.
+    public var repo: String
+    /// Which of the dependency's versions to link against — a ``PackageVersion/id``
+    /// (`"5-beta"`), or `nil` for its default version (the single-version case).
+    public var versionID: String?
+
+    public init(_ repo: String, _ versionID: String? = nil) {
+        self.repo = repo
+        self.versionID = versionID
+    }
+}
+
 /// A version line of an ``APIPackage`` — a named git ref that Kiln builds and
 /// exposes in the version switcher.
 ///
@@ -195,7 +222,20 @@ public struct PackageVersion: Sendable {
     /// which works for conventional ids like `"4"`/`"5-beta"`. Set it explicitly
     /// when neither encodes the major — e.g. a `main`-branch version whose id is
     /// `"latest"`, or a `main`-tracking `"4"` build that must stay on the 4 line.
+    ///
+    /// Only consulted for versions that *don't* declare ``dependencies`` — an
+    /// explicit dependency list pins the target versions directly, so no inference
+    /// is needed.
     public var line: Int?
+    /// The hosted packages this version depends on, and which of *their* versions
+    /// its cross-module links resolve against (see ``DependencyPin``).
+    ///
+    /// When set, this is authoritative for the version — it drives build order, the
+    /// dependency archives passed for link resolution, and where cross-module links
+    /// point. `nil` (the default) falls back to Kiln reading the SwiftPM dependency
+    /// graph and matching versions by ``majorLine``; `[]` means the version links to
+    /// no other hosted package.
+    public var dependencies: [DependencyPin]?
     /// The modules this version ships. A package's target set can differ across
     /// major versions, so each version declares its own; reuse ``Module`` values
     /// across versions to avoid duplication.
@@ -210,6 +250,7 @@ public struct PackageVersion: Sendable {
         deprecated: Bool = false,
         prereleaseLabel: String? = nil,
         line: Int? = nil,
+        dependencies: [DependencyPin]? = nil,
         modules: [Module]
     ) {
         self.id = id
@@ -220,6 +261,7 @@ public struct PackageVersion: Sendable {
         self.deprecated = deprecated
         self.prereleaseLabel = prereleaseLabel
         self.line = line
+        self.dependencies = dependencies
         self.modules = modules
     }
 
@@ -323,6 +365,9 @@ public enum DocCConfigurationError: Error, CustomStringConvertible {
     case emptyVersionID(repo: String)
     case invalidVersionID(repo: String, id: String)
     case duplicateVersionID(repo: String, id: String)
+    case dependencyPinToUnknownPackage(repo: String, versionID: String, pinnedRepo: String)
+    case dependencyPinToUnknownVersion(repo: String, versionID: String, pinnedRepo: String, pinnedID: String)
+    case dependencyPinToSelf(repo: String, versionID: String)
 
     public var description: String {
         switch self {
@@ -346,6 +391,12 @@ public enum DocCConfigurationError: Error, CustomStringConvertible {
             return "Every version of package '\(repo)' must have a non-empty id."
         case .invalidVersionID(let repo, let id):
             return "Version id '\(id)' of package '\(repo)' is invalid: ids must not contain '/' or whitespace."
+        case .dependencyPinToUnknownPackage(let repo, let versionID, let pinnedRepo):
+            return "DocC package \"\(repo)\" version \"\(versionID)\" pins dependency \"\(pinnedRepo)\", which isn't a hosted package."
+        case .dependencyPinToUnknownVersion(let repo, let versionID, let pinnedRepo, let pinnedID):
+            return "DocC package \"\(repo)\" version \"\(versionID)\" pins \"\(pinnedRepo)@\(pinnedID)\", but that package has no version \"\(pinnedID)\"."
+        case .dependencyPinToSelf(let repo, let versionID):
+            return "DocC package \"\(repo)\" version \"\(versionID)\" pins itself as a dependency."
         case .duplicateVersionID(let repo, let id):
             return "Duplicate version id '\(id)' in package '\(repo)'. Version ids must be unique within a package."
         }
@@ -379,6 +430,30 @@ extension DocCSite {
                 }
             }
             try validateVersions(package)
+        }
+        try validateDependencyPins()
+    }
+
+    /// Every ``DependencyPin`` must name a hosted package (not itself) and, when a
+    /// version id is given, an existing version of it.
+    private func validateDependencyPins() throws {
+        let versionsByRepo = Dictionary(uniqueKeysWithValues: packages.map { ($0.repo, Set($0.versions.map(\.id))) })
+        for package in packages {
+            for version in package.versions {
+                for pin in version.dependencies ?? [] {
+                    guard let pinnedVersions = versionsByRepo[pin.repo] else {
+                        throw DocCConfigurationError.dependencyPinToUnknownPackage(
+                            repo: package.repo, versionID: version.id, pinnedRepo: pin.repo)
+                    }
+                    if pin.repo == package.repo {
+                        throw DocCConfigurationError.dependencyPinToSelf(repo: package.repo, versionID: version.id)
+                    }
+                    if let id = pin.versionID, !pinnedVersions.contains(id) {
+                        throw DocCConfigurationError.dependencyPinToUnknownVersion(
+                            repo: package.repo, versionID: version.id, pinnedRepo: pin.repo, pinnedID: id)
+                    }
+                }
+            }
         }
     }
 
