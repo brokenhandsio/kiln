@@ -13,6 +13,7 @@
 ///     Link("API Docs", "https://api.vapor.codes")
 /// }
 /// ```
+@nonexhaustive
 public indirect enum NavItem: Sendable {
     /// A documentation page backed by a markdown file (path relative to the
     /// content directory).

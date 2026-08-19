@@ -31,6 +31,31 @@ struct DocCConfigurationTests {
         #expect(site.docc?.allModules.count == 3)
     }
 
+    @Test("Valid dependency pins pass validation; bad ones are rejected with a clear error")
+    func dependencyPinValidation() throws {
+        func site(_ pins: [DependencyPin]) -> KilnSite {
+            KilnSite(name: "API", url: "https://api.example.com", docc: DocCSite(packages: [
+                APIPackage("vapor/vapor", versions: [
+                    PackageVersion("5-beta", ref: "main", isDefault: true, dependencies: pins, modules: [Module("Vapor")]),
+                ]),
+                APIPackage("vapor/routing-kit", versions: [
+                    PackageVersion("4", ref: "v4", isDefault: true, modules: [Module("RoutingKit")]),
+                    PackageVersion("5-beta", ref: "main", isPrerelease: true, modules: [Module("RoutingKit")]),
+                ]),
+                APIPackage("vapor/sql-kit", versions: [.single(ref: "main", modules: [Module("SQLKit")])]),
+            ]))
+        }
+        // Valid: hosted package + existing version id, and a version-less pin.
+        try site([DependencyPin("vapor/routing-kit", "5-beta"), DependencyPin("vapor/sql-kit")]).validate()
+
+        // Unknown package.
+        #expect(throws: DocCConfigurationError.self) { try site([DependencyPin("vapor/not-hosted")]).validate() }
+        // Unknown version of a hosted package.
+        #expect(throws: DocCConfigurationError.self) { try site([DependencyPin("vapor/routing-kit", "9")]).validate() }
+        // Pinning itself.
+        #expect(throws: DocCConfigurationError.self) { try site([DependencyPin("vapor/vapor", "5-beta")]).validate() }
+    }
+
     @Test("Single-version shorthand synthesises one default version")
     func shorthandDefaultVersion() {
         let package = APIPackage("vapor/leaf-kit", versions: [.single(ref: "main", modules: [Module("LeafKit")])])

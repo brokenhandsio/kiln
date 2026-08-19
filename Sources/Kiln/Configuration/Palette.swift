@@ -5,6 +5,7 @@
 /// the three-way palette toggle in Vapor's current Material setup.
 public struct Palette: Sendable, Equatable {
     /// Which scheme to show before the visitor expresses a preference.
+    @nonexhaustive
     public enum Mode: String, Sendable {
         /// Follow the operating system's `prefers-color-scheme`.
         case auto

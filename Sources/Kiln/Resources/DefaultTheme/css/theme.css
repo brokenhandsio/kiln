@@ -654,7 +654,8 @@ details.admonition > summary.admonition-title::-webkit-details-marker { display:
     letter-spacing: 0.06em;
     color: var(--accent);
 }
-/* Extended-module badge: which foreign module a cross-module extension extends. */
+/* Extended-module badge: which foreign module a cross-module extension extends.
+   Links to that module's docs when it's hosted on this site. */
 .docc-extended-module {
     display: inline-block;
     margin-inline-start: 0.7em;
@@ -666,6 +667,11 @@ details.admonition > summary.admonition-title::-webkit-details-marker { display:
     letter-spacing: 0.03em;
     vertical-align: middle;
 }
+a.docc-extended-module:hover { color: var(--accent); text-decoration: none; }
+
+/* An extension's title links to where that type is canonically documented. */
+a.docc-canonical-type { color: inherit; }
+a.docc-canonical-type:hover { color: var(--accent); text-decoration: none; }
 .docc-header h1 { margin-bottom: 0; overflow-wrap: anywhere; }
 h1.docc-symbol-title { font-family: var(--kiln-font-code); font-size: 1.65rem; font-weight: 600; }
 

@@ -11,6 +11,7 @@ public struct SocialLink: Sendable {
 
 /// Known social icons. The default theme ships inline SVGs for these; use
 /// `.custom` to reference an icon name your own theme provides.
+@nonexhaustive
 public enum SocialIcon: Sendable, Equatable {
     case twitter
     case mastodon

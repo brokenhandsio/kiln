@@ -9,6 +9,7 @@
 /// Language(.german)
 /// Language(.custom(code: "gd", name: "Gàidhlig"))
 /// ```
+@nonexhaustive
 public enum LanguageCode: Sendable, Equatable {
     case english
     case german

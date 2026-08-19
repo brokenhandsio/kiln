@@ -6,6 +6,7 @@
 
 /// A span of inline content: text, styled runs, inline code, links, and symbol
 /// references.
+@nonexhaustive
 public enum RenderInlineContent: Sendable {
     /// Plain text.
     case text(String)
@@ -75,6 +76,7 @@ extension RenderInlineContent: Decodable {
 
 /// A block of content: paragraphs, headings, code listings, asides, lists,
 /// tables, and term lists.
+@nonexhaustive
 public enum RenderBlockContent: Sendable {
     /// A paragraph of inline content.
     case paragraph([RenderInlineContent])

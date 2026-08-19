@@ -84,6 +84,7 @@ public struct DocCPage: Sendable {
 /// A fatal error loading a ``DocCArchive`` (structural problems that make the
 /// archive unusable). Per-page decode failures are non-fatal and collected in
 /// ``DocCArchive/loadIssues`` instead.
+@nonexhaustive
 public enum DocCArchiveError: Error, CustomStringConvertible {
     case archiveNotFound(URL)
     case missingMetadata(URL)

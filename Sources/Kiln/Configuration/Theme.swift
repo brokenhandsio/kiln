@@ -16,6 +16,7 @@ public struct Fonts: Sendable, Equatable {
 
 /// Optional theme features that can be toggled on, mirroring MkDocs Material's
 /// `theme.features` list.
+@nonexhaustive
 public enum ThemeFeature: String, Sendable, Hashable {
     /// Show search suggestions as the visitor types.
     case searchSuggest = "search.suggest"
@@ -41,6 +42,7 @@ public enum ThemeFeature: String, Sendable, Hashable {
 /// individual templates locally. Resolution order is:
 /// custom directory → shared layers (in order) → bundled default.
 public struct Theme: Sendable {
+    @nonexhaustive
     public enum Source: Sendable {
         /// Use Kiln's bundled default theme.
         case `default`

@@ -1,6 +1,7 @@
 /// A navigation entry resolved for a specific language: titles translated,
 /// URLs computed, ready to render.
 public struct NavNode: Sendable {
+    @nonexhaustive
     public enum Kind: String, Sendable {
         case page, section, link
     }

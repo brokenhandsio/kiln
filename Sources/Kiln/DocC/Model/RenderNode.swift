@@ -57,6 +57,7 @@ public struct RenderNode: Decodable, Sendable {
     /// Kiln renders ``symbol`` and ``article`` today; tutorial-family kinds are
     /// recognised so they can be skipped deliberately, and anything else lands in
     /// ``unknown``.
+    @nonexhaustive
     public enum Kind: Sendable, Equatable {
         case symbol
         case article

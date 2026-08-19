@@ -78,18 +78,28 @@ public enum Kiln {
     /// when you want a single command to produce archives *and* the site. CI can
     /// instead restore cached archives and pass `rebuild:` to regenerate only what
     /// changed.
+    /// - Parameter crossModuleLinks: resolve links *between* hosted modules (a
+    ///   symbol's cross-module "Conforms To", a foreign type it extends, …) rather
+    ///   than rendering them as plain text. Builds each archive with DocC's
+    ///   experimental external-link support, in package-dependency order, passing
+    ///   each dependency's archive to its dependents. Rendering is unchanged — the
+    ///   resolved URLs route through the existing module registry — but the build
+    ///   is ordered (so slower) and relies on an experimental DocC feature, so it's
+    ///   opt-in.
     @discardableResult
     public static func buildDocCArchives(
         _ site: KilnSite,
         contentDirectory: String,
         checkoutDirectory: String = ".build/docc-sources",
-        rebuild: DocCArchiveBuilder.Rebuild = .missing
+        rebuild: DocCArchiveBuilder.Rebuild = .missing,
+        crossModuleLinks: Bool = false
     ) throws -> [String] {
         guard let docc = site.docc else { return [] }
         let builder = DocCArchiveBuilder(
             docc: docc,
             contentDirectory: URL(fileURLWithPath: contentDirectory),
-            checkoutDirectory: URL(fileURLWithPath: checkoutDirectory)
+            checkoutDirectory: URL(fileURLWithPath: checkoutDirectory),
+            crossModuleLinks: crossModuleLinks
         )
         return try builder.build(rebuild: rebuild)
     }

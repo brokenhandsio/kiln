@@ -2,6 +2,7 @@ public import Foundation
 public import LeafKit
 
 /// Errors thrown while resolving the theme.
+@nonexhaustive
 public enum ThemeError: Error, CustomStringConvertible {
     case bundledThemeMissing
     case customThemeDirectoryNotFound(String)
