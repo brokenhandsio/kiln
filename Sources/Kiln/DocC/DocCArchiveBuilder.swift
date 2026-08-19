@@ -464,6 +464,17 @@ public struct DocCArchiveBuilder: Sendable {
         }
         try git(["fetch", "--force", "--tags", "origin", ref], in: checkout, repo: repo, ref: ref, log: log)
         try git(["checkout", "--force", "--detach", "FETCH_HEAD"], in: checkout, repo: repo, ref: ref, log: log)
+
+        // A repo may pin a specific dev-snapshot toolchain in `.swift-version`
+        // (e.g. Vapor's `main`). SwiftPM/swiftly honour that pin and fail the
+        // whole build when that exact snapshot isn't installed. The docs build
+        // deliberately selects its own toolchain (via PATH), so drop the pin and
+        // let the active toolchain win.
+        let swiftVersion = checkout.appendingPathComponent(".swift-version")
+        if fileManager.fileExists(atPath: swiftVersion.path) {
+            try? fileManager.removeItem(at: swiftVersion)
+            log("🧹 removed .swift-version pin from \(repo) — using the active toolchain")
+        }
     }
 
     // MARK: Cross-module dependencies
