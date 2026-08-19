@@ -3,6 +3,7 @@
 // decode to `.unknown` (recorded via ``DocCDiagnostics``) rather than throwing.
 
 /// One section of a page's primary content.
+@nonexhaustive
 public enum RenderPrimarySection: Sendable {
     /// The rendered declaration(s) — the symbol's signature, per platform/language.
     case declarations([Declaration])

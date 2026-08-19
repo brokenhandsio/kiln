@@ -353,6 +353,7 @@ public struct Module: Sendable {
 }
 
 /// Errors thrown while validating a ``DocCSite`` configuration.
+@nonexhaustive
 public enum DocCConfigurationError: Error, CustomStringConvertible {
     case noPackages
     case duplicatePackageRepo(String)

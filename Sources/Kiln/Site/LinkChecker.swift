@@ -1,4 +1,5 @@
 /// How Kiln reacts to broken internal links found at build time.
+@nonexhaustive
 public enum LinkChecking: Sendable {
     /// Don't check links.
     case off
@@ -10,6 +11,7 @@ public enum LinkChecking: Sendable {
 
 /// A broken internal link discovered during a build.
 public struct LinkIssue: Sendable, Equatable {
+    @nonexhaustive
     public enum Kind: Sendable, Equatable {
         /// A relative `.md` link whose target page isn't built.
         case missingPage(target: String)

@@ -4,6 +4,7 @@
 // types decode to `.unknown` (recorded via ``DocCDiagnostics``).
 
 /// A resolved entry in a ``RenderNode``'s reference map.
+@nonexhaustive
 public enum RenderReference: Sendable {
     /// Another documentation page (symbol or article).
     case topic(TopicReference)

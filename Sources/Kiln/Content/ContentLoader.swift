@@ -3,6 +3,7 @@
 public import Foundation
 
 /// Errors thrown while loading content from disk.
+@nonexhaustive
 public enum ContentError: Error, CustomStringConvertible {
     case contentDirectoryNotFound(String)
     case missingPage(logicalPath: String)

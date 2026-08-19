@@ -18,6 +18,7 @@ import Foundation
 public struct DocCArchiveBuilder: Sendable {
     /// Which archives to (re)generate. Missing archives are always built; these
     /// select what to *force*-rebuild on top of that.
+    @nonexhaustive
     public enum Rebuild: Sendable, Equatable {
         /// Build only archives that don't already exist (the default).
         case missing

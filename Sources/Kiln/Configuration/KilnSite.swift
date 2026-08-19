@@ -196,6 +196,7 @@ public struct KilnSite: Sendable {
 }
 
 /// Errors thrown while validating a ``KilnSite`` configuration.
+@nonexhaustive
 public enum ConfigurationError: Error, CustomStringConvertible {
     case noLanguages
     case noDefaultLanguage
