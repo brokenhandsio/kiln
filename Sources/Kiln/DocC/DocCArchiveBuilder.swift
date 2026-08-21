@@ -476,6 +476,27 @@ public struct DocCArchiveBuilder: Sendable {
             try? fileManager.removeItem(at: swiftVersion)
             log("🧹 removed .swift-version pin from \(repo) — using the active toolchain")
         }
+
+        removeStaleResolution(in: checkout, repo: repo, ref: ref, log: log)
+    }
+
+    /// Drop a `Package.resolved` left behind by a *different* ref's build.
+    ///
+    /// Checkouts are reused across a package's versions, and most library
+    /// packages don't track the file — so `git checkout --force` leaves the
+    /// previous ref's pins in place. Building the 4.x line in a checkout last
+    /// used for 5.x then resolves against 5.x: wrong versions at best, a hard
+    /// failure at worst (SwiftPM rejects traits the older dependency doesn't
+    /// declare). A *tracked* file is already correct for this ref, so keep it.
+    @discardableResult
+    func removeStaleResolution(in checkout: URL, repo: String, ref: String, log: Log) -> Bool {
+        let resolved = checkout.appendingPathComponent("Package.resolved")
+        guard FileManager.default.fileExists(atPath: resolved.path) else { return false }
+        let tracked = (try? runCapturing("git", ["ls-files", "--error-unmatch", "Package.resolved"], in: checkout)) != nil
+        guard !tracked else { return false }
+        try? FileManager.default.removeItem(at: resolved)
+        log("🧹 removed stale Package.resolved from \(repo) — re-resolving for \(ref)")
+        return true
     }
 
     // MARK: Cross-module dependencies
