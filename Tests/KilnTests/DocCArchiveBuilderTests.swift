@@ -265,4 +265,57 @@ struct DocCArchiveBuilderTests {
             .write(to: base.appendingPathComponent(".kiln-docc-dependencies.json"))
         #expect(builder.loadLinkState(base).dependencies == ["a/one": ["b/two"]])
     }
+
+    @Test("A stale Package.resolved is dropped, a tracked one is kept")
+    func staleResolutionCleanup() throws {
+        let fm = FileManager.default
+        let site = DocCSite(packages: [
+            APIPackage("vapor/vapor", versions: [.single(ref: "main", modules: [Module("Vapor")])]),
+        ])
+        let base = fm.temporaryDirectory.appendingPathComponent("kiln-resolved-\(UUID().uuidString)")
+        try fm.createDirectory(at: base, withIntermediateDirectories: true)
+        defer { try? fm.removeItem(at: base) }
+        let builder = DocCArchiveBuilder(docc: site, contentDirectory: base, checkoutDirectory: base)
+
+        func git(_ args: [String], in directory: URL) throws {
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+            process.arguments = ["git"] + args
+            process.currentDirectoryURL = directory
+            process.standardOutput = FileHandle.nullDevice
+            process.standardError = FileHandle.nullDevice
+            try process.run()
+            process.waitUntilExit()
+        }
+
+        /// A checkout holding a `Package.resolved`, optionally staged into the index.
+        func checkout(named name: String, tracked: Bool) throws -> URL {
+            let directory = base.appendingPathComponent(name)
+            try fm.createDirectory(at: directory, withIntermediateDirectories: true)
+            try git(["init"], in: directory)
+            try Data("{}".utf8).write(to: directory.appendingPathComponent("Package.resolved"))
+            if tracked { try git(["add", "Package.resolved"], in: directory) }
+            return directory
+        }
+
+        /// Hoisted out of `#expect` — the macro can't capture a `@Sendable` closure.
+        func clean(_ directory: URL) -> Bool {
+            builder.removeStaleResolution(in: directory, repo: "vapor/vapor", ref: "vapor4", log: { _ in })
+        }
+
+        // Untracked: left over from another ref's build, so it goes.
+        let stale = try checkout(named: "stale", tracked: false)
+        #expect(clean(stale))
+        #expect(fm.fileExists(atPath: stale.appendingPathComponent("Package.resolved").path) == false)
+
+        // Tracked: `git checkout` already restored the right one for this ref.
+        let pinned = try checkout(named: "pinned", tracked: true)
+        #expect(clean(pinned) == false)
+        #expect(fm.fileExists(atPath: pinned.appendingPathComponent("Package.resolved").path))
+
+        // Nothing to clean up when the file was never there.
+        let untouched = base.appendingPathComponent("untouched")
+        try fm.createDirectory(at: untouched, withIntermediateDirectories: true)
+        #expect(clean(untouched) == false)
+    }
 }
