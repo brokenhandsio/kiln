@@ -1,0 +1,3 @@
+# Rechtliches
+
+Der rechtliche Hinweis.

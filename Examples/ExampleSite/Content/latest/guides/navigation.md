@@ -50,6 +50,52 @@ From this single tree Kiln computes, for every page and language:
 - **previous / next** links following document order, and
 - **breadcrumbs** and the on-page table of contents.
 
+## Pages outside the navigation
+
+Some pages belong on the site but not in the sidebar — a legal notice, a privacy
+policy, a landing page you link to from a campaign. Declare those as
+`unlistedPages` instead of `Page` entries:
+
+```swift
+KilnSite(
+    name: "Kiln",
+    url: "https://kiln.brokenhands.io",
+    unlistedPages: [
+        UnlistedPage("Legal", "legal.md"),
+        UnlistedPage("Draft", "draft.md", searchable: false, indexed: false),
+    ]
+) {
+    Page("Welcome", "index.md")
+    Section("Guides") { … }
+}
+```
+
+On a versioned site, `unlistedPages` goes on the `DocVersion` instead — each
+version has its own, exactly like `navigation`.
+
+An unlisted page is built like any other: the full theme, "pretty" URL,
+translations (`legal.de.md`), link checking, and an `<h1>`-derived title. It's
+simply absent from the navigation tree, from the previous/next reading order,
+and from `llms.txt` (which mirrors the navigation).
+
+!!! note
+    A markdown file that appears in *neither* the navigation nor `unlistedPages`
+    isn't built at all. Declaring pages explicitly is what stops stray drafts in
+    your content directory from being published by accident.
+
+Two flags control how discoverable an unlisted page is:
+
+| Flag | Default | Effect when `false` |
+| ---- | ------- | ------------------- |
+| `searchable` | `true` | Left out of the client-side [search](search.md) index. |
+| `indexed`    | `true` | Left out of `sitemap.xml` and `llms-full.txt`, and rendered with `<meta name="robots" content="noindex">`. |
+
+The defaults suit a footer page you *want* found — a legal or privacy page.
+Setting both to `false` gives a page reachable only by direct link.
+
+This site has one: the **[Legal](../legal.md)** page linked in the footer. It's
+not in the sidebar, but it's a normal page in every other respect.
+
 ## Translating labels
 
 Section and page titles are translated per language with each `Language`'s

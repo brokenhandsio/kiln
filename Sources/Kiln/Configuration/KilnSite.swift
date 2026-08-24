@@ -99,6 +99,10 @@ public struct KilnSite: Sendable {
     /// archives are ingested and rendered into the Kiln theme, with a module
     /// switcher and a per-package version switcher. See ``DocCSite``.
     public var docc: DocCSite?
+    /// Pages rendered outside the navigation tree — see ``UnlistedPage``. Used
+    /// when the site is not versioned; otherwise each ``DocVersion`` carries its
+    /// own unlisted pages.
+    public var unlistedPages: [UnlistedPage]
     /// The navigation tree (used when the site is not versioned; otherwise each
     /// ``DocVersion`` carries its own navigation).
     public var navigation: [NavItem]
@@ -130,6 +134,7 @@ public struct KilnSite: Sendable {
         blog: Blog? = nil,
         docc: DocCSite? = nil,
         versions: [DocVersion] = [],
+        unlistedPages: [UnlistedPage] = [],
         @NavBuilder navigation: () -> [NavItem] = { [] }
     ) {
         self.name = name
@@ -154,6 +159,7 @@ public struct KilnSite: Sendable {
         self.blog = blog
         self.docc = docc
         self.versions = versions
+        self.unlistedPages = unlistedPages
         self.navigation = navigation()
     }
 
@@ -187,6 +193,7 @@ public struct KilnSite: Sendable {
                     deprecated: false,
                     contentDirectory: "",
                     languages: languages,
+                    unlistedPages: unlistedPages,
                     navigationItems: navigation
                 )
             ]
@@ -208,6 +215,8 @@ public enum ConfigurationError: Error, CustomStringConvertible {
     case invalidVersionID(String)
     case duplicateVersionID(String)
     case blogRequiresSingleUnversioned
+    case unlistedPageInNavigation(path: String, versionID: String)
+    case duplicateUnlistedPage(path: String, versionID: String)
 
     public var description: String {
         switch self {
@@ -231,7 +240,16 @@ public enum ConfigurationError: Error, CustomStringConvertible {
             return "Duplicate version id '\(id)'. Version ids must be unique."
         case .blogRequiresSingleUnversioned:
             return "A KilnSite with a blog must be single-language and unversioned (one language, no versions)."
+        case .unlistedPageInNavigation(let path, let versionID):
+            return "Unlisted page '\(path)'\(Self.inVersion(versionID)) is also a navigation entry. A page is either in the navigation or unlisted, not both."
+        case .duplicateUnlistedPage(let path, let versionID):
+            return "Duplicate unlisted page '\(path)'\(Self.inVersion(versionID))."
         }
+    }
+
+    /// `" in version '4.0'"`, or empty for an unversioned site.
+    private static func inVersion(_ id: String) -> String {
+        id.isEmpty ? "" : " in version '\(id)'"
     }
 }
 
@@ -267,6 +285,36 @@ extension KilnSite {
                     throw ConfigurationError.duplicateVersionID(version.id)
                 }
                 try Self.validateLanguages(version.languages)
+            }
+        }
+        for version in effectiveVersions {
+            try Self.validateUnlistedPages(version.unlistedPages, navigation: version.navigation, versionID: version.id)
+        }
+    }
+
+    /// An unlisted page must name a path the navigation doesn't already claim
+    /// (otherwise it would render twice), and must be declared only once.
+    static func validateUnlistedPages(_ unlisted: [UnlistedPage], navigation: [NavItem], versionID: String) throws {
+        guard !unlisted.isEmpty else { return }
+        let navPaths = Set(navigationPagePaths(navigation))
+        var seen = Set<String>()
+        for page in unlisted {
+            if navPaths.contains(page.path) {
+                throw ConfigurationError.unlistedPageInNavigation(path: page.path, versionID: versionID)
+            }
+            if !seen.insert(page.path).inserted {
+                throw ConfigurationError.duplicateUnlistedPage(path: page.path, versionID: versionID)
+            }
+        }
+    }
+
+    /// Every markdown path reachable from a navigation tree, at any depth.
+    static func navigationPagePaths(_ items: [NavItem]) -> [String] {
+        items.flatMap { item -> [String] in
+            switch item {
+            case .page(_, let path): return [path]
+            case .section(_, let children): return navigationPagePaths(children)
+            case .link: return []
             }
         }
     }
