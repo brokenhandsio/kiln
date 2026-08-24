@@ -3,6 +3,9 @@
   string. `#localise("tagline")` looks up `tagline` in the current language's
   `Language.customStrings`, falling back to the default language when a locale
   hasn't translated it (try the language switcher — the tagline changes with it).
+  It also links to the unlisted `legal.md` page — a page Kiln builds but leaves
+  out of the navigation (see guides/navigation). `#(language.pathPrefix)` keeps
+  the link on the reader's language.
   Everything else here mirrors the default footer; we only override what we need.
   See guides/content-and-localisation and guides/theming.
 -->
@@ -10,6 +13,7 @@
     <div class="kiln-footer-inner">
         <p class="kiln-tagline">#localise("tagline")</p>
         #if(site.social):<div class="kiln-social">#extend("partials/social-icons")</div>#endif
+        <p class="kiln-footer-links"><a href="#(basePath)#(language.pathPrefix)/legal/">#localise("legal")</a></p>
         #if(site.copyright):<p class="kiln-copyright">#(site.copyright)</p>#endif
         <p class="kiln-built-with">Built with <a href="https://github.com/brokenhandsio/kiln" rel="noopener" target="_blank">Kiln</a></p>
     </div>

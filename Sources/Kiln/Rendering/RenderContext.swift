@@ -109,6 +109,9 @@ struct RenderContext {
     var sourcePath: String
     var isHome: Bool
     var isFallback: Bool
+    /// Force `<meta name="robots" content="noindex">` on this page regardless of
+    /// version/fallback state — an ``UnlistedPage`` declared `indexed: false`.
+    var noindexOverride: Bool = false
 
     var navigation: PageNavigation
     /// Pre-rendered DocC sidebar HTML (arbitrary-depth symbol tree), or `nil` for
@@ -175,7 +178,8 @@ struct RenderContext {
             // localise via customStrings/templates (so their "fallbacks" are in
             // fact translated) can opt fallbacks back into indexing via
             // `KilnSite.indexFallbackPages`. Non-default versions stay noindex.
-            "noindex": .bool(version.noindex || (isFallback && !site.indexFallbackPages)),
+            // …and any page that asked for it (an unlisted page with `indexed: false`).
+            "noindex": .bool(noindexOverride || version.noindex || (isFallback && !site.indexFallbackPages)),
             // Blog data (post page / listing page); `.trueNil` ⇒ `#if(blogPost)`
             // and `#if(blogListing)` are false on every non-blog page.
             "blogPost": blogPost ?? .trueNil,

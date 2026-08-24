@@ -325,6 +325,42 @@ Section and page titles are translated per language via each `Language`'s
 `navTranslations` map (keyed on the default-language title). Kiln also derives
 previous/next links and the active trail automatically.
 
+### Pages outside the navigation
+
+A markdown file is only built if something declares it, which keeps stray drafts
+out of your site. For a page that belongs on the site but not in the sidebar — a
+legal notice, a privacy policy, a landing page — declare it as an
+`UnlistedPage`:
+
+```swift
+let site = KilnSite(
+    name: "Docs",
+    url: "https://example.com",
+    unlistedPages: [
+        UnlistedPage("Legal", "legal.md"),
+        UnlistedPage("Draft", "draft.md", searchable: false, indexed: false),
+    ]
+) {
+    Page("Welcome", "index.md")
+}
+```
+
+Unlisted pages are built exactly like nav pages — full theme, "pretty" URLs,
+translations (`legal.de.md`), link checking, front-matter `template:` overrides —
+but they're absent from the navigation tree, from the previous/next reading
+order, and from `llms.txt` (which mirrors the navigation). On a versioned site,
+`unlistedPages` goes on each `DocVersion` alongside its `navigation`.
+
+Two flags control discoverability:
+
+| Flag         | Default | Effect when `false` |
+| ------------ | ------- | ------------------- |
+| `searchable` | `true`  | Left out of the client-side search index. |
+| `indexed`    | `true`  | Left out of `sitemap.xml` and `llms-full.txt`, and rendered with `<meta name="robots" content="noindex">`. |
+
+The defaults suit a footer page you want found; setting both to `false` gives a
+page reachable only by direct link.
+
 ## Markdown
 
 Supported out of the box:
@@ -379,6 +415,7 @@ Supported out of the box:
 | `languages`       | `[Language]`          | Each `Language(_ code: LanguageCode, …)` — a built-in case like `.english`/`.german` or `.custom(code:name:)` — with `isDefault`, `build`, `siteName`, `description`, `navTranslations`, `localisation`. |
 | `markdown`        | `MarkdownExtensions`  | Feature toggles + `TableOfContentsOptions`. |
 | `navigation`      | `@NavBuilder`         | The nav tree (see above). |
+| `unlistedPages`   | `[UnlistedPage]`      | Pages built but kept out of the nav — `UnlistedPage(_ title:, _ path:, searchable:, indexed:)` (see [above](#pages-outside-the-navigation)). |
 | `docc`            | `DocCSite?`           | An API-reference site built from DocC archives (see [API reference (DocC)](#api-reference-docc)). |
 
 ### Serving from a subdirectory (`basePath`)

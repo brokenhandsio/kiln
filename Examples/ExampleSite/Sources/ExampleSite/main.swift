@@ -10,6 +10,14 @@ import Kiln
 // version switcher. Each version has its own content directory, navigation, and
 // languages.
 
+// Theme-defined strings looked up in templates with `#localise("key")` (see
+// Theme/templates/partials/footer.leaf). Shared by every version's English
+// language so the footer reads the same everywhere.
+let footerStrings = [
+    "tagline": "Type-safe documentation sites, built in Swift.",
+    "legal": "Legal",
+]
+
 // The full, current documentation (English + German). This is the default
 // version, served at the site root with unchanged URLs.
 let latest = DocVersion(
@@ -21,11 +29,9 @@ let latest = DocVersion(
         .init(
             .english,
             isDefault: true,
-            // Theme-defined strings, looked up in templates with `#localise("key")`
-            // (see Theme/templates/partials/footer.leaf). English is the default
-            // language, so these also act as the fallback for any locale that
-            // doesn't translate a given key.
-            customStrings: ["tagline": "Type-safe documentation sites, built in Swift."]
+            // English is the default language, so these also act as the fallback
+            // for any locale that doesn't translate a given key.
+            customStrings: footerStrings
         ),
         .init(
             .german,
@@ -50,7 +56,10 @@ let latest = DocVersion(
                 "AI-Friendly Output": "KI-freundliche Ausgabe",
                 "Deployment": "Bereitstellung",
             ],
-            customStrings: ["tagline": "Typsichere Dokumentations-Websites, gebaut in Swift."],
+            customStrings: [
+                "tagline": "Typsichere Dokumentations-Websites, gebaut in Swift.",
+                "legal": "Rechtliches",
+            ],
             localisation: .init(
                 searchPlaceholder: "Suchen",
                 searchNoResults: "Keine Ergebnisse gefunden",
@@ -71,7 +80,10 @@ let latest = DocVersion(
                 preReleaseLink: "Zur neuesten stabilen Version"
             )
         ),
-    ]
+    ],
+    // Built and translated like any other page, but absent from the navigation —
+    // the footer links to it (see Theme/templates/partials/footer.leaf).
+    unlistedPages: [UnlistedPage("Legal", "legal.md")]
 ) {
     Page("Welcome", "index.md")
     Section("Getting Started") {
@@ -103,7 +115,9 @@ let v2alpha = DocVersion(
     name: "2.0.0-alpha.1",
     isPrerelease: true,
     contentDirectory: "2.0.0-alpha.1",
-    languages: [.init(.english, isDefault: true)]
+    // The shared footer is rendered for every version, so each one needs the
+    // theme's custom strings — an unresolved key renders as the key itself.
+    languages: [.init(.english, isDefault: true, customStrings: footerStrings)]
 ) {
     Page("Welcome", "index.md")
 }
@@ -113,7 +127,7 @@ let v0_9 = DocVersion(
     id: "0.9",
     name: "0.9",
     contentDirectory: "0.9",
-    languages: [.init(.english, isDefault: true)]
+    languages: [.init(.english, isDefault: true, customStrings: footerStrings)]
 ) {
     Page("Welcome", "index.md")
 }

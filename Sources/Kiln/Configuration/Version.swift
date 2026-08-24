@@ -31,6 +31,9 @@ public struct DocVersion: Sendable {
     public var languages: [Language]
     /// This version's navigation tree.
     public var navigation: [NavItem]
+    /// This version's pages rendered outside the navigation tree — see
+    /// ``UnlistedPage``.
+    public var unlistedPages: [UnlistedPage]
 
     /// Create a documentation version.
     public init(
@@ -41,6 +44,7 @@ public struct DocVersion: Sendable {
         deprecated: Bool = false,
         contentDirectory: String,
         languages: [Language] = [Language(.english, isDefault: true)],
+        unlistedPages: [UnlistedPage] = [],
         @NavBuilder navigation: () -> [NavItem]
     ) {
         self.id = id
@@ -50,6 +54,7 @@ public struct DocVersion: Sendable {
         self.deprecated = deprecated
         self.contentDirectory = contentDirectory
         self.languages = languages
+        self.unlistedPages = unlistedPages
         self.navigation = navigation()
     }
 
@@ -63,6 +68,7 @@ public struct DocVersion: Sendable {
         deprecated: Bool,
         contentDirectory: String,
         languages: [Language],
+        unlistedPages: [UnlistedPage] = [],
         navigationItems: [NavItem]
     ) {
         self.id = id
@@ -72,6 +78,7 @@ public struct DocVersion: Sendable {
         self.deprecated = deprecated
         self.contentDirectory = contentDirectory
         self.languages = languages
+        self.unlistedPages = unlistedPages
         self.navigation = navigationItems
     }
 

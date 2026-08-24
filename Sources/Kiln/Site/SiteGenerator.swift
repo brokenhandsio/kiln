@@ -174,6 +174,34 @@ public struct SiteGenerator {
                     }
                 }
 
+                // Pages rendered outside the navigation. Same render path as a
+                // nav page — full theme, link checking, translations — but no
+                // nav entry, so `contextualise` gives them no previous/next.
+                for unlisted in version.unlistedPages {
+                    let location = try await renderPage(
+                        logicalPath: unlisted.path,
+                        navTitle: unlisted.title,
+                        language: language,
+                        build: build,
+                        allBuilds: builds,
+                        defaultBuild: defaultBuild,
+                        isVersioned: isVersioned,
+                        markdown: markdown,
+                        resolvedNav: resolvedNav,
+                        renderer: renderer,
+                        writer: writer,
+                        searchIndex: &searchIndex,
+                        linkData: linkData,
+                        searchable: unlisted.searchable,
+                        noindex: !unlisted.indexed
+                    )
+                    if version.isDefault, unlisted.indexed {
+                        let alts = alternates(forLogicalPath: unlisted.path, current: language,
+                                              urls: build.urls, languages: version.buildableLanguages)
+                        sitemapEntries.append(SitemapEntry(loc: absoluteURL(forLocation: location), alternates: alts))
+                    }
+                }
+
                 // Per-(version, locale) search index.
                 let searchFile = build.urls.directory(forLocale: language.locale, in: outputDirectory)
                     .appendingPathComponent("search", isDirectory: true)
@@ -359,6 +387,13 @@ public struct SiteGenerator {
                     guard let page = store.page(forLogicalPath: ref.logicalPath, locale: language.locale, defaultLocale: defaultLocale) else { continue }
                     pages.append(LLMSText.Page(url: absoluteURL(forLocation: String(ref.url.drop(while: { $0 == "/" }))), body: page.body))
                 }
+                // Unlisted pages have no place in the nav-shaped `llms.txt` index,
+                // but they belong in the corpus unless they opted out of indexing.
+                for unlisted in build.version.unlistedPages where unlisted.indexed {
+                    guard let page = store.page(forLogicalPath: unlisted.path, locale: language.locale, defaultLocale: defaultLocale) else { continue }
+                    let url = build.urls.urlPath(forLogicalPath: unlisted.path, locale: language.locale)
+                    pages.append(LLMSText.Page(url: absoluteURL(forLocation: String(url.drop(while: { $0 == "/" }))), body: page.body))
+                }
                 let full = LLMSText.full(title: title, summary: summary, pages: pages)
                 try writer.write(full, to: localeRoot.appendingPathComponent("llms-full.txt"))
             }
@@ -407,7 +442,9 @@ public struct SiteGenerator {
         renderer: TemplateRenderer,
         writer: OutputWriter,
         searchIndex: inout SearchIndexBuilder,
-        linkData: LinkData
+        linkData: LinkData,
+        searchable: Bool = true,
+        noindex: Bool = false
     ) async throws -> String {
         let version = build.version
         let urls = build.urls
@@ -478,6 +515,7 @@ public struct SiteGenerator {
             sourcePath: sourceRelative,
             isHome: page.isHome,
             isFallback: isFallback,
+            noindexOverride: noindex,
             navigation: pageNavigation,
             version: versionContext
         )
@@ -493,7 +531,9 @@ public struct SiteGenerator {
         }
 
         let location = String(urlPath.drop(while: { $0 == "/" }))
-        searchIndex.add(location: location, title: title, html: rendered.html)
+        if searchable {
+            searchIndex.add(location: location, title: title, html: rendered.html)
+        }
         return location
     }
 
