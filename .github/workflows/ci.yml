@@ -5,6 +5,11 @@ on:
     branches: [main]
   pull_request:
 
+# Every job only reads the repository (checkout + build + test), so drop the
+# default write-scoped GITHUB_TOKEN to read-only.
+permissions:
+  contents: read
+
 # Cancel superseded runs for the same ref.
 concurrency:
   group: ci-${{ github.ref }}
