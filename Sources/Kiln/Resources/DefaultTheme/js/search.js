@@ -235,7 +235,9 @@
     }
 
     // Highlight the result at `index`, wrapping past either end, and keep it in
-    // view. Drives the `.kiln-active` style the theme already defines for hover.
+    // view. Drives the theme's `.kiln-active` style, which is deliberately
+    // louder than hover: with a pointer resting over the list, two rows styled
+    // alike leave no way to tell which one Return will open.
     function setActive(index) {
         var links = resultLinks();
         if (!links.length) { activeIndex = -1; input.removeAttribute("aria-activedescendant"); return; }
