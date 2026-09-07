@@ -116,6 +116,10 @@ struct DocCRendererTests {
         // Article reference → plain text link (no <code>).
         #expect(html.contains("<a class=\"docc-symbol-link\" href=\"/t/documentation/t/guide/\">The Guide</a>"))
         #expect(!html.contains("<code>The Guide</code>"))
+        // A reference carries no inline text of its own, so the plain-text
+        // abstract (meta description + search index) resolves its title rather
+        // than dropping it ("See  and ").
+        #expect(rendered.abstractText == "See Queue and The Guide")
     }
 
     @Test("Inline external-link references render as anchors, not plain text")

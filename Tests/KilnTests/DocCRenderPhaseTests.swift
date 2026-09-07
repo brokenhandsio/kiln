@@ -113,6 +113,11 @@ struct DocCRenderPhaseTests {
         let queue = try #require(byLocation["queues/queue/"])
         #expect(queue.title == "Queue")
         #expect(queue.text.contains("store and retrieve jobs"))   // abstract indexed
+        // Symbols name their module, so the client can tell same-named symbols
+        // from different modules apart; a module landing needs no such label.
+        #expect(queue.module == "Queues")
+        #expect(byLocation["queues/"]?.module == nil)
+        #expect(byLocation[""]?.module == nil)                    // the catalog/home
         #expect(byLocation["xctqueues/"] != nil)                  // sibling module → sitewide
         // The catalog/home is searchable.
         #expect(byLocation[""]?.title == "Vapor API")

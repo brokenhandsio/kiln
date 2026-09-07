@@ -413,6 +413,32 @@ details.admonition > summary.admonition-title::-webkit-details-marker { display:
     letter-spacing: 0.03em;
     vertical-align: middle;
 }
+/* The owning module of a DocC symbol result — the kind pill's quieter sibling:
+   same uppercase label typography, neutral colours so it reads as context. The
+   code font is deliberately avoided; uppercase mono sets too wide at this size. */
+.kiln-search-result-module {
+    display: inline-block;
+    margin-inline-start: 6px;
+    padding: 1px 8px;
+    border-radius: 999px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: var(--kiln-font-text);
+    font-size: 0.64rem;
+    font-weight: 700;
+    line-height: 1.6;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    vertical-align: middle;
+    white-space: nowrap;
+}
+/* The row's hover fill is --surface, so lift the pill off it. */
+.kiln-search-result:hover .kiln-search-result-module,
+.kiln-search-result.kiln-active .kiln-search-result-module { background: var(--bg); }
+/* A query match inside the pill tints the text rather than stacking a second
+   filled highlight on the fill. */
+.kiln-search-result-module mark { background: none; color: var(--accent); }
 .kiln-search-result-context { font-size: 0.82rem; color: var(--muted); display: block; }
 .kiln-search-result mark { background: color-mix(in srgb, var(--accent) 30%, transparent); color: inherit; border-radius: 3px; }
 .kiln-search-empty { padding: 14px; color: var(--muted); text-align: center; }
