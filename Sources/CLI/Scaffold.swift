@@ -69,7 +69,7 @@ enum Scaffold {
                 .macOS(.v13)
             ],
             dependencies: [
-                .package(url: "https://github.com/brokenhandsio/kiln.git", from: "0.1.0"),
+                .package(url: "https://github.com/brokenhandsio/kiln.git", from: "\(kilnVersion)"),
             ],
             targets: [
                 .executableTarget(
