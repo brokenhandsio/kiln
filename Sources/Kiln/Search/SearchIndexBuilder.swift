@@ -13,6 +13,10 @@ struct SearchDocument: Codable {
     /// page). The client boosts and badges kinds it knows about; omitted from
     /// the JSON when `nil`, so plain markdown pages carry no dead weight.
     var kind: String?
+    /// The owning module, for a DocC symbol page — shown next to the result so
+    /// same-named symbols from different modules can be told apart. `nil` for
+    /// markdown pages and module landings (whose title *is* the module).
+    var module: String?
 }
 
 /// The search index emitted per language and consumed by the client-side
@@ -31,12 +35,14 @@ struct SearchIndexBuilder {
     ///   - title: the page title.
     ///   - html: the rendered HTML body (stripped to plain text for indexing).
     ///   - kind: an optional document kind (see ``SearchDocument/kind``).
-    mutating func add(location: String, title: String, html: String, kind: String? = nil) {
+    ///   - module: the owning module (see ``SearchDocument/module``).
+    mutating func add(location: String, title: String, html: String, kind: String? = nil, module: String? = nil) {
         documents.append(SearchDocument(
             location: location,
             title: title,
             text: SearchIndexBuilder.plainText(from: html),
-            kind: kind
+            kind: kind,
+            module: module
         ))
     }
 

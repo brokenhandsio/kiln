@@ -212,13 +212,18 @@ struct DocCRenderPhase {
                         // Only default versions are indexed (search.js prepends "/",
                         // so store the location without a leading slash). The module
                         // landing page is tagged so the client can rank a module
-                        // above its symbols when its name is searched, and badge it.
+                        // above its symbols when its name is searched, and badge it;
+                        // symbol pages carry their module so the client can tell
+                        // same-named symbols from different modules apart.
                         if version.isDefault {
+                            let isLanding = urls.suffix(forDocCPath: page.path).isEmpty
                             moduleSearch.add(
                                 location: String(urls.url(forDocCPath: page.path).drop(while: { $0 == "/" })),
                                 title: rendered.title,
                                 html: rendered.abstractText ?? "",
-                                kind: urls.suffix(forDocCPath: page.path).isEmpty ? "module" : nil
+                                kind: isLanding ? "module" : nil,
+                                // Stored as configured; the theme uppercases the pill.
+                                module: isLanding ? nil : module.displayTitle
                             )
                         }
                     }

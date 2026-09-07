@@ -57,7 +57,7 @@ public struct DocCRenderer: Sendable {
         var abstractText: String?
         if let abstract = node.abstract, !abstract.isEmpty {
             body += "<div class=\"docc-abstract\">\(DocCInline.render(abstract, resolver: resolver))</div>\n"
-            abstractText = DocCInline.plainText(abstract)
+            abstractText = DocCInline.plainText(abstract, resolver: resolver)
         }
 
         // A sample-code download button (below the abstract, like DocC).
@@ -460,7 +460,7 @@ enum DocCInline {
                                    overridingInlines: overridingInlines, resolver: resolver)
         case .image(let identifier, let metadata):
             guard let url = resolver.imageURL(identifier) else { return "" }
-            let alt = metadata?.abstract.map(plainText) ?? resolver.imageAlt(identifier) ?? ""
+            let alt = metadata?.abstract.map { plainText($0, resolver: resolver) } ?? resolver.imageAlt(identifier) ?? ""
             return "<img src=\"\(HTMLEscaping.attribute(url))\" alt=\"\(HTMLEscaping.attribute(alt))\" />"
         case .link(let title, let destination):
             let text = title.map(HTMLEscaping.text) ?? HTMLEscaping.text(destination)
@@ -502,17 +502,16 @@ enum DocCInline {
     }
 
     /// Concatenate inline content into plain text (for abstracts/alt text).
-    static func plainText(_ inlines: [RenderInlineContent]) -> String {
+    static func plainText(_ inlines: [RenderInlineContent], resolver: DocCLinkResolver? = nil) -> String {
         var out = ""
         for inline in inlines {
             switch inline {
             case .text(let text): out += text
             case .codeVoice(let code): out += code
-            case .emphasis(let c), .strong(let c), .strikethrough(let c): out += plainText(c)
+            case .emphasis(let c), .strong(let c), .strikethrough(let c): out += plainText(c, resolver: resolver)
             case .reference(let id, _, let overridingTitle, let overridingInlines):
-                if let overridingInlines, !overridingInlines.isEmpty { out += plainText(overridingInlines) }
-                else { out += overridingTitle ?? "" }
-                _ = id
+                if let overridingInlines, !overridingInlines.isEmpty { out += plainText(overridingInlines, resolver: resolver) }
+                else { out += overridingTitle ?? resolver?.title(for: id) ?? "" }
             case .link(let title, let destination): out += title ?? destination
             case .image, .unknown: break
             }

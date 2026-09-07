@@ -53,6 +53,9 @@
                 docs.forEach(function (doc) {
                     doc.foldedTitle = fold(doc.title || "");
                     doc.foldedText = fold(doc.text || "");
+                    // Symbol pages carry their module, so "queues queue" narrows
+                    // to that module's symbols.
+                    doc.foldedModule = fold(doc.module || "");
                 });
                 loaded = true;
                 loading = false;
@@ -101,9 +104,13 @@
             // A module whose name matches ranks above its own symbols — searching
             // a module's name should surface the module itself first.
             if (titleHit && doc.kind === "module") total += 100;
+            // A module-name hit qualifies a symbol without outranking a hit on
+            // the symbol's own name.
+            var moduleHit = doc.foldedModule.indexOf(term) !== -1;
+            if (moduleHit) total += 3;
             var occurrences = doc.foldedText.split(term).length - 1;
             total += occurrences;
-            if (occurrences === 0 && !titleHit) {
+            if (occurrences === 0 && !titleHit && !moduleHit) {
                 return 0; // every term must appear somewhere
             }
         }
@@ -186,6 +193,11 @@
         matches.forEach(function (match, index) {
             var location = match.doc.location ? "/" + match.doc.location : "/";
             var badge = match.doc.kind === "module" ? ' <span class="kiln-search-result-badge">Module</span>' : "";
+            // A symbol's owning module, so identically named results from
+            // different modules are distinguishable.
+            if (match.doc.module) {
+                badge += ' <span class="kiln-search-result-module">' + highlightRange(match.doc.module, queryUnits) + "</span>";
+            }
             html += '<a class="kiln-search-result" role="option" id="kiln-search-option-' + index + '" href="' + location + '">' +
                 '<span class="kiln-search-result-title">' + highlightRange(match.doc.title, queryUnits) + badge + "</span>" +
                 '<span class="kiln-search-result-context">' + snippet(match.doc, queryUnits) + "</span>" +
