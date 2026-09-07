@@ -222,7 +222,8 @@ struct DocCRenderPhase {
                                 title: rendered.title,
                                 html: rendered.abstractText ?? "",
                                 kind: isLanding ? "module" : nil,
-                                module: isLanding ? nil : module.displayTitle.uppercased()
+                                // Stored as configured; the theme uppercases the pill.
+                                module: isLanding ? nil : module.displayTitle
                             )
                         }
                     }
