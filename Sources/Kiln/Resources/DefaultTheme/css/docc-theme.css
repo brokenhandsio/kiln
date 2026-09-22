@@ -1,0 +1,24 @@
+/* A module's DocC technology logo accompanies its title. Typography, colours,
+   backgrounds and navigation belong to the host theme, including Vapor's.
+   Shared themes can load this via extraCSS: ["_kiln/css/docc-theme.css"]. */
+.docc-header.docc-module-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: 1.5rem;
+    align-items: center;
+    color-scheme: light;
+}
+/* Embedded SVGs use prefers-color-scheme: inherit the site's selected mode,
+   including a manual selection that differs from the operating system. */
+html.dark .docc-module-header,
+[data-palette="dark"] .docc-module-header { color-scheme: dark; }
+.docc-module-header > :not(.docc-module-image) { grid-column: 1; }
+.docc-module-header .docc-module-image {
+    grid-column: 2;
+    grid-row: 1 / span 3;
+    width: auto;
+    max-width: min(8rem, 25vw);
+    height: 4rem;
+    object-fit: contain;
+    margin: 0;
+}

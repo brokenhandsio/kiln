@@ -601,11 +601,37 @@ let site = KilnSite(
 | `DocCSite(packages:groupOrder:archivesDirectory:)` | The API-reference site. `groupOrder` orders the catalog/switcher sections (unlisted groups sort after; ungrouped modules fall into `Other`). `archivesDirectory` defaults to `archives`. |
 | `APIPackage(_ repo, group:, versions:)` | One git repo. `repo` is `"owner/name"`. `group` is a default group for its modules. Modules are declared per `PackageVersion`, not on the package. |
 | `PackageVersion(_ id, name:, ref:, isDefault:, isPrerelease:, deprecated:, prereleaseLabel:, modules:)` | A version line and the `Module`s it ships. `id` is the URL segment (URL-safe, unique per package); `name` is the switcher label; `ref` is the git branch/tag Stage A builds. Exactly one version per package is the default and it must not be a pre-release. A pre-release shows a badge (in the switchers and on catalog cards) taken from `prereleaseLabel`, else inferred from the id/name as `alpha`/`beta`/`rc` (default `beta`). `PackageVersion.single(ref:modules:)` is shorthand for a lone default version. |
-| `Module(_ name, title:, group:, description:, image:)` | A DocC target. `name` keys the archive and the URL and must be unique across the whole site; `title` overrides the display name; `group` overrides the package group; `description` is the catalog-card blurb; `image` is an optional logo shown on the module's landing page (a site-relative asset path or an absolute URL). |
+| `Module(_ name, title:, group:, description:, image:)` | A DocC target. `name` keys the archive and the URL and must be unique across the whole site; `title` overrides the display name; `group` overrides the package group; `description` is the catalog-card blurb; `image` overrides the logo on the module's landing page (a site-relative asset path or an absolute URL); otherwise Kiln uses the archive's `theme.icons.technology`. |
 
 The configuration is validated at build time (unique repos, unique module names
 sitewide, exactly one non-pre-release default version per package, URL-safe
 version ids, …); a `DocCConfigurationError` describes any problem.
+
+### DocC module branding
+
+Kiln preserves and reads an archive's `theme-settings.json`. Its
+`theme.icons.technology` image appears beside the title on the module landing
+page; an explicit `Module(image:)` takes precedence. Archive-local `images/`
+paths are rebased for the site's mount path and the module's version, including
+DocC paths with a hosting prefix such as `/sqlkit/images/SQLKit/logo.svg`.
+Missing images or settings leave the usual header in place. Malformed JSON
+produces a build warning without preventing the documentation from rendering.
+
+The default theme loads `_kiln/css/docc-theme.css`. Themes that replace the base
+template (including VaporDesignTheme) can load the same layout with
+`extraCSS: ["_kiln/css/docc-theme.css"]`. The image follows the site's selected
+light/dark mode when its SVG supports `prefers-color-scheme`.
+
+Kiln decodes the light/dark `theme.color.documentation-intro-accent` values,
+including `var(--color-…)` aliases, into `DocCArchive.themeSettings`. It does not
+apply them to the page: text colours, fonts, backgrounds and navigation remain
+owned by the site theme. DocC feature flags and other styling are not imported.
+
+Archives built by older Kiln versions had their theme settings stripped. Rebuild
+those archives once to restore the settings (for example,
+`swift run APIDocs --rebuild sql-kit` in Vapor's api-docs repo); subsequent builds
+retain them in the archive cache.
+
 
 ### URL scheme
 

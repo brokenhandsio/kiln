@@ -701,11 +701,11 @@ public struct DocCArchiveBuilder: Sendable {
         guard fileManager.fileExists(atPath: archive.appendingPathComponent("metadata.json").path) else {
             throw BuildError.archiveNotProduced(module: module.name, at: archive.path)
         }
-        try stripToKilnEssentials(archive)
+        try Self.stripToKilnEssentials(archive)
     }
 
-    /// Trim a generated `.doccarchive` to what Kiln reads: `metadata.json`, the
-    /// render nodes (`data/`), the navigator index (`index/`), and the asset
+    /// Trim a generated `.doccarchive` to what Kiln reads: `metadata.json`,
+    /// `theme-settings.json`, render nodes (`data/`), the navigator index (`index/`), and asset
     /// folders it copies (`images`/`videos`/`downloads`). Modern
     /// `generate-documentation` also bundles the swift-docc-render SPA
     /// (css/js/index.html/documentation/…) which Kiln never touches and which
@@ -715,9 +715,9 @@ public struct DocCArchiveBuilder: Sendable {
     /// written only under ``crossModuleLinks``) is kept: a *cached* archive is
     /// passed as a `--dependency` to its dependents on later builds, and without
     /// this metadata those links would silently stop resolving.
-    private func stripToKilnEssentials(_ archive: URL) throws {
+    static func stripToKilnEssentials(_ archive: URL) throws {
         let keep: Set<String> = [
-            "metadata.json", "data", "index", "images", "videos", "downloads",
+            "metadata.json", "theme-settings.json", "data", "index", "images", "videos", "downloads",
             "linkable-entities.json", "link-hierarchy.json",
         ]
         let fileManager = FileManager.default
