@@ -46,7 +46,7 @@ struct CustomTagTests {
             name: "Custom Tag Test",
             url: "https://example.com",
             description: "Tag hook test.",
-            theme: .default(sharedLayers: [shared], favicons: []),
+            theme: .default(sharedLayers: [shared]),
             languages: [.init(.english, isDefault: true)]
         ) {
             Page("Home", "index.md")

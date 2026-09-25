@@ -58,7 +58,7 @@ struct SharedThemeLayerTests {
         }
 
         let html = try await build(
-            theme: .custom(directory: custom.path, sharedLayers: [shared], favicons: []),
+            theme: .custom(directory: custom.path, sharedLayers: [shared]),
             content: content
         )
         #expect(html.contains("SHARED-LAYER-FOOTER"))
@@ -76,7 +76,7 @@ struct SharedThemeLayerTests {
         }
 
         let html = try await build(
-            theme: .custom(directory: custom.path, sharedLayers: [shared], favicons: []),
+            theme: .custom(directory: custom.path, sharedLayers: [shared]),
             content: content
         )
         #expect(html.contains("CUSTOM-FOOTER"))
@@ -92,7 +92,7 @@ struct SharedThemeLayerTests {
             try? FileManager.default.removeItem(at: content)
         }
 
-        let html = try await build(theme: .default(sharedLayers: [shared], favicons: []), content: content)
+        let html = try await build(theme: .default(sharedLayers: [shared]), content: content)
         #expect(html.contains("SHARED-LAYER-FOOTER"))
     }
 
@@ -104,7 +104,7 @@ struct SharedThemeLayerTests {
         defer { try? FileManager.default.removeItem(at: content) }
 
         await #expect(throws: ThemeError.self) {
-            _ = try await build(theme: .default(sharedLayers: [missing], favicons: []), content: content)
+            _ = try await build(theme: .default(sharedLayers: [missing]), content: content)
         }
     }
 }

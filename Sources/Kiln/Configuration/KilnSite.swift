@@ -122,7 +122,7 @@ public struct KilnSite: Sendable {
         organization: Organization? = nil,
         repository: Repository? = nil,
         copyright: String? = nil,
-        theme: Theme = .default(favicons: []),
+        theme: Theme = .default(),
         social: [SocialLink] = [],
         carbonAds: CarbonAds? = nil,
         extraCSS: [String] = [],

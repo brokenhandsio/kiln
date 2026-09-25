@@ -66,6 +66,7 @@ public struct Theme: Sendable {
     public var features: Set<ThemeFeature>
 
     @available(*, deprecated, message: "init(favicon:) (singular) is deprecated in favor of init(favicons:) (plural).")
+    @_disfavoredOverload
     public init(
         source: Source = .default,
         sharedLayers: [URL] = [],
@@ -111,6 +112,7 @@ public struct Theme: Sendable {
 
     /// Kiln's bundled default theme.
     @available(*, deprecated, message: "default(favicon:) (singular) is deprecated in favor of default(favicons:) (plural).")
+    @_disfavoredOverload
     public static func `default`(
         sharedLayers: [URL] = [],
         palette: Palette = Palette(),
@@ -136,6 +138,7 @@ public struct Theme: Sendable {
 
     /// A theme that overrides the bundled default with your own templates/assets.
     @available(*, deprecated, message: "custom(favicon:) (singular) is deprecated in favor of custom(favicons:) (plural).")
+    @_disfavoredOverload
     public static func custom(
         directory: String,
         sharedLayers: [URL] = [],
