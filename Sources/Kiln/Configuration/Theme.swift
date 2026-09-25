@@ -60,11 +60,13 @@ public struct Theme: Sendable {
     public var palette: Palette
     /// Path (relative to the content directory's assets) to a logo image.
     public var logo: String?
-    /// Path to a favicon image.
     public var favicon: String?
+    public var favicons: [FavIcon]
     public var fonts: Fonts?
     public var features: Set<ThemeFeature>
 
+    @available(*, deprecated, message: "init(favicon:) (singular) is deprecated in favor of init(favicons:) (plural).")
+    @_disfavoredOverload
     public init(
         source: Source = .default,
         sharedLayers: [URL] = [],
@@ -81,9 +83,36 @@ public struct Theme: Sendable {
         self.favicon = favicon
         self.fonts = fonts
         self.features = features
+
+        if let favicon = favicon {
+            self.favicons = [.init(path: favicon)]
+        } else {
+            self.favicons = []
+        }
+    }
+
+    public init(
+        source: Source = .default,
+        sharedLayers: [URL] = [],
+        palette: Palette = Palette(),
+        logo: String? = nil,
+        favicons: [FavIcon] = [],
+        fonts: Fonts? = nil,
+        features: Set<ThemeFeature> = [.searchSuggest, .searchHighlight]
+    ) {
+        self.source = source
+        self.sharedLayers = sharedLayers
+        self.palette = palette
+        self.logo = logo
+        self.favicon = nil
+        self.favicons = favicons
+        self.fonts = fonts
+        self.features = features
     }
 
     /// Kiln's bundled default theme.
+    @available(*, deprecated, message: "default(favicon:) (singular) is deprecated in favor of default(favicons:) (plural).")
+    @_disfavoredOverload
     public static func `default`(
         sharedLayers: [URL] = [],
         palette: Palette = Palette(),
@@ -95,7 +124,21 @@ public struct Theme: Sendable {
         Theme(source: .default, sharedLayers: sharedLayers, palette: palette, logo: logo, favicon: favicon, fonts: fonts, features: features)
     }
 
+    /// Kiln's bundled default theme.
+    public static func `default`(
+        sharedLayers: [URL] = [],
+        palette: Palette = Palette(),
+        logo: String? = nil,
+        favicons: [FavIcon] = [],
+        fonts: Fonts? = nil,
+        features: Set<ThemeFeature> = [.searchSuggest, .searchHighlight]
+    ) -> Theme {
+        Theme(source: .default, sharedLayers: sharedLayers, palette: palette, logo: logo, favicons: favicons, fonts: fonts, features: features)
+    }
+
     /// A theme that overrides the bundled default with your own templates/assets.
+    @available(*, deprecated, message: "custom(favicon:) (singular) is deprecated in favor of custom(favicons:) (plural).")
+    @_disfavoredOverload
     public static func custom(
         directory: String,
         sharedLayers: [URL] = [],
@@ -106,5 +149,18 @@ public struct Theme: Sendable {
         features: Set<ThemeFeature> = [.searchSuggest, .searchHighlight]
     ) -> Theme {
         Theme(source: .custom(directory: directory), sharedLayers: sharedLayers, palette: palette, logo: logo, favicon: favicon, fonts: fonts, features: features)
+    }
+
+    /// A theme that overrides the bundled default with your own templates/assets.
+    public static func custom(
+        directory: String,
+        sharedLayers: [URL] = [],
+        palette: Palette = Palette(),
+        logo: String? = nil,
+        favicons: [FavIcon] = [],
+        fonts: Fonts? = nil,
+        features: Set<ThemeFeature> = [.searchSuggest, .searchHighlight]
+    ) -> Theme {
+        Theme(source: .custom(directory: directory), sharedLayers: sharedLayers, palette: palette, logo: logo, favicons: favicons, fonts: fonts, features: features)
     }
 }

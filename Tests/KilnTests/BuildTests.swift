@@ -21,6 +21,18 @@ struct BuildTests {
             description: "Fixture site description.",
             image: "assets/card.png",
             twitterSite: "@fixture",
+            theme: .default(favicons: [
+                .init(type: .ico, path: "assets/customFaviconName.ico"),
+                .init(type: .ico),
+                .init(type: .svg, path: "assets/customFaviconName.svg"),
+                .init(type: .svg),
+                .init(type: .png(.x16), path: "assets/customFaviconName16.png"),
+                .init(type: .png(.x16)),
+                .init(type: .png(.x32), path: "assets/customFaviconName32.png"),
+                .init(type: .png(.x32)),
+                .init(type: .png(.x180), path: "assets/customFaviconName180.png"),
+                .init(type: .png(.x180)),
+            ]),
             carbonAds: .init(serve: "TESTSERVE", placement: "fixture"),
             languages: languages ?? [
                 .init(.english, isDefault: true),
@@ -340,5 +352,28 @@ struct BuildTests {
         // The fixture nav has three pages: Home, Landing, and Section › Page.
         #expect(index.docs.count == 3)
         #expect(index.docs.contains { $0.title == "Home" })
+    }
+
+    @Test("Pages include favicons")
+    func favicons() async throws {
+        let output = try await buildFixture()
+        defer { try? FileManager.default.removeItem(at: output) }
+
+        let home = try read(output.appendingPathComponent("index.html"))
+        // SVG.
+        #expect(home.contains("<link rel=\"icon\" sizes=\"any\" type=\"image/svg+xml\" href=\"/assets/favicon.svg\">"))
+        #expect(home.contains("<link rel=\"icon\" sizes=\"any\" type=\"image/svg+xml\" href=\"/assets/customFaviconName.svg\">"))
+        // ICO.
+        #expect(home.contains("<link rel=\"icon\" sizes=\"any\" href=\"/assets/favicon.ico\">"))
+        #expect(home.contains("<link rel=\"icon\" sizes=\"any\" href=\"/assets/customFaviconName.ico\">"))
+        // PNG 16
+        #expect(home.contains("<link rel=\"icon\" sizes=\"16x16\" type=\"image/png\" href=\"/assets/favicon-16.png\">"))
+        #expect(home.contains("<link rel=\"icon\" sizes=\"16x16\" type=\"image/png\" href=\"/assets/customFaviconName16.png\">"))
+        // PNG 32
+        #expect(home.contains("<link rel=\"icon\" sizes=\"32x32\" type=\"image/png\" href=\"/assets/favicon-32.png\">"))
+        #expect(home.contains("<link rel=\"icon\" sizes=\"32x32\" type=\"image/png\" href=\"/assets/customFaviconName32.png\">"))
+        // PNG 180
+        #expect(home.contains("<link rel=\"apple-touch-icon\" sizes=\"180x180\" href=\"/assets/favicon-180.png\">"))
+        #expect(home.contains("<link rel=\"apple-touch-icon\" sizes=\"180x180\" href=\"/assets/customFaviconName180.png\">"))
     }
 }

@@ -168,7 +168,7 @@ let site = KilnSite(
         directory: "Theme",
         palette: .autoLightDark(primary: .black, accent: .blue),
         logo: "assets/logo.svg",
-        favicon: "assets/logo.svg"
+        favicons: [.init(type: .svg, path: "assets/logo.svg")]
     ),
     social: [
         .init(icon: .github, link: "https://github.com/brokenhandsio/kiln"),

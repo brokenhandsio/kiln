@@ -13,19 +13,22 @@ tweak it with options, or replace any part with your own templates.
 theme: .default(
     palette: .autoLightDark(primary: .black, accent: .blue),
     logo: "assets/logo.svg",
-    favicon: "assets/logo.svg",
+    favicons: [
+        .init(type: .svg, path: "assets/logo.svg"),
+        .init(type: .png(.x16)),
+    ],
     fonts: .init(text: "Inter", code: "JetBrains Mono"),
     features: [.backToTop, .searchHighlight]
 )
 ```
 
-| Option     | Purpose |
-| ---------- | ------- |
-| `palette`  | `Palette` with `primary`/`accent` `Color`s and a default mode (`.auto`/`.light`/`.dark`). |
-| `logo`     | Header logo (content-relative path). |
-| `favicon`  | Site favicon. |
-| `fonts`    | `Fonts(text:code:)` for body and code text. |
-| `features` | Opt-in extras: `.searchSuggest`, `.searchHighlight`, `.navigationTabs`, `.backToTop`. |
+| Option     | Purpose                                                                                                     | Default values                          |
+|------------|-------------------------------------------------------------------------------------------------------------|-----------------------------------------|
+| `palette`  | `Palette` with `primary`/`accent` `Color`s and a default mode.                                              | `.auto`/`.light`/`.dark`                |
+| `logo`     | Header logo (content-relative path).                                                                        | none                                    |
+| `favicons` | `.svg` for modern browsers, `.ico\|.png(.x16\|.x32)` for most browsers, `.png(.x180)` for apple-touch-icon. | path : assets/favicon\[-\(size)\].(ext) |
+| `fonts`    | `Fonts(text:code:)` for body and code text.                                                                 |                                         |
+| `features` | Opt-in extras: `.searchSuggest`, `.searchHighlight`, `.navigationTabs`, `.backToTop`.                       | `.searchSuggest`, `.searchHighlight`    |
 
 `Color` has presets (`.black`, `.blue`, `.indigo`, …) or accepts any CSS string
 via `Color("#2f6feb")`.
