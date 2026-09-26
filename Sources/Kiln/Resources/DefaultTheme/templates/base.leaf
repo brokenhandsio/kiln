@@ -116,7 +116,7 @@
             #import("content")
             #endif
 
-            <nav class="kiln-page-nav" aria-label="Page navigation">
+            <nav class="kiln-page-nav" aria-label="Previous and Next pages navigation">
                 #if(nav.previous):<a class="kiln-prev" href="#(nav.previous.url)"><span class="kiln-page-nav-label">#(strings.previousPage)</span><span class="kiln-page-nav-title">#(nav.previous.title)</span></a>#endif
                 #if(nav.next):<a class="kiln-next" href="#(nav.next.url)"><span class="kiln-page-nav-label">#(strings.nextPage)</span><span class="kiln-page-nav-title">#(nav.next.title)</span></a>#endif
             </nav>
@@ -127,10 +127,10 @@
         #if(page.showTOC):
         <aside class="kiln-toc">
             #if(page.hasTOC):
-            <div class="kiln-toc-inner">
+            <nav class="kiln-toc-inner" aria-label="Page sections navigation">
                 <p class="kiln-toc-title">#(strings.tableOfContentsTitle)</p>
                 #extend("partials/toc")
-            </div>
+            </nav>
             #endif
             #if(site.carbonAds):
             <div class="kiln-carbon" id="kiln-carbon" data-serve="#(site.carbonAds.serve)" data-placement="#(site.carbonAds.placement)"></div>
