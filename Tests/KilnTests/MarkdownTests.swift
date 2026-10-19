@@ -46,7 +46,7 @@ struct MarkdownTests {
         #expect(result.html.contains("<summary class=\"admonition-title\">More</summary>"))
     }
 
-    @Test("Headings get slugged ids, permalinks and a table of contents")
+    @Test("Headings from Markdown get slugged ids, permalinks and a table of contents")
     func headingsAndTOC() {
         let result = renderer.render("""
         # Title
@@ -65,6 +65,42 @@ struct MarkdownTests {
         #expect(result.tableOfContents.count == 2)
         #expect(result.tableOfContents.first?.id == "first-section")
         #expect(result.tableOfContents.first?.children.first?.title == "Nested")
+    }
+
+    @Test("Headings from HTML get slugged ids, permalinks and a table of contents")
+    func headingsAndTOCFromHTMLBlock() {
+        let result = renderer.render("""
+        <header>
+            <h1>Main title</h1>
+            <p>subtitle</p>
+        </header>
+        <section>
+            <h2 id="some-id" class="some-class">Some <strong>big</strong> section</h3>
+            <section>
+                <h3 test>Some sub-section</h3>
+                <p>Some content</p>
+            </section>
+        </section>
+        <section>
+            <h2>Another <strong>big</strong> section</h3>
+            <section>
+                <h3 test>Another sub-section</h3>
+                <p>Another paragraph</p>
+            </section>
+        </section>
+        """)
+        #expect(result.html.contains("<h1 id=\"main-title\">Main title<a class=\"headerlink\" href=\"#main-title\" title=\"Permanent link\">#</a></h1>"))
+        #expect(result.html.contains("<h2 id=\"some-id\" class=\"some-class\">Some big section<a class=\"headerlink\" href=\"#some-id\" title=\"Permanent link\">#</a></h2>"))
+        #expect(result.html.contains("<h3 test id=\"some-sub-section\">Some sub-section<a class=\"headerlink\" href=\"#some-sub-section\" title=\"Permanent link\">#</a></h3>"))
+        #expect(result.html.contains("<h2 id=\"another-big-section\">Another big section<a class=\"headerlink\" href=\"#another-big-section\" title=\"Permanent link\">#</a></h2>"))
+        #expect(result.html.contains("<h3 test id=\"another-sub-section\">Another sub-section<a class=\"headerlink\" href=\"#another-sub-section\" title=\"Permanent link\">#</a></h3>"))
+
+        // toc covers levels 2...3 by default: two top-level entries, two nested.
+        #expect(result.tableOfContents.count == 2)
+        #expect(result.tableOfContents.first?.id == "some-id")
+        #expect(result.tableOfContents.first?.children.first?.title == "Some sub-section")
+        #expect(result.tableOfContents.last?.id == "another-big-section")
+        #expect(result.tableOfContents.last?.children.first?.title == "Another sub-section")
     }
 
     @Test("Tables render as HTML tables")
