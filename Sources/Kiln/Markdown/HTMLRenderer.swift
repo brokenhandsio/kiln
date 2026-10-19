@@ -92,30 +92,30 @@ struct HTMLRenderer: MarkupWalker {
         result += "<hr />\n"
     }
 
-    mutating func visitHTMLBlock(_ html: HTMLBlock) {
-        let headingRegex = Regex {
-            "<h"
-            Capture { CharacterClass.anyOf("123456") }
-            Capture {
-                ZeroOrMore {
-                    ChoiceOf {
-                        CharacterClass.whitespace
-                        CharacterClass.word
-                        CharacterClass.anyOf("=-\"")
-                    }
+    private let htmlHeadingRegex = Regex {
+        "<h"
+        Capture { CharacterClass.anyOf("123456") }
+        Capture {
+            ZeroOrMore {
+                ChoiceOf {
+                    CharacterClass.whitespace
+                    CharacterClass.word
+                    CharacterClass.anyOf("=-\"")
                 }
             }
-            ">"
-            Capture { ZeroOrMore(.any, .reluctant) }
-            "</h"
-            CharacterClass.anyOf("123456")
-            ">"
         }
+        ">"
+        Capture { ZeroOrMore(.any, .reluctant) }
+        "</h"
+        CharacterClass.anyOf("123456")
+        ">"
+    }
 
-        let htmlTagRegex = /<[^>]+>/
-        let idAttributeRegex = /id="([^"]+)"/
+    private let htmlTagRegex = /<[^>]+>/
+    private let htmlIdAttributeRegex = /id="([^"]+)"/
 
-        let updatedHTML = html.rawHTML.replacing(headingRegex) { (match: Regex<(Substring, Substring, Substring, Substring)>.Match) -> String in
+    mutating func processHTMLForTOCEntries(_ html: String) -> String {
+        html.replacing(htmlHeadingRegex) { (match: Regex<(Substring, Substring, Substring, Substring)>.Match) -> String in
             let headingLevel = String(match.output.1)
 
             guard let headingLevel = Int(headingLevel) else {
@@ -133,7 +133,7 @@ struct HTMLRenderer: MarkupWalker {
             var id: String
 
             // If an ID is defined by the user, we should use it. Otherwise, we must generate one.
-            if let idMatch = rawAttributes.firstMatch(of: idAttributeRegex) {
+            if let idMatch = rawAttributes.firstMatch(of: htmlIdAttributeRegex) {
                 id = String(idMatch.output.1)
             } else {
                 id = slugger.slug(for: headingTitle)
@@ -153,6 +153,16 @@ struct HTMLRenderer: MarkupWalker {
 
             return headingResult
         }
+    }
+
+    mutating func visitInlineHTML(_ inlineHTML: InlineHTML) {
+        let updatedHTML = processHTMLForTOCEntries(inlineHTML.rawHTML)
+
+        result += updatedHTML
+    }
+    
+    mutating func visitHTMLBlock(_ html: HTMLBlock) {
+        let updatedHTML = processHTMLForTOCEntries(html.rawHTML)
 
         result += updatedHTML
         if !updatedHTML.hasSuffix("\n") { result += "\n" }
@@ -271,7 +281,6 @@ struct HTMLRenderer: MarkupWalker {
         result += " loading=\"lazy\" decoding=\"async\" />"
     }
 
-    mutating func visitInlineHTML(_ inlineHTML: InlineHTML) { result += inlineHTML.rawHTML }
     mutating func visitLineBreak(_ lineBreak: LineBreak) { result += "<br />\n" }
     mutating func visitSoftBreak(_ softBreak: SoftBreak) { result += "\n" }
 
