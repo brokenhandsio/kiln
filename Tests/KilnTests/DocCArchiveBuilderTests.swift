@@ -36,6 +36,41 @@ struct DocCArchiveBuilderTests {
         #expect(built.isEmpty)
     }
 
+    @Test("DocC plugin is injected into every Swift manifest variant")
+    func pluginInjectionDiscoversManifests() throws {
+        let fm = FileManager.default
+        let checkout = fm.temporaryDirectory.appendingPathComponent("kiln-manifests-\(UUID().uuidString)")
+        try fm.createDirectory(at: checkout, withIntermediateDirectories: true)
+        defer { try? fm.removeItem(at: checkout) }
+
+        let manifest = """
+            // swift-tools-version:6.3
+            import PackageDescription
+            let package = Package(
+                name: "Example",
+                dependencies: [
+                ]
+            )
+            """
+        let names = ["Package.swift", "Package@swift-5.10.swift", "Package@swift-6.4.swift"]
+        for name in names {
+            try manifest.write(to: checkout.appendingPathComponent(name), atomically: true, encoding: .utf8)
+        }
+        let unrelated = checkout.appendingPathComponent("Package@swift-not-a-version.swift")
+        try manifest.write(to: unrelated, atomically: true, encoding: .utf8)
+
+        let builder = DocCArchiveBuilder(docc: DocCSite(packages: []), contentDirectory: checkout,
+                                         checkoutDirectory: checkout)
+        try builder.ensurePluginAvailable(in: checkout, repo: "example/package", log: { _ in })
+        try builder.ensurePluginAvailable(in: checkout, repo: "example/package", log: { _ in })
+
+        for name in names {
+            let contents = try String(contentsOf: checkout.appendingPathComponent(name), encoding: .utf8)
+            #expect(contents.components(separatedBy: "swift-docc-plugin").count == 2)
+        }
+        #expect(try String(contentsOf: unrelated, encoding: .utf8) == manifest)
+    }
+
     @Test("Git URLs normalise to owner/name repo slugs")
     func repoSlugFromURL() {
         #expect(DocCArchiveBuilder.repoSlug(fromURL: "https://github.com/vapor/sql-kit.git") == "vapor/sql-kit")

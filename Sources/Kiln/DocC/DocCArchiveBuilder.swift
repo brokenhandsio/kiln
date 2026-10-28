@@ -641,9 +641,14 @@ public struct DocCArchiveBuilder: Sendable {
     /// it, so `swift package generate-documentation` is available. String-inserts
     /// after `dependencies: [` because `swift package add-dependency` can't target
     /// version-specific manifests (adapted from vapor/api-docs' generator script).
-    private func ensurePluginAvailable(in checkout: URL, repo: String, log: Log) throws {
+    func ensurePluginAvailable(in checkout: URL, repo: String, log: Log) throws {
         let fileManager = FileManager.default
-        let manifestNames = ["6.2", "6.1", "6.0", "5.10", "5.9", "5.8", "5.7"].map { "Package@swift-\($0).swift" } + ["Package.swift"]
+        let manifestNames = try fileManager.contentsOfDirectory(atPath: checkout.path)
+            .filter { name in
+                name == "Package.swift"
+                    || name.range(of: #"^Package@swift-[0-9]+(?:\.[0-9]+)*\.swift$"#, options: .regularExpression) != nil
+            }
+            .sorted()
         var foundAny = false
         for name in manifestNames {
             let url = checkout.appendingPathComponent(name)
