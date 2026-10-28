@@ -44,6 +44,7 @@
     #endif#endfor
 
     <link rel="stylesheet" href="#(basePath)/_kiln/css/theme.css">
+    <link rel="stylesheet" href="#(basePath)/_kiln/css/docc-theme.css">
     #for(href in site.extraCSS):<link rel="stylesheet" href="#(basePath)/#(href)">
     #endfor
 

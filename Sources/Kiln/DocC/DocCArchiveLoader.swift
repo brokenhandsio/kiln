@@ -3,7 +3,8 @@ public import Foundation
 /// Loads a single DocC `.doccarchive` directory into an in-memory ``DocCArchive``.
 ///
 /// The loader reads `metadata.json` for the module's identity, decodes every
-/// `data/**/*.json` render node and the `index/index.json` navigation tree, and
+/// `data/**/*.json` render node, `theme-settings.json` branding, and the
+/// `index/index.json` navigation tree, and
 /// records any unrecognised render-JSON constructs into the supplied
 /// ``DocCDiagnostics`` (see that type for the leniency contract). It never
 /// compiles Swift — it only consumes the pre-built archive.
@@ -83,13 +84,16 @@ public struct DocCArchiveLoader {
             issues.append("no index/index.json found")
         }
 
+        let themeSettings = DocCThemeSettings.load(from: archiveURL, issues: &issues)
+
         return DocCArchive(
             moduleName: metadata.bundleDisplayName,
             bundleID: metadata.bundleID ?? metadata.bundleDisplayName,
             pages: pages,
             index: index,
             archiveURL: archiveURL,
-            loadIssues: issues
+            loadIssues: issues,
+            themeSettings: themeSettings
         )
     }
 

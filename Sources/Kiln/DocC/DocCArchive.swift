@@ -20,6 +20,8 @@ public struct DocCArchive: Sendable {
     /// The archive's root directory (used to resolve `images/`, `videos/`,
     /// `downloads/` assets referenced by pages).
     public let archiveURL: URL
+    /// Optional package branding from `theme-settings.json`.
+    public let themeSettings: DocCThemeSettings?
     /// Non-fatal problems encountered while loading (a page that failed to decode,
     /// a missing index). Loading tolerates these and continues; the caller surfaces
     /// them as build warnings.
@@ -39,7 +41,8 @@ public struct DocCArchive: Sendable {
         pages: [DocCPage],
         index: RenderIndex?,
         archiveURL: URL,
-        loadIssues: [String]
+        loadIssues: [String],
+        themeSettings: DocCThemeSettings? = nil
     ) {
         self.moduleName = moduleName
         self.bundleID = bundleID
@@ -47,6 +50,7 @@ public struct DocCArchive: Sendable {
         self.index = index
         self.archiveURL = archiveURL
         self.loadIssues = loadIssues
+        self.themeSettings = themeSettings
 
         var byPath: [String: DocCPage] = [:]
         var byIdentifier: [String: DocCPage] = [:]

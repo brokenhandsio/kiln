@@ -327,9 +327,10 @@ public struct Module: Sendable {
     public var group: String?
     /// A short blurb shown on the module's catalog card.
     public var description: String?
-    /// An optional logo/image shown on the module's catalog card. A site-relative
+    /// An optional logo/image shown on the module landing page. A site-relative
     /// asset path (e.g. `"assets/logos/routing-kit.png"`, resolved against the
-    /// site's mount path) or an absolute `http(s)` URL. `nil` renders no image.
+    /// site's mount path) or an absolute `http(s)` URL. Overrides the archive's
+    /// `theme.icons.technology`; `nil` uses that icon when available.
     public var image: String?
 
     public init(

@@ -162,6 +162,8 @@ struct DocCRenderPhase {
                     // browser (docc-nav.js).
                     let sidebar = navigationBuilder.renderHTML(navigationBuilder.build(archive.index), moduleTitle: module.displayTitle)
 
+                    let moduleImageURL = Self.resolveModuleImage(module.image, basePath: basePath)
+                        ?? archive.themeSettings?.iconURL(archiveURL: archive.archiveURL, urls: urls)
                     for page in archive.pages {
                         let rendered = contentRenderer.render(page.node)
                         let versionSwitcherHTML = versionSwitcher.renderHTML(currentVersion: version, currentPath: page.path)
@@ -198,7 +200,7 @@ struct DocCRenderPhase {
                         }
                         let html = try await renderPage(page: page, rendered: rendered, urls: urls,
                                                         moduleTitle: module.displayTitle,
-                                                        moduleImageURL: Self.resolveModuleImage(module.image, basePath: basePath),
+                                                        moduleImageURL: moduleImageURL,
                                                         sidebarHTML: sidebar,
                                                         moduleSwitcherHTML: moduleSwitcherHTML,
                                                         versionSwitcherHTML: versionSwitcherHTML,
@@ -407,8 +409,10 @@ struct DocCRenderPhase {
 
         // page.leaf emits page.content verbatim, so the DocC body carries its own
         // header (role eyebrow + <h1>) — the render node deliberately omits it.
-        var body = "<header class=\"docc-header\">\n"
-        // The module's logo, if configured, sits at the top of its landing page.
+        let headerClass = isModuleLanding && moduleImageURL != nil
+            ? "docc-header docc-module-header" : "docc-header"
+        var body = "<header class=\"\(headerClass)\">\n"
+        // The configured image or DocC technology logo accompanies the landing title.
         if isModuleLanding, let image = moduleImageURL {
             body += "<img class=\"docc-module-image\" src=\"\(HTMLEscaping.attribute(image))\" alt=\"\" loading=\"lazy\">\n"
         }
