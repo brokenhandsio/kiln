@@ -84,7 +84,10 @@ translations, fallback, and UI strings.
 theme: .default(
     palette: .autoLightDark(primary: .black, accent: .blue),
     logo: "assets/logo.svg",
-    favicon: "assets/logo.svg"
+    favicons: [
+        .init(type: .svg, path: "assets/logo.svg"),
+        .init(type: .png(.x16)),
+    ]
 )
 ```
 

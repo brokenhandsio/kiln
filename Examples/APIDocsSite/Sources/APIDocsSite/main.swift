@@ -21,7 +21,7 @@ let site = KilnSite(
     theme: .default(
         palette: .autoLightDark(primary: .black, accent: .blue),
         logo: "assets/logo.svg",
-        favicon: "assets/logo.svg"
+        favicons: [.init(type: .svg, path: "assets/logo.svg")]
     ),
     docc: DocCSite(
         packages: [

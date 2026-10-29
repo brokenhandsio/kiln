@@ -453,7 +453,7 @@ A few more things to know:
   preview at `http://127.0.0.1:8080/docs/` mirrors production.
 
 **Theme** options: `palette` (`Palette` with `primary`/`accent` `Color`s and a
-`.auto`/`.light`/`.dark` default mode), `logo`, `favicon`, `fonts`
+`.auto`/`.light`/`.dark` default mode), `logo`, `favicons`, `fonts`
 (`Fonts(text:code:)`), and `features` (`.searchSuggest`, `.searchHighlight`,
 `.navigationTabs`, `.backToTop`). `Color` has presets (`.black`, `.blue`,
 `.indigo`, …) or accepts any CSS string via `Color("#2f6feb")`.
