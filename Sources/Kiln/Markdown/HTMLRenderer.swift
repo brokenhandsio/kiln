@@ -92,16 +92,20 @@ struct HTMLRenderer: MarkupWalker {
         result += "<hr />\n"
     }
 
-    private let htmlHeadingRegex = Regex {
-        "<h"
-        Capture { CharacterClass.anyOf("123456") }
-        Capture { ZeroOrMore(.any, .reluctant) }
-        ">"
-        Capture { ZeroOrMore(.any, .reluctant) }
-        "</h"
-        CharacterClass.anyOf("123456")
-        ">"
-    }
+    private let htmlHeadingRegex = {
+        let level = Reference(Substring.self)
+
+        return Regex {
+            "<h"
+            Capture(CharacterClass.anyOf("123456"), as: level)
+            Capture { ZeroOrMore(.any, .reluctant) }
+            ">"
+            Capture { ZeroOrMore(.any, .reluctant) }
+            "</h"
+            level
+            ">"
+        }
+    }()
 
     private let htmlTagRegex = /<[^>]+>/
     private let htmlIdAttributeRegex = /(?:^|\s)id\s*=\s*["']?([^"'\s>]+)["']?/
