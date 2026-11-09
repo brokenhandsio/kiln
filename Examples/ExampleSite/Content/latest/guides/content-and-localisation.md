@@ -65,6 +65,11 @@ falls back to Kiln's built-in English default:
 ))
 ```
 
+This covers the accessible names (`aria-label`) of the theme's landmarks and
+icon-only controls too — the main navigation, breadcrumb, table of contents,
+blog pagination and the DocC module/version switchers — so screen-reader output
+is translated along with the visible text.
+
 The same configuration also carries optional labels for marketing-style
 navigation and footers — `home`, `store`, `blog`, `community`, `resources`, the
 theme/language/version picker labels, and more — for custom themes that render

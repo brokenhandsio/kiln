@@ -77,7 +77,11 @@ let latest = DocVersion(
                 oldVersionMessage: "Sie sehen die Dokumentation für eine ältere Version.",
                 oldVersionLink: "Zur neuesten Version",
                 preReleaseMessage: "Sie sehen die Dokumentation für eine Vorabversion.",
-                preReleaseLink: "Zur neuesten stabilen Version"
+                preReleaseLink: "Zur neuesten stabilen Version",
+                mainNavigation: "Hauptnavigation",
+                pageNavigation: "Vorherige und nächste Seite",
+                tableOfContentsNavigation: "Abschnitte dieser Seite",
+                breadcrumb: "Brotkrumennavigation"
             )
         ),
     ],
