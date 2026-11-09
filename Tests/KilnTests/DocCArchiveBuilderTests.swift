@@ -318,4 +318,38 @@ struct DocCArchiveBuilderTests {
         try fm.createDirectory(at: untouched, withIntermediateDirectories: true)
         #expect(clean(untouched) == false)
     }
+
+    @Test("The docc plugin is injected into every manifest variant, including newer toolchains'")
+    func pluginInjection() throws {
+        let fm = FileManager.default
+        let site = DocCSite(packages: [
+            APIPackage("vapor/jwt-kit", versions: [.single(ref: "main", modules: [Module("JWTKit")])]),
+        ])
+        let base = fm.temporaryDirectory.appendingPathComponent("kiln-plugin-\(UUID().uuidString)")
+        try fm.createDirectory(at: base, withIntermediateDirectories: true)
+        defer { try? fm.removeItem(at: base) }
+        let builder = DocCArchiveBuilder(docc: site, contentDirectory: base, checkoutDirectory: base)
+
+        let manifest = "let package = Package(\n    dependencies: [\n    ]\n)\n"
+        let manifests = ["Package.swift", "Package@swift-6.4.swift", "Package@swift-7.0.1.swift"]
+        for name in manifests {
+            try Data(manifest.utf8).write(to: base.appendingPathComponent(name))
+        }
+        try Data("{}".utf8).write(to: base.appendingPathComponent("Package.resolved"))
+
+        try builder.ensurePluginAvailable(in: base, repo: "vapor/jwt-kit", log: { _ in })
+        try builder.ensurePluginAvailable(in: base, repo: "vapor/jwt-kit", log: { _ in })
+
+        for name in manifests {
+            let contents = try String(contentsOf: base.appendingPathComponent(name), encoding: .utf8)
+            #expect(contents.components(separatedBy: "swift-docc-plugin").count == 2, "\(name)")
+        }
+        #expect(try String(contentsOf: base.appendingPathComponent("Package.resolved"), encoding: .utf8) == "{}")
+
+        let empty = base.appendingPathComponent("empty")
+        try fm.createDirectory(at: empty, withIntermediateDirectories: true)
+        #expect(throws: (any Error).self) {
+            try builder.ensurePluginAvailable(in: empty, repo: "vapor/jwt-kit", log: { _ in })
+        }
+    }
 }

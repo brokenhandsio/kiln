@@ -641,14 +641,15 @@ public struct DocCArchiveBuilder: Sendable {
     /// it, so `swift package generate-documentation` is available. String-inserts
     /// after `dependencies: [` because `swift package add-dependency` can't target
     /// version-specific manifests (adapted from vapor/api-docs' generator script).
-    private func ensurePluginAvailable(in checkout: URL, repo: String, log: Log) throws {
-        let fileManager = FileManager.default
-        let manifestNames = ["6.2", "6.1", "6.0", "5.10", "5.9", "5.8", "5.7"].map { "Package@swift-\($0).swift" } + ["Package.swift"]
-        var foundAny = false
+    /// Manifests are discovered from the checkout rather than a fixed version list:
+    /// a toolchain newer than the list picks a variant that would never be patched.
+    func ensurePluginAvailable(in checkout: URL, repo: String, log: Log) throws {
+        let manifestNames = ((try? FileManager.default.contentsOfDirectory(atPath: checkout.path)) ?? [])
+            .filter { $0 == "Package.swift" || ($0.hasPrefix("Package@swift-") && $0.hasSuffix(".swift")) }
+            .sorted()
+        guard !manifestNames.isEmpty else { throw BuildError.noManifest(repo: repo) }
         for name in manifestNames {
             let url = checkout.appendingPathComponent(name)
-            guard fileManager.fileExists(atPath: url.path) else { continue }
-            foundAny = true
             var contents = try String(contentsOf: url, encoding: .utf8)
             guard !contents.contains("swift-docc-plugin") else { continue }
             guard let range = contents.range(of: "dependencies: [") else { continue }
@@ -659,7 +660,6 @@ public struct DocCArchiveBuilder: Sendable {
             )
             try contents.write(to: url, atomically: true, encoding: .utf8)
         }
-        guard foundAny else { throw BuildError.noManifest(repo: repo) }
     }
 
     /// Run `swift package generate-documentation` for one module, writing the raw
