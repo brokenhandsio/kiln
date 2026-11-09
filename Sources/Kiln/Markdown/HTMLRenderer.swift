@@ -95,15 +95,7 @@ struct HTMLRenderer: MarkupWalker {
     private let htmlHeadingRegex = Regex {
         "<h"
         Capture { CharacterClass.anyOf("123456") }
-        Capture {
-            ZeroOrMore {
-                ChoiceOf {
-                    CharacterClass.whitespace
-                    CharacterClass.word
-                    CharacterClass.anyOf("=-\"")
-                }
-            }
-        }
+        Capture { ZeroOrMore(.any, .reluctant) }
         ">"
         Capture { ZeroOrMore(.any, .reluctant) }
         "</h"
@@ -112,7 +104,7 @@ struct HTMLRenderer: MarkupWalker {
     }
 
     private let htmlTagRegex = /<[^>]+>/
-    private let htmlIdAttributeRegex = /id="([^"]+)"/
+    private let htmlIdAttributeRegex = /(?:^|\s)id\s*=\s*["']?([^"'\s>]+)["']?/
 
     mutating func processHTMLForTOCEntries(_ html: String) -> String {
         html.replacing(htmlHeadingRegex) { (match: Regex<(Substring, Substring, Substring, Substring)>.Match) -> String in

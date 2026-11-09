@@ -75,14 +75,21 @@ struct MarkdownTests {
             <p>subtitle</p>
         </header>
         <section>
-            <h2 id="some-id" class="some-class">Some <strong>big</strong> section</h3>
+            <h2 id="double-quoted-id" class="some-class">Some <strong>big</strong> section</h2>
             <section>
                 <h3 test>Some sub-section</h3>
                 <p>Some content</p>
             </section>
         </section>
         <section>
-            <h2>Another <strong>big</strong> section</h3>
+            <h2 id='single-quoted-id' class="some-class">Some <strong>big</strong> section</h2>
+            <section>
+                <h3 id=unquoted-id>Sub-section with unquoted id</h3>
+                <p>Some content</p>
+            </section>
+        </section>
+        <section>
+            <h2>Another <strong>big</strong> section</h2>
             <section>
                 <h3 test>Another sub-section</h3>
                 <p>Another paragraph</p>
@@ -90,15 +97,19 @@ struct MarkdownTests {
         </section>
         """)
         #expect(result.html.contains("<h1 id=\"main-title\">Main title<a class=\"headerlink\" href=\"#main-title\" title=\"Permanent link\">#</a></h1>"))
-        #expect(result.html.contains("<h2 id=\"some-id\" class=\"some-class\">Some big section<a class=\"headerlink\" href=\"#some-id\" title=\"Permanent link\">#</a></h2>"))
+        #expect(result.html.contains("<h2 id=\"double-quoted-id\" class=\"some-class\">Some big section<a class=\"headerlink\" href=\"#double-quoted-id\" title=\"Permanent link\">#</a></h2>"))
         #expect(result.html.contains("<h3 test id=\"some-sub-section\">Some sub-section<a class=\"headerlink\" href=\"#some-sub-section\" title=\"Permanent link\">#</a></h3>"))
+        #expect(result.html.contains("<h2 id='single-quoted-id' class=\"some-class\">Some big section<a class=\"headerlink\" href=\"#single-quoted-id\" title=\"Permanent link\">#</a></h2>"))
+        #expect(result.html.contains("<h3 id=unquoted-id>Sub-section with unquoted id<a class=\"headerlink\" href=\"#unquoted-id\" title=\"Permanent link\">#</a></h3>"))
         #expect(result.html.contains("<h2 id=\"another-big-section\">Another big section<a class=\"headerlink\" href=\"#another-big-section\" title=\"Permanent link\">#</a></h2>"))
         #expect(result.html.contains("<h3 test id=\"another-sub-section\">Another sub-section<a class=\"headerlink\" href=\"#another-sub-section\" title=\"Permanent link\">#</a></h3>"))
 
         // toc covers levels 2...3 by default: two top-level entries, two nested.
-        #expect(result.tableOfContents.count == 2)
-        #expect(result.tableOfContents.first?.id == "some-id")
+        #expect(result.tableOfContents.count == 3)
+        #expect(result.tableOfContents.first?.id == "double-quoted-id")
         #expect(result.tableOfContents.first?.children.first?.title == "Some sub-section")
+        #expect(result.tableOfContents[1].id == "single-quoted-id")
+        #expect(result.tableOfContents[1].children.first?.title == "Sub-section with unquoted id")
         #expect(result.tableOfContents.last?.id == "another-big-section")
         #expect(result.tableOfContents.last?.children.first?.title == "Another sub-section")
     }
