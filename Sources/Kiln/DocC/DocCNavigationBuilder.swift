@@ -12,9 +12,13 @@
 /// highlighting and ancestor expansion are applied per page (``renderHTML(_:currentPath:)``).
 public struct DocCNavigationBuilder: Sendable {
     private let urls: DocCURLs
+    /// Accessible label template for branch disclosure buttons; `{title}` is
+    /// replaced with the symbol's name.
+    private let toggleLabel: String
 
-    public init(urls: DocCURLs) {
+    public init(urls: DocCURLs, toggleLabel: String = "Toggle {title}") {
         self.urls = urls
+        self.toggleLabel = toggleLabel
     }
 
     /// A parsed sidebar node (module children flattened to the nav roots).
@@ -125,7 +129,8 @@ public struct DocCNavigationBuilder: Sendable {
     private func toggle(for node: Node, controls: String) -> String {
         var out = "<button class=\"docc-nav-toggle\" type=\"button\" aria-expanded=\"false\""
         out += " aria-controls=\"\(HTMLEscaping.attribute(controls))\""
-        out += " aria-label=\"Toggle \(HTMLEscaping.attribute(node.title))\">"
+        let label = toggleLabel.replacing("{title}", with: node.title)
+        out += " aria-label=\"\(HTMLEscaping.attribute(label))\">"
         out += "<span class=\"docc-nav-chevron\" aria-hidden=\"true\">"
         out += "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.25\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><polyline points=\"9 6 15 12 9 18\"></polyline></svg>"
         out += "</span></button>"

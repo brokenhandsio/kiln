@@ -1,7 +1,7 @@
 #extend("base"):
 #export("content"):
 #if(page.breadcrumb):
-<nav class="kiln-breadcrumb" aria-label="Breadcrumb">
+<nav class="kiln-breadcrumb" aria-label="#(strings.breadcrumb)">
     <ol>
         #for(crumb in page.breadcrumb):
         <li>#if(crumb.url):<a href="#(crumb.url)">#(crumb.name)</a>#else:<span aria-current="page">#(crumb.name)</span>#endif</li>

@@ -59,6 +59,33 @@ public struct LocalisationConfiguration: Sendable {
     /// Link text on the pre-release banner. Default: `"View the latest stable version"`.
     public var preReleaseLink: String?
 
+    // MARK: Accessible labels
+    //
+    // `aria-label`s on the theme's landmarks and icon-only controls. Screen
+    // readers announce these, so they need translating like any visible text.
+
+    /// Accessible label for the sidebar navigation landmark. Default: `"Main navigation"`.
+    public var mainNavigation: String?
+    /// Accessible label for the previous/next page links landmark.
+    /// Default: `"Previous and Next pages navigation"`.
+    public var pageNavigation: String?
+    /// Accessible label for the on-page table of contents landmark.
+    /// Default: `"Page sections navigation"`.
+    public var tableOfContentsNavigation: String?
+    /// Accessible label for the breadcrumb trail. Default: `"Breadcrumb"`.
+    public var breadcrumb: String?
+    /// Accessible label for the blog's pagination landmark. Default: `"Blog pagination"`.
+    public var blogPagination: String?
+    /// Accessible label for the DocC module switcher; the current module name is
+    /// appended (e.g. "Select module: Vapor"). Default: `"Select module"`.
+    public var selectModule: String?
+    /// Accessible label for the DocC version switcher; the current version is
+    /// appended (e.g. "Select version: 4.x"). Default: `"Select version"`.
+    public var selectVersion: String?
+    /// Accessible label for the expand/collapse buttons in the DocC sidebar.
+    /// `{title}` is replaced with the symbol's name. Default: `"Toggle {title}"`.
+    public var toggleSection: String?
+
     // MARK: Navigation & footer chrome
     //
     // Common labels a custom theme can use for marketing-style navigation and
@@ -117,6 +144,14 @@ public struct LocalisationConfiguration: Sendable {
         oldVersionLink: String? = nil,
         preReleaseMessage: String? = nil,
         preReleaseLink: String? = nil,
+        mainNavigation: String? = nil,
+        pageNavigation: String? = nil,
+        tableOfContentsNavigation: String? = nil,
+        breadcrumb: String? = nil,
+        blogPagination: String? = nil,
+        selectModule: String? = nil,
+        selectVersion: String? = nil,
+        toggleSection: String? = nil,
         home: String? = nil,
         store: String? = nil,
         blog: String? = nil,
@@ -153,6 +188,14 @@ public struct LocalisationConfiguration: Sendable {
         self.oldVersionLink = oldVersionLink
         self.preReleaseMessage = preReleaseMessage
         self.preReleaseLink = preReleaseLink
+        self.mainNavigation = mainNavigation
+        self.pageNavigation = pageNavigation
+        self.tableOfContentsNavigation = tableOfContentsNavigation
+        self.breadcrumb = breadcrumb
+        self.blogPagination = blogPagination
+        self.selectModule = selectModule
+        self.selectVersion = selectVersion
+        self.toggleSection = toggleSection
         self.home = home
         self.store = store
         self.blog = blog
@@ -195,6 +238,14 @@ extension LocalisationConfiguration {
         var oldVersionLink: String
         var preReleaseMessage: String
         var preReleaseLink: String
+        var mainNavigation: String
+        var pageNavigation: String
+        var tableOfContentsNavigation: String
+        var breadcrumb: String
+        var blogPagination: String
+        var selectModule: String
+        var selectVersion: String
+        var toggleSection: String
         var home: String
         var store: String
         var blog: String
@@ -234,6 +285,14 @@ extension LocalisationConfiguration {
             oldVersionLink: oldVersionLink ?? "View the latest version",
             preReleaseMessage: preReleaseMessage ?? "You're viewing documentation for a pre-release version.",
             preReleaseLink: preReleaseLink ?? "View the latest stable version",
+            mainNavigation: mainNavigation ?? "Main navigation",
+            pageNavigation: pageNavigation ?? "Previous and Next pages navigation",
+            tableOfContentsNavigation: tableOfContentsNavigation ?? "Page sections navigation",
+            breadcrumb: breadcrumb ?? "Breadcrumb",
+            blogPagination: blogPagination ?? "Blog pagination",
+            selectModule: selectModule ?? "Select module",
+            selectVersion: selectVersion ?? "Select version",
+            toggleSection: toggleSection ?? "Toggle {title}",
             home: home ?? "Home",
             store: store ?? "Store",
             blog: blog ?? "Blog",

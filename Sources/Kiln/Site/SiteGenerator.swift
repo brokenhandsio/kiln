@@ -689,7 +689,8 @@ public struct SiteGenerator {
                 tags: collection.tags, activeTagSlug: nil, isTagsPage: false,
                 totalPostCount: collection.posts.count, urls: urls, blog: blog,
                 previousLabel: language.localisation.resolved.previousPage,
-                nextLabel: language.localisation.resolved.nextPage
+                nextLabel: language.localisation.resolved.nextPage,
+                paginationLabel: language.localisation.resolved.blogPagination
             )
             sitemapEntries.append(try await emit(
                 template: "blog-index",
@@ -738,7 +739,8 @@ public struct SiteGenerator {
                     tags: collection.tags, activeTagSlug: tag.slug, isTagsPage: true,
                     totalPostCount: collection.posts.count, urls: urls, blog: blog,
                     previousLabel: language.localisation.resolved.previousPage,
-                    nextLabel: language.localisation.resolved.nextPage
+                    nextLabel: language.localisation.resolved.nextPage,
+                    paginationLabel: language.localisation.resolved.blogPagination
                 )
                 sitemapEntries.append(try await emit(
                     template: "blog-tags",
@@ -783,7 +785,8 @@ public struct SiteGenerator {
                         urlForPage: { urls.blogAuthorURLPath(slug: slug, page: $0) },
                         urls: urls, blog: blog,
                         previousLabel: language.localisation.resolved.previousPage,
-                        nextLabel: language.localisation.resolved.nextPage
+                        nextLabel: language.localisation.resolved.nextPage,
+                        paginationLabel: language.localisation.resolved.blogPagination
                     )
                     // The first page is the canonical author profile (ProfilePage + Person).
                     let profile = page == 1 ? ProfileStructuredData(

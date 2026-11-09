@@ -55,7 +55,9 @@ struct DocCRenderPhase {
         previous: [String: DocCBuildManifest.Entry] = [:]
     ) async throws -> Result {
         let registry = DocCModuleRegistry(site: docc, basePath: basePath)
-        let switcher = DocCModuleSwitcher(docc: docc, basePath: basePath)
+        let language = site.defaultLanguage
+        let strings = language.localisation.resolved
+        let switcher = DocCModuleSwitcher(docc: docc, basePath: basePath, accessibleLabel: strings.selectModule)
         // Resolve the archives directory *within* the content directory (append
         // components rather than URL(relativeTo:), which drops a base's last
         // component when it has no trailing slash).
@@ -64,7 +66,6 @@ struct DocCRenderPhase {
             archivesBase.appendPathComponent(String(component), isDirectory: true)
         }
         let loader = DocCArchiveLoader()
-        let language = site.defaultLanguage
         var result = Result()
         // Per-module sitemap <lastmod> (its default archive's build date), keyed by
         // the module's lowercased name — the same key as its search fragment file.
@@ -136,7 +137,8 @@ struct DocCRenderPhase {
 
                 let pathsByVersion = archivesByVersion.mapValues { Set($0.pages.map(\.path)) }
                 let versionSwitcher = DocCVersionSwitcher(package: package, moduleName: module.name,
-                                                          basePath: basePath, pathsByVersion: pathsByVersion)
+                                                          basePath: basePath, pathsByVersion: pathsByVersion,
+                                                          accessibleLabel: strings.selectVersion)
                 let moduleSwitcherHTML = switcher.renderHTML(currentModule: module.name)
 
                 // For the "viewing an old/pre-release version" banner on non-default
@@ -156,7 +158,7 @@ struct DocCRenderPhase {
                     guard let archive = archivesByVersion[version.id] else { continue }
                     let urls = DocCURLs(moduleName: module.name, version: version, basePath: basePath)
                     let contentRenderer = DocCRenderer(pathMapper: registry.linkMapper(current: urls, currentPackageRepo: package.repo))
-                    let navigationBuilder = DocCNavigationBuilder(urls: urls)
+                    let navigationBuilder = DocCNavigationBuilder(urls: urls, toggleLabel: strings.toggleSection)
                     // The sidebar tree is identical for every page of this module,
                     // so render it once; the current page is highlighted in the
                     // browser (docc-nav.js).
