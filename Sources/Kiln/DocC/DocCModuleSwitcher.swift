@@ -25,6 +25,8 @@ public struct DocCModuleGroup: Sendable, Equatable {
 struct DocCModuleSwitcher: Sendable {
     let docc: DocCSite
     let basePath: String
+    /// Purpose part of the toggle's accessible name ("<accessibleLabel>: <module>").
+    var accessibleLabel: String = "Select module"
 
     /// The grouped modules, marking `currentModule` (by target name) as current.
     func groups(currentModule: String?) -> [DocCModuleGroup] {
@@ -50,6 +52,6 @@ struct DocCModuleSwitcher: Sendable {
                 options: group.modules.map { DocCSelect.Option(label: $0.name, url: $0.url, isCurrent: $0.isCurrent, badge: $0.badge) }
             )
         }
-        return DocCSelect.render(label: label, sections: sections, sizeClass: "docc-select--module", accessibleLabel: "Select module")
+        return DocCSelect.render(label: label, sections: sections, sizeClass: "docc-select--module", accessibleLabel: accessibleLabel)
     }
 }

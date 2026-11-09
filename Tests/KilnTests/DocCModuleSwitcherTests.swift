@@ -41,6 +41,12 @@ struct DocCModuleSwitcherTests {
         #expect(html.contains("<summary class=\"docc-select-toggle\" aria-label=\"Select module: FluentKit\">"))
     }
 
+    @Test("The toggle's accessible label is localisable")
+    func localisedAccessibleLabel() {
+        let html = DocCModuleSwitcher(docc: site(), basePath: "", accessibleLabel: "Modul wählen").renderHTML(currentModule: "FluentKit")
+        #expect(html.contains("<summary class=\"docc-select-toggle\" aria-label=\"Modul wählen: FluentKit\">"))
+    }
+
     @Test("No current module → 'Modules' label, none flagged")
     func noCurrent() {
         let html = DocCModuleSwitcher(docc: site(), basePath: "").renderHTML(currentModule: nil)

@@ -25,7 +25,8 @@ struct BuildTests {
             languages: languages ?? [
                 .init(.english, isDefault: true),
                 .init(.german, navTranslations: ["Section": "Abschnitt"],
-                      localisation: .init(searchPlaceholder: "Suchen", tableOfContentsTitle: "Auf dieser Seite")),
+                      localisation: .init(searchPlaceholder: "Suchen", tableOfContentsTitle: "Auf dieser Seite",
+                                          mainNavigation: "Hauptnavigation")),
             ],
             indexFallbackPages: indexFallbackPages
         ) {
@@ -207,6 +208,12 @@ struct BuildTests {
         // English page uses the built-in defaults.
         let englishHome = try read(output.appendingPathComponent("index.html"))
         #expect(englishHome.contains("placeholder=\"Search\""))
+
+        // Landmark aria-labels are localised too, falling back to English when unset.
+        #expect(germanHome.contains("aria-label=\"Hauptnavigation\""))
+        #expect(!germanHome.contains("aria-label=\"Main navigation\""))
+        #expect(germanHome.contains("aria-label=\"Previous and Next pages navigation\""))
+        #expect(englishHome.contains("aria-label=\"Main navigation\""))
 
         // Search exposes the accessible combobox/listbox wiring and a live-region
         // result count (falling back to English when unset).

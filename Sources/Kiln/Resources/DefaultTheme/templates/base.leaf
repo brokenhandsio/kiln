@@ -83,7 +83,7 @@
             </div>
             #if(nav.moduleSwitcher):#unsafeHTML(nav.moduleSwitcher)#endif
             #if(nav.versionSwitcher):#unsafeHTML(nav.versionSwitcher)#endif
-            <nav class="kiln-nav" aria-label="Main navigation">
+            <nav class="kiln-nav" aria-label="#(strings.mainNavigation)">
                 #if(nav.doccHTML):#unsafeHTML(nav.doccHTML)#else:#extend("partials/nav-tree", nav)#endif
             </nav>
         </aside>
@@ -117,7 +117,7 @@
             #import("content")
             #endif
 
-            <nav class="kiln-page-nav" aria-label="Previous and Next pages navigation">
+            <nav class="kiln-page-nav" aria-label="#(strings.pageNavigation)">
                 #if(nav.previous):<a class="kiln-prev" href="#(nav.previous.url)"><span class="kiln-page-nav-label">#(strings.previousPage)</span><span class="kiln-page-nav-title">#(nav.previous.title)</span></a>#endif
                 #if(nav.next):<a class="kiln-next" href="#(nav.next.url)"><span class="kiln-page-nav-label">#(strings.nextPage)</span><span class="kiln-page-nav-title">#(nav.next.title)</span></a>#endif
             </nav>
@@ -128,7 +128,7 @@
         #if(page.showTOC):
         <aside class="kiln-toc">
             #if(page.hasTOC):
-            <nav class="kiln-toc-inner" aria-label="Page sections navigation">
+            <nav class="kiln-toc-inner" aria-label="#(strings.tableOfContentsNavigation)">
                 <p class="kiln-toc-title">#(strings.tableOfContentsTitle)</p>
                 #extend("partials/toc")
             </nav>

@@ -15,6 +15,8 @@ struct DocCVersionSwitcher: Sendable {
     /// The set of archive paths present in each version (by version id), so the
     /// switcher can fall back to the module landing when a symbol is absent.
     let pathsByVersion: [String: Set<String>]
+    /// Purpose part of the toggle's accessible name ("<accessibleLabel>: <version>").
+    var accessibleLabel: String = "Select version"
 
     /// Version options for a page at `currentPath` in `currentVersion`.
     func options(currentVersion: PackageVersion, currentPath: String) -> [DocCSelect.Option] {
@@ -34,6 +36,6 @@ struct DocCVersionSwitcher: Sendable {
     func renderHTML(currentVersion: PackageVersion, currentPath: String) -> String {
         guard package.versions.count > 1 else { return "" }
         let section = DocCSelect.Section(title: nil, options: options(currentVersion: currentVersion, currentPath: currentPath))
-        return DocCSelect.render(label: currentVersion.name, sections: [section], sizeClass: "docc-select--version", accessibleLabel: "Select version")
+        return DocCSelect.render(label: currentVersion.name, sections: [section], sizeClass: "docc-select--version", accessibleLabel: accessibleLabel)
     }
 }

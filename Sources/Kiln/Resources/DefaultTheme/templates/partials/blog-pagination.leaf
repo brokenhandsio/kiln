@@ -1,16 +1,16 @@
 #if(hasMultiplePages):
-<nav aria-label="Blog pagination">
+<nav aria-label="#(label)">
     <ul class="pagination justify-content-center">
         <li class="page-item me-auto#if(!hasPrevious): disabled#endif">
             #if(hasPrevious):
-            <a class="page-link page-link-next-previous d-flex page-link-previous" href="#(prevURL)" aria-label="Previous">
+            <a class="page-link page-link-next-previous d-flex page-link-previous" href="#(prevURL)" aria-label="#(previousLabel)">
                 <span class="vapor-icon icon-chevron-left" aria-hidden="true"></span>
-                <div class="d-none d-lg-block">Previous</div>
+                <div class="d-none d-lg-block">#(previousLabel)</div>
             </a>
             #else:
             <span class="page-link page-link-next-previous d-flex page-link-previous" aria-hidden="true">
                 <span class="vapor-icon icon-chevron-left"></span>
-                <div class="d-none d-lg-block">Previous</div>
+                <div class="d-none d-lg-block">#(previousLabel)</div>
             </span>
             #endif
         </li>
@@ -29,13 +29,13 @@
 
         <li class="page-item ms-auto#if(!hasNext): disabled#endif">
             #if(hasNext):
-            <a class="page-link page-link-next-previous d-flex page-link-next" href="#(nextURL)" aria-label="Next">
-                <div class="d-none d-lg-block">Next</div>
+            <a class="page-link page-link-next-previous d-flex page-link-next" href="#(nextURL)" aria-label="#(nextLabel)">
+                <div class="d-none d-lg-block">#(nextLabel)</div>
                 <span class="vapor-icon icon-chevron-right" aria-hidden="true"></span>
             </a>
             #else:
             <span class="page-link page-link-next-previous d-flex page-link-next" aria-hidden="true">
-                <div class="d-none d-lg-block">Next</div>
+                <div class="d-none d-lg-block">#(nextLabel)</div>
                 <span class="vapor-icon icon-chevron-right"></span>
             </span>
             #endif

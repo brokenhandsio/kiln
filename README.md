@@ -306,6 +306,11 @@ Language(.german, localisation: .init(
 ))
 ```
 
+This covers the accessible names (`aria-label`) of the theme's landmarks and
+icon-only controls too — the main navigation, breadcrumb, table of contents,
+blog pagination and the DocC module/version switchers — so screen-reader output
+is translated along with the visible text.
+
 ## Navigation
 
 The navigation tree is built with a result builder using three helpers:

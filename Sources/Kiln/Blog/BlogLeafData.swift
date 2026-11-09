@@ -47,7 +47,8 @@ enum BlogLeafData {
         urls: SiteURLs,
         blog: Blog,
         previousLabel: String,
-        nextLabel: String
+        nextLabel: String,
+        paginationLabel: String
     ) -> LeafData {
         var dict: [String: LeafData] = [
             "heading": .string(heading),
@@ -55,7 +56,7 @@ enum BlogLeafData {
             "posts": .array(cards.map { card($0, urls: urls, blog: blog) }),
             "hasPosts": .bool(!cards.isEmpty),
             "hasTags": .bool(!tags.isEmpty),
-            "pagination": pagination(current: currentPage, total: totalPages, urlForPage: urlForPage, previousLabel: previousLabel, nextLabel: nextLabel),
+            "pagination": pagination(current: currentPage, total: totalPages, urlForPage: urlForPage, previousLabel: previousLabel, nextLabel: nextLabel, label: paginationLabel),
             "tags": tagListData(tags, activeTagSlug: activeTagSlug, urls: urls),
             "tagsIndexURL": .string(urls.blogTagsURLPath(page: 1)),
             "indexURL": .string(urls.blogIndexURLPath(page: 1)),
@@ -109,14 +110,15 @@ enum BlogLeafData {
         urls: SiteURLs,
         blog: Blog,
         previousLabel: String,
-        nextLabel: String
+        nextLabel: String,
+        paginationLabel: String
     ) -> LeafData {
         .dictionary([
             "isAuthorPage": .bool(true),
             "author": authorHeader(author, urls: urls),
             "posts": .array(cards.map { card($0, urls: urls, blog: blog) }),
             "hasPosts": .bool(!cards.isEmpty),
-            "pagination": pagination(current: currentPage, total: totalPages, urlForPage: urlForPage, previousLabel: previousLabel, nextLabel: nextLabel),
+            "pagination": pagination(current: currentPage, total: totalPages, urlForPage: urlForPage, previousLabel: previousLabel, nextLabel: nextLabel, label: paginationLabel),
             "authorsIndexURL": .string(urls.blogAuthorsURLPath()),
             "feedURL": .string(urls.feedURLPath()),
         ])
@@ -210,12 +212,12 @@ enum BlogLeafData {
 
     private static func pagination(
         current: Int, total: Int, urlForPage: (Int) -> String,
-        previousLabel: String, nextLabel: String
+        previousLabel: String, nextLabel: String, label: String
     ) -> LeafData {
         // The pagination partial is rendered with this dictionary as its whole
         // context (Leaf's `#extend("…", object)` replaces the context), so the
-        // localised Previous/Next labels must travel inside it — `strings.*`
-        // isn't reachable from there.
+        // localised labels must travel inside it — `strings.*` isn't reachable
+        // from there.
         var dict: [String: LeafData] = [
             "currentPage": .int(current),
             "totalPages": .int(total),
@@ -226,6 +228,7 @@ enum BlogLeafData {
             "nextURL": .string(current < total ? urlForPage(current + 1) : nil),
             "previousLabel": .string(previousLabel),
             "nextLabel": .string(nextLabel),
+            "label": .string(label),
         ]
         let links = visiblePages(current: current, total: total).map { page -> LeafData in
             guard let page else {
