@@ -137,7 +137,7 @@ struct HTMLRenderer: MarkupWalker {
             
             // Re-build heading tag with its id attribute
             var headingResult = "<h\(headingLevel)\(newAttributes)>"
-            headingResult += HTMLEscaping.text(headingTitle)
+            headingResult += rawContent
             if toc.permalink {
                 headingResult += "<a class=\"headerlink\" href=\"#\(HTMLEscaping.attribute(id))\" title=\"Permanent link\">\(HTMLEscaping.text(toc.permalinkSymbol))</a>"
             }
