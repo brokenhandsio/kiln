@@ -396,8 +396,43 @@ details.admonition > summary.admonition-title::-webkit-details-marker { display:
     padding: 8px;
     z-index: 100;
 }
-.kiln-search-result { display: block; padding: 10px 12px; border-radius: 8px; color: var(--text); }
-.kiln-search-result:hover, .kiln-search-result.kiln-active { background: var(--surface); text-decoration: none; }
+.kiln-search-result { display: block; position: relative; padding: 10px 12px; border-radius: 8px; color: var(--text); }
+.kiln-search-result:hover { background: var(--surface); text-decoration: none; }
+
+/* The keyboard selection has to outrank hover rather than match it. Sharing
+   one background gave it two problems: --surface sits a couple of percent
+   off --bg, so the selection was nearly invisible on its own, and with the
+   pointer anywhere over the list two rows lit up identically with no telling
+   which one Return would open.
+
+   Hence a treatment hover does not get — an accent-tinted fill and a bar down
+   the leading edge. The bar is the part that survives a high-contrast palette
+   and a reader who cannot separate the two fills by hue: it is a shape, not a
+   tint. */
+.kiln-search-result.kiln-active {
+    background: color-mix(in srgb, var(--accent) 16%, var(--bg));
+    text-decoration: none;
+}
+.kiln-search-result.kiln-active::before {
+    content: "";
+    position: absolute;
+    inset-block: 4px;
+    inset-inline-start: 0;
+    width: 3px;
+    border-radius: 999px;
+    background: var(--accent);
+}
+.kiln-search-result.kiln-active .kiln-search-result-title { color: var(--accent); }
+/* --muted loses too much against the tinted fill; on the selected row the
+   context line reads as body text. */
+.kiln-search-result.kiln-active .kiln-search-result-context { color: var(--text); }
+/* The <mark> and the badge are already accent tints, and tint-on-tint goes
+   muddy — push both enough to stay distinct inside the fill. */
+.kiln-search-result.kiln-active mark { background: color-mix(in srgb, var(--accent) 45%, transparent); }
+.kiln-search-result.kiln-active .kiln-search-result-badge {
+    background: color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
 .kiln-search-result-title { font-weight: 600; display: block; }
 /* Kind pill on a result (e.g. a DocC module landing page). */
 .kiln-search-result-badge {
