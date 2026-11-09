@@ -51,6 +51,15 @@ struct DocCNavigationTests {
         #expect(html.contains("href=\"/queues/schedulebuilder/\""))
     }
 
+    @Test("The disclosure button's accessible label is localisable")
+    func localisedToggleLabel() throws {
+        let builder = DocCNavigationBuilder(urls: urls, toggleLabel: "{title} ein-/ausklappen")
+        let tree = builder.build(try queuesIndex())
+        let html = builder.renderHTML(tree, moduleTitle: "Queues")
+        #expect(html.contains("aria-label=\"ScheduleBuilder ein-/ausklappen\""))
+        #expect(!html.contains("aria-label=\"Toggle "))
+    }
+
     @Test("The tree is rendered once with no per-page current state")
     func staticTree() throws {
         let builder = DocCNavigationBuilder(urls: urls)

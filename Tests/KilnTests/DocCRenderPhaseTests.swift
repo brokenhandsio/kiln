@@ -331,7 +331,7 @@ struct DocCRenderPhaseTests {
         let method = try html(output, "queues/queue/dispatch(_:_:maxretrycount:delayuntil:id:)-630ll/index.html")
 
         // Visible trail: ancestors are links, the current page is an unlinked crumb.
-        #expect(method.contains("<nav class=\"kiln-breadcrumb\""))
+        #expect(method.contains("<nav class=\"kiln-breadcrumb\" aria-label=\"Breadcrumb\">"))
         #expect(method.contains("<a href=\"/queues/\">Queues</a>"))
         #expect(method.contains("<a href=\"/queues/queue/\">Queue</a>"))
         #expect(method.contains("aria-current=\"page\">dispatch"))

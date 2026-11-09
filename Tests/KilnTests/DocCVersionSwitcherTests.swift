@@ -64,6 +64,14 @@ struct DocCVersionSwitcherTests {
         #expect(html.contains("<summary class=\"docc-select-toggle\" aria-label=\"Select version: 4.x\">"))
     }
 
+    @Test("The toggle's accessible label is localisable")
+    func localisedAccessibleLabel() {
+        let sw = DocCVersionSwitcher(package: package(), moduleName: "RoutingKit", basePath: "",
+                                     pathsByVersion: paths(), accessibleLabel: "Version wählen")
+        let html = sw.renderHTML(currentVersion: v4, currentPath: "/documentation/routingkit/router")
+        #expect(html.contains("<summary class=\"docc-select-toggle\" aria-label=\"Version wählen: 4.x\">"))
+    }
+
     @Test("A single-version package renders no version switcher")
     func singleVersion() {
         let single = APIPackage("vapor/queues", versions: [.single(ref: "main", modules: [Module("Queues")])])

@@ -247,6 +247,8 @@ struct BlogTests {
         #expect(!page1.contains(">First Post</h2>"))
         #expect(page1.contains("page-item me-auto disabled"))   // Previous disabled
         #expect(page1.contains("href=\"/2/\""))                 // Next link
+        #expect(page1.contains("<nav aria-label=\"Blog pagination\">"))
+        #expect(page1.contains("aria-label=\"Next\""))
         #expect(page1.contains("<h1 class=\"vapor-blog-page-heading\">Articles</h1>"))
 
         // Page 2: the oldest post; Next disabled, Previous → /.
