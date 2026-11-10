@@ -4,11 +4,13 @@ internal import FoundationEssentials
 internal import Foundation
 #endif
 
+@nonexhaustive
 public enum FavIconType: Sendable, Equatable {
     case svg
     case png(PNGSize)
     case ico
 
+    @nonexhaustive
     public enum PNGSize: Int, Sendable {
         case xUnknown = 0
         case x16 = 16
