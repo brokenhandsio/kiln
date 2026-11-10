@@ -29,6 +29,7 @@ public enum FavIconType: Sendable, Equatable {
     public func defaultPath() -> String {
         switch self {
             case .svg: return "assets/favicon.svg"
+            case .png(.xUnknown): return "assets/favicon.png"
             case .png(let size): return "assets/favicon-\(size.rawValue).png"
             case .ico: return "assets/favicon.ico"
         }
@@ -57,13 +58,14 @@ public enum FavIconType: Sendable, Equatable {
         }
     }
 
-    public static func guessFrom(file name: String) -> Self {
+    public static func guessFrom(file name: String) -> Self? {
         let ext = name.components(separatedBy: ".").last?.lowercased()
 
         switch ext {
             case "svg": return .svg
             case "ico": return .ico
-            default: return .png(.xUnknown)
+            case "png": return .png(.xUnknown)
+            default: return nil
         }
     }
 }

@@ -30,6 +30,10 @@ theme: .default(
 | `fonts`    | `Fonts(text:code:)` for body and code text.                                                                 |                                         |
 | `features` | Opt-in extras: `.searchSuggest`, `.searchHighlight`, `.navigationTabs`, `.backToTop`.                       | `.searchSuggest`, `.searchHighlight`    |
 
+!!! Note "Note on favicons"
+    All favicon parameters are optional, to allow guessing the default path from provided extension, or guessing the extension from provided path.
+    You must provide at least one, otherwise nil will be returned instead of a favicon object.
+
 `Color` has presets (`.black`, `.blue`, `.indigo`, …) or accepts any CSS string
 via `Color("#2f6feb")`.
 
