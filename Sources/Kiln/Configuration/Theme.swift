@@ -69,6 +69,13 @@ public struct Theme: Sendable {
         get {
             favicons.first?.path
         }
+        set {
+            guard let path = newValue, let favicon = FavIcon(path: path) else {
+                return
+            }
+            
+            favicons = [favicon]
+        }
     }
     public var favicons: [FavIcon]
     public var fonts: Fonts?
