@@ -32,6 +32,7 @@ struct BuildTests {
                 .init(type: .png(.x32)),
                 .init(type: .png(.x180), path: "assets/customFaviconName180.png"),
                 .init(type: .png(.x180)),
+                .init(path: "assets/customFaviconName.unknown"),
             ]),
             carbonAds: .init(serve: "TESTSERVE", placement: "fixture"),
             languages: languages ?? [
@@ -375,5 +376,7 @@ struct BuildTests {
         // PNG 180
         #expect(home.contains("<link rel=\"apple-touch-icon\" sizes=\"180x180\" href=\"/assets/favicon-180.png\">"))
         #expect(home.contains("<link rel=\"apple-touch-icon\" sizes=\"180x180\" href=\"/assets/customFaviconName180.png\">"))
+        // Unknown type
+        #expect(home.contains("<link rel=\"icon\" href=\"/assets/customFaviconName.unknown\">"))
     }
 }

@@ -4,25 +4,24 @@ internal import FoundationEssentials
 internal import Foundation
 #endif
 
+import RegexBuilder
+
 @nonexhaustive
 public enum FavIconType: Sendable, Equatable {
+    case unknown
     case svg
-    case png(PNGSize)
+    case png(Size)
     case ico
 
     @nonexhaustive
-    public enum PNGSize: Int, Sendable {
+    public enum Size: Int, Sendable, CaseIterable {
         case xUnknown = 0
         case x16 = 16
         case x32 = 32
         case x180 = 180
-    }
 
-    public func ext() -> String {
-        switch self {
-            case .svg: return "svg"
-            case .png: return "png"
-            case .ico: return "ico"
+        public init(rawValue: Int) {
+            self = Self.allCases.first { $0.rawValue == rawValue } ?? .xUnknown
         }
     }
 
@@ -32,20 +31,21 @@ public enum FavIconType: Sendable, Equatable {
             case .png(.xUnknown): return "assets/favicon.png"
             case .png(let size): return "assets/favicon-\(size.rawValue).png"
             case .ico: return "assets/favicon.ico"
+            case .unknown: return ""
         }
     }
 
     public func rel() -> String {
         switch self {
             case .png(.x180): return "apple-touch-icon"
-            case .svg, .ico, .png: return "icon"
+            case .svg, .ico, .png, .unknown: return "icon"
         }
     }
 
     public func sizes() -> String? {
         switch self {
             case .svg, .ico: return "any"
-            case .png(.xUnknown): return nil
+            case .png(.xUnknown), .unknown: return nil
             case .png(let size): return "\(size.rawValue)x\(size.rawValue)"
         }
     }
@@ -53,19 +53,36 @@ public enum FavIconType: Sendable, Equatable {
     public func mimeType() -> String? {
         switch self {
             case .svg: return "image/svg+xml"
-            case .png(.x180), .ico: return nil
+            case .png(.x180), .ico, .unknown: return nil
             case .png: return "image/png"
         }
     }
 
     public static func guessFrom(file name: String) -> Self? {
-        let ext = name.components(separatedBy: ".").last?.lowercased()
+        guard let ext = name.components(separatedBy: ".").last?.lowercased() else {
+            return nil
+        }
 
         switch ext {
             case "svg": return .svg
             case "ico": return .ico
-            case "png": return .png(.xUnknown)
-            default: return nil
+            case "png":
+                let iconSizeGuessingPattern = Regex {
+                    ZeroOrMore(.any, .reluctant)
+                    Capture { OneOrMore(.digit) }
+                    OneOrMore {
+                        "."
+                        CharacterClass.word
+                    }
+                }
+
+                let size = ext.firstMatch(of: iconSizeGuessingPattern)
+                    .flatMap { match in
+                        Int(match.1).flatMap(Size.init(rawValue:))
+                    } ?? .xUnknown
+                
+                return .png(size)
+            default: return .unknown
         }
     }
 }

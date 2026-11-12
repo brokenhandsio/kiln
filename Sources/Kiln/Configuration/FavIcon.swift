@@ -12,9 +12,15 @@ public struct FavIcon: Sendable
 
     public init?(
         type: FavIconType? = nil,
-        path: String? = nil
+        path: String? = nil,
     ) {
-        guard type != nil || path != nil else {
+        guard
+            type != .unknown
+            && (
+                type != nil
+                || path != nil
+            )
+        else {
             return nil
         }
 
