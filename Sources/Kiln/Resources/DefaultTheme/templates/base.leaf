@@ -37,7 +37,8 @@
     #if(page.imageURL):<meta name="twitter:image" content="#(page.imageURL)">
     <meta name="twitter:image:alt" content="#if(page.isHome):#(site.name)#else:#(page.title)#endif">#endif
 
-    #if(site.favicon):<link rel="icon" href="#(basePath)/#(site.favicon)">#endif
+    #for(favicon in site.favicons):<link rel="#(favicon.rel)"#if(favicon.sizes): sizes="#(favicon.sizes)"#endif#if(favicon.mimeType): type="#(favicon.mimeType)"#endif href="#(basePath)/#(favicon.path)">
+    #endfor
 
     #for(alt in languages):<link rel="alternate" hreflang="#(alt.locale)" href="#(alt.absoluteURL)">
     #if(alt.isDefault):<link rel="alternate" hreflang="x-default" href="#(alt.absoluteURL)">
