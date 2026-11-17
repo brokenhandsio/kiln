@@ -1,4 +1,5 @@
 import Markdown
+import RegexBuilder
 
 /// HTML escaping helpers shared by the renderer.
 enum HTMLEscaping {
@@ -91,9 +92,76 @@ struct HTMLRenderer: MarkupWalker {
         result += "<hr />\n"
     }
 
+    private let htmlHeadingRegex = {
+        let level = Reference(Substring.self)
+
+        return Regex {
+            "<h"
+            Capture(CharacterClass.anyOf("123456"), as: level)
+            Capture { ZeroOrMore(.any, .reluctant) }
+            ">"
+            Capture { ZeroOrMore(.any, .reluctant) }
+            "</h"
+            level
+            ">"
+        }
+    }()
+
+    private let htmlTagRegex = /<[^>]+>/
+    private let htmlIdAttributeRegex = /(?:^|\s)id\s*=\s*["']?([^"'\s>]+)["']?/
+
+    mutating func processHTMLForTOCEntries(_ html: String) -> String {
+        html.replacing(htmlHeadingRegex) { (match: Regex<(Substring, Substring, Substring, Substring)>.Match) -> String in
+            let headingLevel = String(match.output.1)
+
+            guard let headingLevel = Int(headingLevel) else {
+                return String(match.output.0)
+            }
+
+            let rawAttributes = String(match.output.2)
+            let rawContent = String(match.output.3)
+            
+            // Removes potential child HTML tags from heading
+            let headingTitle = rawContent.replacing(htmlTagRegex, with: "")
+            
+            var newAttributes = rawAttributes
+            
+            var id: String
+
+            // If an ID is defined by the user, we should use it. Otherwise, we must generate one.
+            if let idMatch = rawAttributes.firstMatch(of: htmlIdAttributeRegex) {
+                id = String(idMatch.output.1)
+            } else {
+                id = slugger.slug(for: headingTitle)
+                
+                newAttributes += " id=\"\(HTMLEscaping.attribute(id))\""
+            }
+
+            headings.append(TOCEntry(level: headingLevel, id: id, title: headingTitle))            
+            
+            // Re-build heading tag with its id attribute
+            var headingResult = "<h\(headingLevel)\(newAttributes)>"
+            headingResult += rawContent
+            if toc.permalink {
+                headingResult += "<a class=\"headerlink\" href=\"#\(HTMLEscaping.attribute(id))\" title=\"Permanent link\">\(HTMLEscaping.text(toc.permalinkSymbol))</a>"
+            }
+            headingResult += "</h\(headingLevel)>\n"
+
+            return headingResult
+        }
+    }
+
+    mutating func visitInlineHTML(_ inlineHTML: InlineHTML) {
+        let updatedHTML = processHTMLForTOCEntries(inlineHTML.rawHTML)
+
+        result += updatedHTML
+    }
+    
     mutating func visitHTMLBlock(_ html: HTMLBlock) {
-        result += html.rawHTML
-        if !html.rawHTML.hasSuffix("\n") { result += "\n" }
+        let updatedHTML = processHTMLForTOCEntries(html.rawHTML)
+
+        result += updatedHTML
+        if !updatedHTML.hasSuffix("\n") { result += "\n" }
     }
 
     mutating func visitListItem(_ listItem: ListItem) {
@@ -209,7 +277,6 @@ struct HTMLRenderer: MarkupWalker {
         result += " loading=\"lazy\" decoding=\"async\" />"
     }
 
-    mutating func visitInlineHTML(_ inlineHTML: InlineHTML) { result += inlineHTML.rawHTML }
     mutating func visitLineBreak(_ lineBreak: LineBreak) { result += "<br />\n" }
     mutating func visitSoftBreak(_ softBreak: SoftBreak) { result += "\n" }
 
