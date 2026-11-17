@@ -17,7 +17,7 @@ struct BlogLoader {
     let knownLocales: Set<String>
 
     func load() -> BlogCollection {
-        let postsURL = URL(fileURLWithPath: blog.postsDirectory, relativeTo: contentDirectory)
+        let postsURL = contentDirectory.appendingDirectoryPath(blog.postsDirectory)
         let fileManager = FileManager.default
         guard fileManager.fileExists(atPath: postsURL.path) else {
             warn("posts directory not found: \(postsURL.path)")

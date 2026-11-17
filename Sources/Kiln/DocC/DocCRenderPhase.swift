@@ -58,13 +58,8 @@ struct DocCRenderPhase {
         let language = site.defaultLanguage
         let strings = language.localisation.resolved
         let switcher = DocCModuleSwitcher(docc: docc, basePath: basePath, accessibleLabel: strings.selectModule)
-        // Resolve the archives directory *within* the content directory (append
-        // components rather than URL(relativeTo:), which drops a base's last
-        // component when it has no trailing slash).
-        var archivesBase = contentDirectory
-        for component in docc.archivesDirectory.split(separator: "/") {
-            archivesBase.appendPathComponent(String(component), isDirectory: true)
-        }
+        // Resolve the archives directory *within* the content directory.
+        let archivesBase = contentDirectory.appendingDirectoryPath(docc.archivesDirectory)
         let loader = DocCArchiveLoader()
         var result = Result()
         // Per-module sitemap <lastmod> (its default archive's build date), keyed by
