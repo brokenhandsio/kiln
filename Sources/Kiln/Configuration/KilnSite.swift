@@ -1,3 +1,5 @@
+public import LeafKit
+
 /// Information about the source repository, used for "edit this page" links
 /// and the repository link in the header.
 public struct Repository: Sendable {
@@ -103,6 +105,28 @@ public struct KilnSite: Sendable {
     /// when the site is not versioned; otherwise each ``DocVersion`` carries its
     /// own unlisted pages.
     public var unlistedPages: [UnlistedPage]
+    /// Extra top-level values for every template, alongside Kiln's own `site`,
+    /// `page`, `nav` and friends. Lets a site drive its templates from its own
+    /// data (`#for(item in data.navigation)`) rather than pre-rendering HTML.
+    ///
+    /// Kiln's keys take precedence, so a value named `site` or `page` here is
+    /// ignored.
+    public var extraContext: [String: LeafData]
+    /// Values for one page's template, computed from its content path (e.g.
+    /// `"install/macos/index.md"`, or a blog post's path). They're merged over
+    /// ``extraContext``, and under Kiln's own keys.
+    ///
+    /// Leaf has no assignment and can't look a value up by a variable key, so a
+    /// page that picks its data by its own identity (its platform, its category)
+    /// can have that resolved here instead.
+    ///
+    /// Applies to pages rendered from a content file: markdown pages and blog
+    /// posts. Listings, the 404 page and DocC pages see only ``extraContext``.
+    ///
+    /// Set it after construction (`site.pageContext = { path in … }`). As an
+    /// `init` parameter, a closure ahead of `navigation` would capture the
+    /// trailing closure existing call sites use for it.
+    public var pageContext: (@Sendable (String) -> [String: LeafData])?
     /// The navigation tree (used when the site is not versioned; otherwise each
     /// ``DocVersion`` carries its own navigation).
     public var navigation: [NavItem]
@@ -135,6 +159,7 @@ public struct KilnSite: Sendable {
         docc: DocCSite? = nil,
         versions: [DocVersion] = [],
         unlistedPages: [UnlistedPage] = [],
+        extraContext: [String: LeafData] = [:],
         @NavBuilder navigation: () -> [NavItem] = { [] }
     ) {
         self.name = name
@@ -160,6 +185,7 @@ public struct KilnSite: Sendable {
         self.docc = docc
         self.versions = versions
         self.unlistedPages = unlistedPages
+        self.extraContext = extraContext
         self.navigation = navigation()
     }
 

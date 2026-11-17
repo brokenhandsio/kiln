@@ -422,6 +422,8 @@ Supported out of the box:
 | `navigation`      | `@NavBuilder`         | The nav tree (see above). |
 | `unlistedPages`   | `[UnlistedPage]`      | Pages built but kept out of the nav — `UnlistedPage(_ title:, _ path:, searchable:, indexed:)` (see [above](#pages-outside-the-navigation)). |
 | `docc`            | `DocCSite?`           | An API-reference site built from DocC archives (see [API reference (DocC)](#api-reference-docc)). |
+| `extraContext`    | `[String: LeafData]`  | Extra values for every template (see [Your own data in templates](#your-own-data-in-templates)). |
+| `pageContext`     | `((String) -> [String: LeafData])?` | Per-page template values, computed from the page's content path. A property: set it after creating the site. |
 
 ### Serving from a subdirectory (`basePath`)
 
@@ -499,6 +501,46 @@ Templates receive a context with `site`, `page`, `nav`, `language`, `languages`,
 `searchIndexURL`, and `basePath` (prefix every hard-coded root-relative link —
 e.g. `#(basePath)/_kiln/css/theme.css` — so custom themes work under a subpath).
 The rendered page body is injected with `#unsafeHTML(page.content)`.
+
+### Your own data in templates
+
+`extraContext` adds top-level values to every template, so a theme can render
+the site's own data instead of pre-built HTML:
+
+```swift
+var site = KilnSite(
+    name: "My Docs",
+    url: "https://example.com",
+    extraContext: [
+        "sponsors": .array(sponsors.map { .dictionary(["name": .string($0.name), "url": .string($0.url)]) }),
+    ]
+) { … }
+```
+
+```leaf
+#for(sponsor in sponsors):
+<a href="#(sponsor.url)">#(sponsor.name)</a>
+#endfor
+```
+
+Leaf has no variable assignment and can't look up a value by a variable key, so
+a page that picks its data by its own identity (its platform, its category) can
+have it worked out in Swift. `pageContext` is called with each page's content
+path and returns values for that page only:
+
+```swift
+site.pageContext = { path in
+    guard let platform = platforms.first(where: { $0.page == path }) else { return [:] }
+    return ["platform": platform.leafData]
+}
+```
+
+Page values override `extraContext` values of the same name. Kiln's own keys
+(`site`, `page`, `nav`, …) always win over both. `pageContext` applies to pages
+rendered from a content file, meaning markdown pages and blog posts. Blog
+listings, the 404 page and DocC pages see only `extraContext`. It's a property
+rather than an initialiser parameter so that the trailing `navigation` closure
+keeps working.
 
 ## Search
 
