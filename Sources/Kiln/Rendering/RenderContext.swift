@@ -91,7 +91,7 @@ struct RenderContext {
     var baseURL: String
     /// The site's mount path (e.g. `/docs`), or `""` when served from the domain
     /// root. Prefixed onto hard-coded root-relative links in templates (theme
-    /// assets, logo, favicon, home links).
+    /// assets, logo, favicons, home links).
     var basePath: String = ""
 
     var pageTitle: String
@@ -219,7 +219,7 @@ struct RenderContext {
             "author": .string(site.author),
             "copyright": .string(site.copyright),
             "logo": .string(site.theme.logo),
-            "favicon": .string(site.theme.favicon),
+            "favicons": .array(site.theme.favicons.map(Self.favIconData)),
             "social": .array(site.social.map(Self.socialData)),
             "extraCSS": .array(site.extraCSS.map { .string($0) }),
             "extraJS": .array(site.extraJavaScript.map { .string($0) }),
@@ -276,6 +276,15 @@ struct RenderContext {
         .dictionary([
             "name": .string(social.icon.name),
             "link": .string(social.link),
+        ])
+    }
+
+    private static func favIconData(_ favicon: FavIcon) -> LeafData {
+        .dictionary([
+            "path": .string(favicon.path),
+            "rel": .string(favicon.type.rel()),
+            "sizes": .string(favicon.type.sizes()),
+            "mimeType": .string(favicon.type.mimeType()),
         ])
     }
 
