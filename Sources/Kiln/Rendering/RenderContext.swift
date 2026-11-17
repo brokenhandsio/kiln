@@ -152,8 +152,15 @@ struct RenderContext {
         language.siteName ?? site.name
     }
 
+    /// This page's values from ``KilnSite/pageContext``.
+    var pageValues: [String: LeafData] = [:]
+
     var leafData: [String: LeafData] {
-        [
+        // The site's own values first, then this page's over them, and Kiln's
+        // keys last so a site can't shadow them.
+        site.extraContext
+            .merging(pageValues) { _, perPage in perPage }
+            .merging([
             "site": siteData,
             "language": languageData,
             "languages": .array(alternates.map(Self.alternateData)),
@@ -184,7 +191,7 @@ struct RenderContext {
             // and `#if(blogListing)` are false on every non-blog page.
             "blogPost": blogPost ?? .trueNil,
             "blogListing": blogListing ?? .trueNil,
-        ]
+        ]) { _, reserved in reserved }
     }
 
     private var currentVersionData: LeafData {

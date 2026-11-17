@@ -486,7 +486,7 @@ public struct SiteGenerator {
             noindex: isVersioned && !version.isDefault
         )
 
-        let context = RenderContext(
+        var context = RenderContext(
             site: site,
             language: language,
             defaultLanguage: version.defaultLanguage,
@@ -519,6 +519,7 @@ public struct SiteGenerator {
             navigation: pageNavigation,
             version: versionContext
         )
+        context.pageValues = site.pageContext?(logicalPath) ?? [:]
 
         let templateName = page.frontMatter.template ?? (page.isHome ? "home" : "page")
         let html = try await renderer.render(templateName, context: context.leafData)
@@ -590,10 +591,11 @@ public struct SiteGenerator {
             article: ArticleStructuredData? = nil,
             profile: ProfileStructuredData? = nil,
             breadcrumb: [BreadcrumbItem]? = nil,
-            lastmod: String? = nil
+            lastmod: String? = nil,
+            pageValues: [String: LeafData] = [:]
         ) async throws -> SitemapEntry {
             let location = String(urlPath.drop(while: { $0 == "/" }))
-            let context = RenderContext(
+            var context = RenderContext(
                 site: site,
                 language: language,
                 defaultLanguage: build.version.defaultLanguage,
@@ -625,6 +627,7 @@ public struct SiteGenerator {
                 breadcrumbOverride: breadcrumb,
                 profileStructuredData: profile
             )
+            context.pageValues = pageValues
             let html = try await renderer.render(template, context: context.leafData)
             try writer.write(html, to: outputFile)
             return SitemapEntry(loc: absoluteURL(forLocation: location), alternates: [], lastmod: lastmod)
@@ -666,7 +669,8 @@ public struct SiteGenerator {
                 article: article,
                 // Home (the blog index) › this post — for a BreadcrumbList.
                 breadcrumb: [BreadcrumbItem(name: post.title, url: nil)],
-                lastmod: BlogDateFormatting.iso(post.date)
+                lastmod: BlogDateFormatting.iso(post.date),
+                pageValues: site.pageContext?(post.logicalPath) ?? [:]
             )
             sitemapEntries.append(entry)
             searchIndex.add(location: location, title: post.title, html: post.contentHTML)
