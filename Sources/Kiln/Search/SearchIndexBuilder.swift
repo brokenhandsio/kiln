@@ -53,7 +53,10 @@ struct SearchIndexBuilder {
 
     func jsonData() throws -> Data {
         let encoder = JSONEncoder()
-        encoder.outputFormatting = [.withoutEscapingSlashes]
+        // `.sortedKeys` keeps the index byte-reproducible: JSONEncoder's keyed
+        // containers otherwise serialise in per-process hash order, so two
+        // builds of unchanged content produce differing files.
+        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
         return try encoder.encode(SearchIndex(docs: documents))
     }
 
