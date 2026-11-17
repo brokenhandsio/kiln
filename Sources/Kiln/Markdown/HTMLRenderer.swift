@@ -96,6 +96,40 @@ struct HTMLRenderer: MarkupWalker {
         if !html.rawHTML.hasSuffix("\n") { result += "\n" }
     }
 
+    /// Whether the list currently being rendered is *loose*.
+    ///
+    /// CommonMark wraps a list item's text in `<p>` only for a loose list: one
+    /// whose items are separated by a blank line, or with an item whose direct
+    /// children are. swift-markdown doesn't keep cmark's tight flag, so it is
+    /// recovered here from source ranges.
+    private var inLooseList = false
+
+    private static func isLoose(_ list: any ListItemContainer) -> Bool {
+        let items = Array(list.listItems)
+        if zip(items, items.dropFirst()).contains(where: isBlankLineBetween) { return true }
+        return items.contains { item in
+            let children = Array(item.children)
+            return zip(children, children.dropFirst()).contains(where: isBlankLineBetween)
+        }
+    }
+
+    private static func isBlankLineBetween(_ first: any Markup, _ second: any Markup) -> Bool {
+        guard let end = lastContentLine(of: first), let start = second.range?.lowerBound.line else { return false }
+        return start > end + 1
+    }
+
+    /// The last line holding content in `markup`. A container's range runs on
+    /// over any blank lines that follow it (ending at column 1 of the next line),
+    /// so this measures its leaf blocks instead.
+    private static func lastContentLine(of markup: any Markup) -> Int? {
+        let blocks = markup.children.filter { $0 is any BlockMarkup }
+        if !blocks.isEmpty {
+            return blocks.compactMap(lastContentLine).max()
+        }
+        guard let end = markup.range?.upperBound else { return nil }
+        return end.column == 1 ? end.line - 1 : end.line
+    }
+
     mutating func visitListItem(_ listItem: ListItem) {
         result += "<li>"
         if let checkbox = listItem.checkbox {
@@ -110,17 +144,28 @@ struct HTMLRenderer: MarkupWalker {
     mutating func visitOrderedList(_ orderedList: OrderedList) {
         let start = orderedList.startIndex != 1 ? " start=\"\(orderedList.startIndex)\"" : ""
         result += "<ol\(start)>\n"
+        let enclosing = inLooseList
+        inLooseList = Self.isLoose(orderedList)
         descendInto(orderedList)
+        inLooseList = enclosing
         result += "</ol>\n"
     }
 
     mutating func visitUnorderedList(_ unorderedList: UnorderedList) {
         result += "<ul>\n"
+        let enclosing = inLooseList
+        inLooseList = Self.isLoose(unorderedList)
         descendInto(unorderedList)
+        inLooseList = enclosing
         result += "</ul>\n"
     }
 
     mutating func visitParagraph(_ paragraph: Paragraph) {
+        // A tight list item's text is emitted bare, as CommonMark requires.
+        if paragraph.parent is ListItem, !inLooseList {
+            descendInto(paragraph)
+            return
+        }
         result += "<p>"
         descendInto(paragraph)
         result += "</p>\n"

@@ -99,6 +99,82 @@ struct MarkdownTests {
         """)
         #expect(result.html.contains("<code class=\"language-swift\">"))
     }
+
+    @Test("Tight list items are not wrapped in paragraphs")
+    func tightList() {
+        let result = renderer.render("""
+        - One
+        - Two
+        """)
+        #expect(result.html.contains("<li>One</li>"))
+        #expect(result.html.contains("<li>Two</li>"))
+        #expect(!result.html.contains("<li><p>"))
+    }
+
+    @Test("A blank line between items makes a list loose")
+    func looseListBlankLine() {
+        let result = renderer.render("""
+        1. One
+
+        2. Two
+        """)
+        #expect(result.html.contains("<li><p>One</p>"))
+        #expect(result.html.contains("<li><p>Two</p>"))
+    }
+
+    @Test("An item with several blocks makes the whole list loose")
+    func looseListMultipleBlocks() {
+        let result = renderer.render("""
+        - One
+
+          More about one.
+        - Two
+        """)
+        #expect(result.html.contains("<li><p>One</p>"))
+        #expect(result.html.contains("<p>More about one.</p>"))
+        #expect(result.html.contains("<li><p>Two</p>"))
+    }
+
+    @Test("A tight list nested in a loose one stays tight")
+    func nestedTightInLoose() {
+        let result = renderer.render("""
+        - Outer one
+
+        - Outer two
+          - Inner a
+          - Inner b
+        """)
+        #expect(result.html.contains("<li><p>Outer one</p>"))
+        #expect(result.html.contains("<li>Inner a</li>"))
+        #expect(result.html.contains("<li>Inner b</li>"))
+    }
+
+    @Test("An item holding a nested list, with no blank line, stays tight")
+    func nestedListKeepsTight() {
+        let result = renderer.render("""
+        - Outer
+          - Inner
+        - Next
+        """)
+        #expect(!result.html.contains("<p>"))
+        #expect(result.html.contains("<li>Inner</li>"))
+        #expect(result.html.contains("<li>Next</li>"))
+    }
+
+    @Test("A blank line inside a code block doesn't loosen the list")
+    func codeBlockBlankLineKeepsTight() {
+        let result = renderer.render("""
+        - One
+          ```
+          a
+
+          b
+          ```
+        - Two
+        """)
+        #expect(!result.html.contains("<li><p>"))
+        #expect(result.html.contains("<li>Two</li>"))
+    }
 }
 
 @Suite("Slugger")

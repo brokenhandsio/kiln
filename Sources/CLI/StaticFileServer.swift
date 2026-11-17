@@ -98,6 +98,21 @@ final class StaticFileServer {
         return components.joined(separator: "/")
     }
 
+    /// The trailing-slash form of a directory URI, when the request omitted it
+    /// and the directory really does hold an `index.html`. `nil` when the URI is
+    /// already canonical, names a file, or resolves to nothing.
+    static func canonicalRedirect(forURI uri: String, relative: String, in directory: URL) -> String? {
+        var path = uri
+        var suffix = ""
+        if let separator = path.firstIndex(where: { $0 == "?" || $0 == "#" }) {
+            suffix = String(path[separator...])
+            path = String(path[..<separator])
+        }
+        guard !path.isEmpty, !path.hasSuffix("/"), relative.hasSuffix("index.html") else { return nil }
+        guard (try? directory.appendingPathComponent(relative).checkResourceIsReachable()) == true else { return nil }
+        return path + "/" + suffix
+    }
+
     /// A `Content-Type` value for a file extension (lowercased, no dot).
     static func contentType(forExtension ext: String) -> String {
         switch ext.lowercased() {
@@ -169,6 +184,16 @@ private final class StaticFileHandler: ChannelInboundHandler, @unchecked Sendabl
             return
         }
 
+        // A directory URL without its trailing slash gets the canonical redirect
+        // every production host issues (nginx, Netlify, S3/CloudFront, GitHub
+        // Pages). Serving `foo/index.html` straight from `/foo` would resolve the
+        // page's *relative* links against `/` instead of `/foo/`, so a script
+        // doing `location.replace("macos")` would land on `/macos`.
+        if let canonical = StaticFileServer.canonicalRedirect(forURI: head.uri, relative: relative, in: directory) {
+            writeRedirect(context: context, location: canonical, keepAlive: keepAlive)
+            return
+        }
+
         let fileURL = directory.appendingPathComponent(relative)
         if let data = try? Data(contentsOf: fileURL) {
             let ext = (relative as NSString).pathExtension
@@ -188,6 +213,17 @@ private final class StaticFileHandler: ChannelInboundHandler, @unchecked Sendabl
                           contentType: "text/plain; charset=utf-8",
                           body: Array("404 Not Found".utf8), keepAlive: keepAlive)
         }
+    }
+
+    private func writeRedirect(context: ChannelHandlerContext, location: String, keepAlive: Bool) {
+        var headers = HTTPHeaders()
+        headers.add(name: "Location", value: location)
+        headers.add(name: "Content-Length", value: "0")
+        headers.add(name: "Connection", value: keepAlive ? "keep-alive" : "close")
+        let responseHead = HTTPResponseHead(version: .http1_1, status: .movedPermanently, headers: headers)
+        context.write(wrapOutboundOut(.head(responseHead)), promise: nil)
+        context.writeAndFlush(wrapOutboundOut(.end(nil)), promise: nil)
+        if !keepAlive { context.close(promise: nil) }
     }
 
     private func writeResponse(context: ChannelHandlerContext, status: HTTPResponseStatus,

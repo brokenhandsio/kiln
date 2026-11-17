@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 import Kiln
 import ArgumentParser
@@ -58,6 +59,32 @@ struct StaticFileServerTests {
         #expect(StaticFileServer.contentType(forExtension: "svg") == "image/svg+xml")
         #expect(StaticFileServer.contentType(forExtension: "woff2") == "font/woff2")
         #expect(StaticFileServer.contentType(forExtension: "unknown") == "application/octet-stream")
+    }
+
+    @Test("A directory URL without its trailing slash redirects to the canonical form")
+    func canonicalRedirect() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("kiln-serve-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(
+            at: root.appendingPathComponent("install"), withIntermediateDirectories: true)
+        try Data("<html></html>".utf8).write(to: root.appendingPathComponent("install/index.html"))
+        try Data("text".utf8).write(to: root.appendingPathComponent("llms.txt"))
+
+        func redirect(_ uri: String, basePath: String = "") -> String? {
+            guard let relative = StaticFileServer.relativePath(forURI: uri, basePath: basePath) else { return nil }
+            return StaticFileServer.canonicalRedirect(forURI: uri, relative: relative, in: root)
+        }
+
+        #expect(redirect("/install") == "/install/")
+        // The query string and fragment survive the redirect.
+        #expect(redirect("/install?os=linux") == "/install/?os=linux")
+        #expect(redirect("/install#macos") == "/install/#macos")
+        // Already canonical, a file, the root, or nothing there: no redirect.
+        #expect(redirect("/install/") == nil)
+        #expect(redirect("/llms.txt") == nil)
+        #expect(redirect("/") == nil)
+        #expect(redirect("/missing") == nil)
     }
 }
 
