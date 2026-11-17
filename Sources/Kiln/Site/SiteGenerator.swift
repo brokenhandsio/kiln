@@ -121,7 +121,7 @@ public struct SiteGenerator {
         for version in site.effectiveVersions {
             let contentURL = version.contentDirectory.isEmpty
                 ? contentDirectory
-                : URL(fileURLWithPath: version.contentDirectory, relativeTo: contentDirectory)
+                : contentDirectory.appendingDirectoryPath(version.contentDirectory)
             let locales = Set(version.languages.map(\.locale))
             let defaultLocale = version.defaultLanguage.locale
             let store = try ContentLoader().load(contentDirectory: contentURL, locales: locales, defaultLocale: defaultLocale)
